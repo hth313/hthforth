@@ -1,0 +1,117 @@
+\documentclass[a4paper]{article}
+\usepackage[T1]{fontenc} 
+\usepackage[utf8]{inputenc}
+\usepackage{paralist}
+\begin{document}
+\title{CalcForth Functional Specification}
+\author{Håkan Thörngren}
+
+ \newcommand{\CC}{C\nolinebreak\hspace{-.05em}\raisebox{.4ex}{\tiny\bf+}\nolinebreak\hspace{-.10em}\raisebox{.4ex}{\tiny\bf +}}
+
+ \maketitle
+
+\section{Introduction}
+CalcForth is meant to be a replacement environment for the ARM based HP calculators like the HP-12C+ and HP-30b. As the name implies, it is a Forth based environment.
+
+\subsection{Background}
+Traditionally, calculators are implemented in assembler as back in the old days, memory resources were scarce and performance was low. Every little bit of power had to be squeezed into these small handheld devices. Today off-the-shelf 32-bit RISC processors are used and manufacturers such as HP has seen an opportunity in providing ways to re-program the devices. Simply put, with a little bit of extra effort on the manufacturer side, increase interest in the product and generate extra sales.
+
+Thanks to increased processing power, there is no longer a need to program the calculators in assembler, but rather C or even Embedded \CC{} is used. In some cases, like the HP-12C+, the software is actually an emulator for the vintage hardware complete with the original ROM image.
+
+\subsection{Forth}
+Forth had its heyday in the eighties when microcomputers were far less powerful than today.
+Today Forth have its followers, but they are rather few. Forth is still an appealing choice for a small interactive environment. An alternative language could be Scheme, but for this project Forth was chosen for the following reasons:
+\begin{enumerate}
+\item Forth is not a language to write programs with, it is a language that is extended to suit the problem.
+\item Forth comes with an interactive environment, well suited for experimenting and playing with, rather than using a ready made program.  This fits better with how a calculator is actually best used.
+\item Ability to record simple user programs comes more or less free with the language. Larger programs are also possible, but as mentioned, are more likely to be implemented as smaller building blocks to help solving the problems at hand.
+\item There is no gap between the built-in functionality and what the end user adds to it. Such gaps are common in most calculators that are implemented in a different language than what is provided to the user.
+\item Small footprint and good performance.
+\item HIgh coolness factor and fun.
+\end{enumerate}
+
+\section{User Experience}
+A calculator is an ``instant on device'', meaning you do not need to wait for it to start. The calculator will be ready to use within a fraction of a second after pressing the ON key. Calculators are also use specialized keyboards where often used single functions available at single key presses. Extensions to this scheme are often also provided by the use of shift keys or secondary key presses to provide more functions easy at hand. This is in contrast to a traditional keyboard where you need to spell out longer sequences to form commands.
+
+Forth itself relies on a traditional keyboard, not a calculator style keyboard. Another problem is that a traditional keyboard may not even be available. Since Forth is a language that is meant to be extended, a calculator style keyboard handling is one of the extensions to be provided and this will act as the input interface when activated.
+
+It may still be desirable to hit the low level Forth engine from a traditional alphanumeric keyboard and this will be made possible as a another keyboard mode. In reality, the calculator hardware may be more or less ill suited for this, providing too few keys, no alphanumeric keyboard labeling or even a display that can show alpha characters. Thus, while it may be more or less possible to provide a Forth low level command line more, the user experience may suffer a bit depending on the hardware at hand.
+
+\subsection{Host Mode}
+Since the hardware is expected to more or less severely limited, a host computer is meant to be used for development. This will allow for disk I/O (loading Forth screens,\footnote{This is the traditional way of handling Forth source code. CalcForth will not impose a certain fixed screen size, it can be arbitrary large and it will be up to the user to decide if he wants to keep a Forth screen fully visible on his or her typical desktop screen or not.} building flash images and playing with the hardware using a real alphanumeric keyboard.
+
+The host mode is only needed for development. In daily use CalcForth will act as a standalone environment on the calculator hardware. Adding smaller programs (definitions) shall be possible on the standalone calculator.
+
+A cable of some kind will be needed, it can be a serial cable, USB or JTAG that will allow the host to talk to the calculator to provide the following use cases:
+\begin{itemize}
+\item Use the host as a Forth terminal.
+\item Load screens from disk. Definitions are written to CalcForth RAM for immediate availability, commands are executed on hardware.
+\item Make CalcForth images and flash the calculator.
+\end{itemize}
+
+\subsection{Calculator Shell}
+CalcForth provides several shells of which one can be the active one. The shell affects the keyboard and the default display.
+
+A scientific shell can provide suitable scientific functions on the keys and display the floating point number on top of the floating point stack. Another shell could be a business shell that provides a different keyboard, but a display routine that also displays the top of the floating point stack, but may impose different formatting of numbers output to be more suitable for monetary values.
+
+It is worth noting that the shell does not change any of the inner working of the calculator in any way, only  the user interface. Thus, it is perfectly possible to perform business functions when in scientific mode.
+
+The following list gives some ideas on possible shells, but does not indicate that they must be implemented:
+\begin{description}
+\item[Scientific] gives floating point numbers, trigonometric, logarithmic and many other functions.
+\item[Complex] similar to Scientific, but works on complex numbers.
+\item[Business] works with time, interest rates and monetary values using floating point numbers.\footnote{Business could perhaps be implemented using fixed point numbers on the ordinary Forth stack.}
+\item[Programmer] provides an integer mode user settable word size, sign mode, microprocessor style flags and arithmetic logic functions. Much as an HP-16C.
+\item[Forth] provides an alphanumeric keyboard and access to the Forth command line.
+\end{description}
+
+In addition to these, the user can create shells (or application shells) by basing it on an existing shell or define a new from scratch. Doing so will most likely require using the Host mode though.
+
+\subsubsection{Talking Keys}
+Since keys change behavior there need to be a way to find out what a key does without actually performing its action. The ``talking keys'' feature is borrowed from the HP-41. When you press a key, the function it will perform will be displayed and if you keep the key pressed, the action will be NULLed.
+
+\subsubsection{User Mode Customization}
+In addition to provide pre-defined shells, the end user can customize the keyboard by assigning a different function to a key. The re-assigned functions are available in User mode which can be toggled on and off.
+
+There are two levels of User mode key assignments,
+\begin{inparaenum}[\itshape a\upshape)]
+\item global which affects all shells;  and
+\item a local shell specific ones.
+\end{inparaenum}
+
+
+\section{Stacks}
+Forth is a stack based language. The ordinary Forth stacks are available in CalcForth and the word size used is 32 bits. A double word is therefore 64 bits long.
+
+In addition to this, there is an RPN stack that is 4 levels deep with LastX register and stack lift flag.
+Each register occupies 2 times 64 bits, which allows for 64-bit IEEE complex numbers and up to 128-bit integers.
+This stack can be operated in three modes,
+\begin{inparaenum}[\itshape a\upshape)]
+\item  floating point mode,
+\item complex mode; and
+\item integer mode with the defined word size.
+\end{inparaenum}
+
+The upper 64-bits hold the imaginary part. A complex number on the stack will survive changing to a different stack mode and back provided that the number is not affected by operations. Meaning that a number that is just on the stack will not get busted in a different mode unless the lower part is altered.
+
+When going between stack modes, numbers on the stack may change meaning depending on the mode and no special conversions take place. This make it possible to switch to integer mode to manipulate IEEE floating point number at bit level.
+
+The rationale here is that while the RPN stack is kind of short, it is well thought out and well known to many. The advantage of a longer stack with Forth semantics would be allow for keeping a record of previous calculations, but that works better if the display is multilevel, but we do not expect to have that. The limitation of the short stack can be compensated by using the Forth stack as a storage area.
+
+\subsection{Overflows and Underflows}
+Forth stack overflows and underflows are detected and if they occur, execution is aborted.  The RPN stack cannot overflow or underflow by design.
+
+\section{Non-Goals}
+The following are issues that are not be solved by CalcForth:
+\begin{itemize}
+\item The problem of how the keys and keyboard are labeled is not addressed at all. This result is that the end product is far from the most user friendly calculator you have used.
+\item CalcForth will not provide arbitrary I/O to the world except for the host mode. Though, it is quite possible to write such extensions if the hardware is available.\footnote{Sadly, such hardware tend not to be available these days.}
+\item Arbitrary precision numbers will not be supported.
+\item Text capabilities need to be handled at Forth level. This is not meant to be a seamless alphanumeric calculator.\footnote{This may be a future extension though.}
+\item Symbolic math is not supported.
+\item Units, such as unit tagged numbers or conversions are not supported.\footnote{This is a very nice feature and could be a future extensions. However, the problem with putting a unit on numbers is that you are essentially tagging numbers and the basic idea here is to work with untagged numbers. Otherwise we may end up with something similar to RPL and the HP-48, and that is definitely a non-goal.}
+\item No specific means to capture runa-away programs are defined.
+\end{itemize}
+
+
+\end{document}
