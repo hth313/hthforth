@@ -1,5 +1,5 @@
 \documentclass[a4paper]{article}
-\usepackage[T1]{fontenc} 
+\usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{paralist}
 \begin{document}
@@ -14,31 +14,31 @@
 CalcForth is meant to be a replacement environment for the ARM based HP calculators like the HP-12C+ and HP-30b. As the name implies, it is a Forth based environment.
 
 \subsection{Background}
-Traditionally, calculators are implemented in assembler as back in the old days, memory resources were scarce and performance was low. Every little bit of power had to be squeezed into these small handheld devices. Today off-the-shelf 32-bit RISC processors are used and manufacturers such as HP has seen an opportunity in providing ways to re-program the devices. Simply put, with a little bit of extra effort on the manufacturer side, increase interest in the product and generate extra sales.
+Traditionally, calculators were implemented in assembler back in the old days, as memory resources were scarce and performance was low. Every little bit of power had to be squeezed into these small handheld devices. Today off-the-shelf 32-bit RISC processors are used and manufacturers such as HP has seen an opportunity in providing ways to re-program the devices. Simply put, with a little bit of extra effort on the manufacturer side, the product can be used for other purposes. Thus increasing interest in the product and extra sales in the end.
 
-Thanks to increased processing power, there is no longer a need to program the calculators in assembler, but rather C or even Embedded \CC{} is used. In some cases, like the HP-12C+, the software is actually an emulator for the vintage hardware complete with the original ROM image.
+Thanks to tremendous processing power available in 32-bit RISC devices, there is no longer a need to program the calculators in assembler, but rather C or even Embedded \CC{} is used. In some cases, like the HP-12C+, the software is actually an emulator for the vintage hardware complete with the original ROM image.
 
 \subsection{Forth}
 Forth had its heyday in the eighties when microcomputers were far less powerful than today.
 Today Forth have its followers, but they are rather few. Forth is still an appealing choice for a small interactive environment. An alternative language could be Scheme, but for this project Forth was chosen for the following reasons:
 \begin{enumerate}
 \item Forth is not a language to write programs with, it is a language that is extended to suit the problem.
-\item Forth comes with an interactive environment, well suited for experimenting and playing with, rather than using a ready made program.  This fits better with how a calculator is actually best used.
+\item Forth comes with an interactive environment, well suited for experimenting and playing with, rather than just running a ready made program.  This fits better with how a calculator is actually best used.
 \item Ability to record simple user programs comes more or less free with the language. Larger programs are also possible, but as mentioned, are more likely to be implemented as smaller building blocks to help solving the problems at hand.
 \item There is no gap between the built-in functionality and what the end user adds to it. Such gaps are common in most calculators that are implemented in a different language than what is provided to the user.
 \item Small footprint and good performance.
-\item HIgh coolness factor and fun.
+\item High coolness factor and hopefully lots of fun.
 \end{enumerate}
 
 \section{User Experience}
-A calculator is an ``instant on device'', meaning you do not need to wait for it to start. The calculator will be ready to use within a fraction of a second after pressing the ON key. Calculators are also use specialized keyboards where often used single functions available at single key presses. Extensions to this scheme are often also provided by the use of shift keys or secondary key presses to provide more functions easy at hand. This is in contrast to a traditional keyboard where you need to spell out longer sequences to form commands.
+A calculator is an ``instant on device'', meaning you do not need to wait for it to start. The calculator will be ready to use within a fraction of a second after pressing the ON key. Calculators are also use specialized keyboards where often used single functions available at single key presses. Extensions to this scheme are often also provided by the use of shift keys or secondary key presses to provide more functions easy at hand. This in contrast to a traditional keyboard where you need to spell out longer sequences to form commands.
 
 Forth itself relies on a traditional keyboard, not a calculator style keyboard. Another problem is that a traditional keyboard may not even be available. Since Forth is a language that is meant to be extended, a calculator style keyboard handling is one of the extensions to be provided and this will act as the input interface when activated.
 
 It may still be desirable to hit the low level Forth engine from a traditional alphanumeric keyboard and this will be made possible as a another keyboard mode. In reality, the calculator hardware may be more or less ill suited for this, providing too few keys, no alphanumeric keyboard labeling or even a display that can show alpha characters. Thus, while it may be more or less possible to provide a Forth low level command line more, the user experience may suffer a bit depending on the hardware at hand.
 
 \subsection{Host Mode}
-Since the hardware is expected to more or less severely limited, a host computer is meant to be used for development. This will allow for disk I/O (loading Forth screens,\footnote{This is the traditional way of handling Forth source code. CalcForth will not impose a certain fixed screen size, it can be arbitrary large and it will be up to the user to decide if he wants to keep a Forth screen fully visible on his or her typical desktop screen or not.} building flash images and playing with the hardware using a real alphanumeric keyboard.
+Since the hardware is expected to more or less severely limited, a host computer is meant to be used for development. This will allow for disk I/O (loading Forth screens,\footnote{This is the traditional way of handling Forth source code.} building flash images and playing with the hardware using a real alphanumeric keyboard.
 
 The host mode is only needed for development. In daily use CalcForth will act as a standalone environment on the calculator hardware. Adding smaller programs (definitions) shall be possible on the standalone calculator.
 
@@ -48,6 +48,10 @@ A cable of some kind will be needed, it can be a serial cable, USB or JTAG that 
 \item Load screens from disk. Definitions are written to CalcForth RAM for immediate availability, commands are executed on hardware.
 \item Make CalcForth images and flash the calculator.
 \end{itemize}
+
+\subsubsection{Forth Screens}
+Multiple screens are kept in a disk. A disk will correspond to a file on the host. Inside a disk, multiple Forth screens are stored using Forth mode in Emacs, which uses narrowing to display a screen at a time.
+
 
 \subsection{Calculator Shell}
 CalcForth provides several shells of which one can be the active one. The shell affects the keyboard and the default display.
@@ -65,7 +69,7 @@ The following list gives some ideas on possible shells, but does not indicate th
 \item[Forth] provides an alphanumeric keyboard and access to the Forth command line.
 \end{description}
 
-In addition to these, the user can create shells (or application shells) by basing it on an existing shell or define a new from scratch. Doing so will most likely require using the Host mode though.
+In addition to these, the user can create shells (or application shells) by basing it on an existing shell or define a new from scratch. Though doing so will most likely require using the host mode.
 
 \subsubsection{Talking Keys}
 Since keys change behavior there need to be a way to find out what a key does without actually performing its action. The ``talking keys'' feature is borrowed from the HP-41. When you press a key, the function it will perform will be displayed and if you keep the key pressed, the action will be NULLed.
@@ -92,24 +96,24 @@ This stack can be operated in three modes,
 \item integer mode with the defined word size.
 \end{inparaenum}
 
-The upper 64-bits hold the imaginary part. A complex number on the stack will survive changing to a different stack mode and back provided that the number is not affected by operations. Meaning that a number that is just on the stack will not get busted in a different mode unless the lower part is altered.
+The upper 64-bits holds the imaginary part. A complex number on the stack will survive changing to a different stack mode and back provided that the number is not affected by operations.\footnote{Meaning that a number that is just on the stack will not get busted in a different mode unless the lower part is altered}
 
 When going between stack modes, numbers on the stack may change meaning depending on the mode and no special conversions take place. This make it possible to switch to integer mode to manipulate IEEE floating point number at bit level.
 
-The rationale here is that while the RPN stack is kind of short, it is well thought out and well known to many. The advantage of a longer stack with Forth semantics would be allow for keeping a record of previous calculations, but that works better if the display is multilevel, but we do not expect to have that. The limitation of the short stack can be compensated by using the Forth stack as a storage area.
+The rationale here is that while the RPN stack is kind of short, it is well thought out and familiar to many people. The advantage of a longer stack with Forth semantics would be allow for keeping a record of previous calculations, but that works better if the display is multilevel, something we do not expect to have. The limitation of the short stack can be compensated by using the other Forth stacks as a temporary storage area for RPN stack values.
 
 \subsection{Overflows and Underflows}
 Forth stack overflows and underflows are detected and if they occur, execution is aborted.  The RPN stack cannot overflow or underflow by design.
 
 \section{Non-Goals}
-The following are issues that are not be solved by CalcForth:
+The following are issues that are {\it not\/} to be solved by CalcForth:
 \begin{itemize}
-\item The problem of how the keys and keyboard are labeled is not addressed at all. This result is that the end product is far from the most user friendly calculator you have used.
+\item The problem of how the keys and keyboard are labeled is not addressed at all. This result is that the end product may be far from the most user friendly calculator you have used.
 \item CalcForth will not provide arbitrary I/O to the world except for the host mode. Though, it is quite possible to write such extensions if the hardware is available.\footnote{Sadly, such hardware tend not to be available these days.}
 \item Arbitrary precision numbers will not be supported.
-\item Text capabilities need to be handled at Forth level. This is not meant to be a seamless alphanumeric calculator.\footnote{This may be a future extension though.}
+\item Text capabilities are to be handled at Forth level. This is not meant to be a seamless alphanumeric calculator.\footnote{This may be a future extension. An alpha register like on the HP-41 could make sense}
 \item Symbolic math is not supported.
-\item Units, such as unit tagged numbers or conversions are not supported.\footnote{This is a very nice feature and could be a future extensions. However, the problem with putting a unit on numbers is that you are essentially tagging numbers and the basic idea here is to work with untagged numbers. Otherwise we may end up with something similar to RPL and the HP-48, and that is definitely a non-goal.}
+\item Units, such as unit tagged numbers or conversions are not supported.\footnote{This is a very nice feature and could be a future extension. However, the problem with putting a unit on numbers is that you are essentially tagging numbers and the basic idea here is to work with untagged numbers. Otherwise we may end up with something similar to RPL and the HP-48, and that is definitely a non-goal. However, if implemented in floating mode, the unused upper part could serve as the unit tag.}
 \item No specific means to capture runa-away programs are defined.
 \end{itemize}
 
