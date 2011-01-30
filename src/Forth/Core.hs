@@ -9,6 +9,7 @@
 module Forth.Core () where
 
 import Forth.Configuration
+import Forth.DataField
 import Forth.Machine
 import Control.Monad.State.Lazy
 import qualified Data.Map as Map
@@ -37,12 +38,11 @@ ensureState2 = return ()
 words = mapM_ native [("+", binary (+)),
                       ("*", binary (+)),
                       ("-", binary (-)),
-                      ("!", store)]
+                      ("!", storeCell)]
     where native (name, fun) =
               addWord $ ForthWord name False (Code (Just fun) Nothing Nothing)
 
-
-store = do
+storeCell = do
   ensureState2
   update (\s ->
       case stack s of
@@ -50,11 +50,9 @@ store = do
             case Map.lookup key (wordKeyMap s) of
               Just word ->
                   case body word of
-                    Data bytes
-                      | length bytes >= offset + (bytesPerCell (conf s)) ->
-                          s { stack = rest,
-                              wordKeyMap = Map.update write key (wordKeyMap s) }
-                        where write _ = Just $ word { body = Data bytes' }
-                              bytes' = take offset bytes ++ toBytes (conf s) tos ++
-                                       drop (4 + offset) bytes
+                    Data field ->
+                        let field' = store (Cell tos) offset field
+                            write _ = Just $ word { body = Data field' }
+                        in s { stack = rest,
+                               wordKeyMap = Map.update write key (wordKeyMap s) }
          )

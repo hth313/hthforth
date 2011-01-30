@@ -6,7 +6,6 @@
 
 -}
 
-
 module Forth.Machine (ForthLambda, Key(..), Machine(..), ColonElement(..),
                       ColonSlice, ForthWord(..), Body(..), ForthValue(..),
                       update, addWord) where
@@ -18,6 +17,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Control.Monad.State.Lazy
 import Forth.Configuration
+import Forth.DataField
 
 update :: (Machine cell -> Machine cell) -> ForthLambda cell
 update f = StateT (\s -> return ((), f s))
@@ -65,7 +65,7 @@ data Body cell = Code { -- native Haskell version
                         targetNative :: Maybe [Instruction],
                         -- Colon definition version
                         colon :: Maybe (ColonSlice cell) } |
-            Data [Word8]
+                 Data (DataField cell)
 
 -- Values that can be stored on the stack
 data ForthValue cell = Continuation (ColonSlice cell)  |
