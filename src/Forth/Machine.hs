@@ -8,7 +8,7 @@
 
 module Forth.Machine (ForthLambda, Key(..), Machine(..), ColonElement(..),
                       ColonSlice, ForthWord(..), Body(..), ForthValue(..),
-                      update, addWord) where
+                      update, addWord, cellSize) where
 
 import Data.Bits
 import Data.Word
@@ -17,7 +17,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Control.Monad.State.Lazy
 import Forth.Configuration
-import Forth.DataField
+import Forth.DataField hiding (conf)
 
 update :: (Machine cell -> Machine cell) -> ForthLambda cell
 update f = StateT (\s -> return ((), f s))
@@ -28,6 +28,9 @@ addWord word = update (\s ->
     in s { wordKeyMap = Map.insert key word' (wordKeyMap s),
            wordNameMap = Map.insert (wordName word') key (wordNameMap s),
            keys = keys' })
+
+cellSize :: StateT (Machine cell) IO cell
+cellSize = StateT (\s -> return (bytesPerCell (conf s), s))
 
 -- The Forth state
 data Machine cell = Machine { -- The Forth stacks

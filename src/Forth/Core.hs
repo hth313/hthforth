@@ -72,7 +72,15 @@ words = mapM_ native [-- Data stack
                       ("OR", binary (.|.)),
                       ("XOR", binary xor),
                       -- Load and store
-                      ("!", storeCell)]
+                      ("!", store Cell),
+                      ("C!", store (Byte . fromIntegral)),
+                      ("@", fetch cellValue),
+                      ("C@", fetch charValue),
+                      -- Cell size and address related
+                      ("CHAR+", unary (1+)), -- characters are just bytes
+                      ("CHARS", unary id),
+                      ("CELL+", cellSize >>= \n -> unary (Val n +)),
+                      ("CELLS", cellSize >>= \n -> unary (Val n *))]
     where native (name, fun) =
               addWord $ ForthWord name False (Code (Just fun) Nothing Nothing)
 
@@ -88,17 +96,32 @@ rfetch = do
   ensureReturnStack 1
   update (\s -> s { stack = head (rstack s) : stack s })
 
-storeCell = do
+store ctor = do
   ensureStack 2
   update (\s ->
       case stack s of
-        (Val tos) : Address key offset : rest ->
-            case Map.lookup key (wordKeyMap s) of
-              Just word ->
-                  case body word of
-                    Data field ->
-                        let field' = store (Cell tos) offset field
-                            write _ = Just $ word { body = Data field' }
-                        in s { stack = rest,
-                               wordKeyMap = Map.update write key (wordKeyMap s) }
+        (Val tos) : adr@(Address key offsetadr) : rest ->
+            let (word, offset, field) = addressField adr s
+                field' = storeData (ctor tos) offset field
+                write _ = Just $ word { body = Data field' }
+            in s { stack = rest,
+                   wordKeyMap = Map.update write key (wordKeyMap s) }
          )
+
+addressField (Address key offset) s =
+    case Map.lookup key (wordKeyMap s) of
+      Just word -> case body word of
+                     Data field -> (word, offset, field)
+
+fetch fval = do
+  ensureStack 1
+  update (\s -> case stack s of
+                  adr@(Address key offsetadr) : rest ->
+                      let (word, offset, field) = addressField adr  s
+                          val = fval $ fetchData offset field
+                      in s { stack = val : rest } )
+
+cellValue (Cell val) = Val val
+cellValue (Byte val) = Val 0 -- TODO: error
+charValue (Byte val) = Val (fromIntegral val)
+charValue (Cell val) = Val 0 -- TODO: error
