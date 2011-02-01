@@ -8,6 +8,7 @@
 
 module Forth.Machine (ForthLambda, Key(..), Machine(..), ColonElement(..),
                       ColonSlice, ForthWord(..), Body(..), ForthValue(..),
+                      StateT(..),
                       update, addWord, cellSize) where
 
 import Data.Bits
@@ -41,6 +42,10 @@ data Machine cell = Machine { -- The Forth stacks
                               -- The interpretive pointer
                               ip :: ColonSlice cell,
                               conf :: Configuration cell,
+                              -- Most recent word, or word being defined
+                              lastWord :: Maybe Key,
+                              -- Unique identities for words
+                              inputStream :: String,
                               keys :: [Key] }
 
 -- Key type to identify a Forth word internally
@@ -58,7 +63,7 @@ type (ColonSlice cell)  = [ColonElement cell]
 -- A Forth word, contains the header and its associated body
 data ForthWord cell = ForthWord { wordName :: String,
                                   immediate :: Bool,
-                                  body :: Body cell,
+                                  body :: Maybe (Body cell),
                                   wordKey :: Key }
 
 -- The body of a Forth word

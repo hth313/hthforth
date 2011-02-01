@@ -12,7 +12,7 @@ import Data.Bits
 import Forth.Configuration
 import Forth.DataField
 import Forth.Machine
-import Control.Monad.State.Lazy
+import Forth.Input
 import qualified Data.Map as Map
 
 binary :: (ForthValue cell -> ForthValue cell -> ForthValue cell) ->
@@ -80,9 +80,16 @@ words = mapM_ native [-- Data stack
                       ("CHAR+", unary (1+)), -- characters are just bytes
                       ("CHARS", unary id),
                       ("CELL+", cellSize >>= \n -> unary (Val n +)),
-                      ("CELLS", cellSize >>= \n -> unary (Val n *))]
+                      ("CELLS", cellSize >>= \n -> unary (Val n *)),
+                      -- Lambda versions of compiler words
+                      ("IMMEDIATE", immediateWord),
+                      ("CREATE", create),
+                      ("EXIT", exit),
+                      ("POSTPONE", postpone)
+
+        ]
     where native (name, fun) =
-              addWord $ ForthWord name False (Code (Just fun) Nothing Nothing)
+              addWord $ ForthWord name False (Just (Code (Just fun) Nothing Nothing))
 
 tor = do
   ensureStack 1
@@ -103,7 +110,7 @@ store ctor = do
         (Val tos) : adr@(Address key offsetadr) : rest ->
             let (word, offset, field) = addressField adr s
                 field' = storeData (ctor tos) offset field
-                write _ = Just $ word { body = Data field' }
+                write _ = Just $ word { body = Just (Data field') }
             in s { stack = rest,
                    wordKeyMap = Map.update write key (wordKeyMap s) }
          )
@@ -111,7 +118,7 @@ store ctor = do
 addressField (Address key offset) s =
     case Map.lookup key (wordKeyMap s) of
       Just word -> case body word of
-                     Data field -> (word, offset, field)
+                     Just (Data field) -> (word, offset, field)
 
 fetch fval = do
   ensureStack 1
@@ -125,3 +132,44 @@ cellValue (Cell val) = Val val
 cellValue (Byte val) = Val 0 -- TODO: error
 charValue (Byte val) = Val (fromIntegral val)
 charValue (Cell val) = Val 0 -- TODO: error
+
+create = do
+  name <- nextWord
+  update (\s ->
+      let newWord = ForthWord name False Nothing key
+          (key : keys') = keys s
+      in s { keys = keys', lastWord = Just key,
+             wordKeyMap = Map.insert key newWord (wordKeyMap s),
+             wordNameMap = Map.insert name key (wordNameMap s) })
+
+immediateWord =
+  update (\s ->
+      case lastWord s of
+        Just key -> s { wordKeyMap = Map.update (\word -> Just $ word { immediate = True })
+                                     key (wordKeyMap s) }
+        Nothing -> s)
+
+exit =
+  update (\s ->
+      let (Continuation slice : rstack') = rstack s
+      in s { rstack = rstack', ip = slice })
+
+postpone = do
+  word <- nextWord
+  compile word
+
+compile word =
+  update (\s ->
+      case Map.lookup word (wordNameMap s) of
+        Just wordkey ->
+            let elt = [WordRef wordkey]
+                f def =
+                    let body' = case body def of
+                                  Nothing -> Code Nothing Nothing (Just elt)
+                                  Just body ->
+                                      body { colon = case colon body of
+                                                       Nothing -> Just elt
+                                                       Just colon -> Just (colon ++ elt) }
+                    in Just $ def { body = Just body' }
+            in case lastWord s of
+                 Just key -> s { wordKeyMap = Map.update f key (wordKeyMap s) })
