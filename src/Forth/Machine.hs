@@ -8,8 +8,8 @@
 
 module Forth.Machine (ForthLambda, Key(..), Machine(..), ColonElement(..),
                       ColonSlice, ForthWord(..), Body(..), ForthValue(..),
-                      StateT(..),
-                      update, addWord, cellSize) where
+                      StateT(..), liftIO,
+                      update, readMachine, addWord, cellSize) where
 
 import Data.Bits
 import Data.Word
@@ -22,6 +22,8 @@ import Forth.DataField hiding (conf)
 
 update :: (Machine cell -> Machine cell) -> ForthLambda cell
 update f = StateT (\s -> return ((), f s))
+
+readMachine f = StateT (\s -> return (f s, s))
 
 addWord word = update (\s ->
     let (key : keys') = keys s
