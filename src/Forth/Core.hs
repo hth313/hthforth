@@ -8,6 +8,7 @@
 
 module Forth.Core () where
 
+import Control.Monad
 import Data.Bits
 import Forth.Configuration
 import Forth.DataField
@@ -173,3 +174,21 @@ compile word =
                     in Just $ def { body = Just body' }
             in case lastWord s of
                  Just key -> s { wordKeyMap = Map.update f key (wordKeyMap s) })
+
+-- | TODO: this one needs to be a colon definition, need to use BEGIN AGAIN to
+--   avoid having stack build up when QUIT is invoked.
+quit =
+    let loop = do
+          input <- liftIO getLine
+          -- TODO: set >IN to 0
+          -- TODO: write to input buffer
+          update (\s -> s { stack = n : inputBuffer : stack s })
+          evaluate
+          putStrLn " ok "
+    in do
+      update (\s -> s { rstack = [] })
+      -- TODO: enter interpretation state
+      forever loop
+
+evaluate = do
+  -- TODO: push input buffer state

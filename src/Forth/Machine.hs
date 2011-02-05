@@ -8,12 +8,11 @@
 
 module Forth.Machine (ForthLambda, Key(..), Machine(..), ColonElement(..),
                       ColonSlice, ForthWord(..), Body(..), ForthValue(..),
-                      StateT(..), liftIO,
+                      StateT(..), liftIO, lift, wordFromName,
                       update, readMachine, addWord, cellSize) where
 
 import Data.Bits
 import Data.Word
-import Data.Int
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Control.Monad.State.Lazy
@@ -25,12 +24,22 @@ update f = StateT (\s -> return ((), f s))
 
 readMachine f = StateT (\s -> return (f s, s))
 
+-- | Add a new Forth word
+addWord :: (Key -> ForthWord cell) -> ForthLambda cell
 addWord word = update (\s ->
     let (key : keys') = keys s
-        word' = word  key
+        word' = word key
     in s { wordKeyMap = Map.insert key word' (wordKeyMap s),
            wordNameMap = Map.insert (wordName word') key (wordNameMap s),
            keys = keys' })
+
+-- | Given the name of a word, look it up in the dictionary and return its
+--   compiled inner representation
+wordFromName :: String -> StateT (Machine cell) IO (ColonElement cell)
+wordFromName name =
+    StateT (\s ->
+        case Map.lookup name (wordNameMap s) of
+          Just wordkey -> return (WordRef wordkey, s))
 
 cellSize :: StateT (Machine cell) IO cell
 cellSize = StateT (\s -> return (bytesPerCell (conf s), s))
