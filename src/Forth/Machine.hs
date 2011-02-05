@@ -8,7 +8,7 @@
 
 module Forth.Machine (ForthLambda, Key(..), Machine(..), ColonElement(..),
                       ColonSlice, ForthWord(..), Body(..), ForthValue(..),
-                      StateT(..), liftIO, lift, wordFromName,
+                      StateT(..), liftIO, lift, wordFromName, initialState, evalStateT,
                       update, readMachine, addWord, cellSize) where
 
 import Data.Bits
@@ -23,6 +23,8 @@ update :: (Machine cell -> Machine cell) -> ForthLambda cell
 update f = StateT (\s -> return ((), f s))
 
 readMachine f = StateT (\s -> return (f s, s))
+
+initialState conf = Machine [] [] Map.empty Map.empty [] conf Nothing "" []
 
 -- | Add a new Forth word
 addWord :: (Key -> ForthWord cell) -> ForthLambda cell

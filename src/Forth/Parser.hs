@@ -15,7 +15,7 @@
 
 -}
 
-module Forth.Parser () where
+module Forth.Parser (parseForth) where
 
 import Forth.Machine
 import Text.Parsec.Prim
@@ -31,7 +31,7 @@ type Parser a = forall cell.ParsecT String () (StateT (Machine cell) IO) a
 -- | The parser is based on Parsec and run as a Monad tranformer with the Forth Machine
 --   monad as the inner monad.
 parseForth :: String -> String -> StateT (Machine cell) IO (Either ParseError ())
-parseForth text screenName = runParserT topLevel () text screenName
+parseForth screenName text = runParserT topLevel () screenName text
 
 lexer :: P.GenTokenParser String () (StateT (Machine cell) IO)
 lexer  = P.makeTokenParser (P.LanguageDef { P.commentStart = "(",
