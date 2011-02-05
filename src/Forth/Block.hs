@@ -38,7 +38,7 @@ readBlockFile filepath =
                   let numstr = dropWhile isSpace (snd (break isSpace (drop 6 x)))
                   in case readDec numstr of
                        [(n,rest)] -> (n, rest)
-              lines = x' : lines'
+              lines = x : lines'
               (lines', rest) = break header xs
         blockMap blocks =
             Map.fromList (map (\block -> (number block, text block)) blocks)

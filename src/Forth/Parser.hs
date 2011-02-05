@@ -17,6 +17,7 @@
 
 module Forth.Parser (parseForth) where
 
+import Forth.Cell
 import Forth.Machine
 import Text.Parsec.Prim
 import qualified Text.Parsec.Token as P
@@ -25,16 +26,15 @@ import Text.Parsec.Char
 import Text.Parsec.Combinator
 import Text.Parsec.Error
 
---type Parser cell = ParsecT String () (StateT (Machine cell) IO)
-type Parser a = forall cell.ParsecT String () (StateT (Machine cell) IO) a
+type Parser a = Cell cell => ParsecT String () (StateT (Machine cell) IO) a
 
 -- | The parser is based on Parsec and run as a Monad tranformer with the Forth Machine
 --   monad as the inner monad.
-parseForth :: String -> String -> StateT (Machine cell) IO (Either ParseError ())
-parseForth screenName text = runParserT topLevel () screenName text
+parseForth :: Cell cell => String -> String -> StateT (Machine cell) IO (Either ParseError ())
+parseForth screenName text = runParserT (whiteSpace >> topLevel) () screenName text
 
-lexer :: P.GenTokenParser String () (StateT (Machine cell) IO)
-lexer  = P.makeTokenParser (P.LanguageDef { P.commentStart = "(",
+lexer :: Cell cell => P.GenTokenParser String () (StateT (Machine cell) IO)
+lexer  = P.makeTokenParser (P.LanguageDef { P.commentStart = "( ",
                                             P.commentEnd = ")",
                                             P.commentLine = "\\",
                                             P.nestedComments = False,
@@ -51,6 +51,9 @@ identifier = P.identifier lexer
 
 reserved :: String -> Parser ()
 reserved name = P.reserved lexer name
+
+whiteSpace :: Parser ()
+whiteSpace = P.whiteSpace lexer
 
 -- Most characters are accepted in a Forth word, but it can be a bit more restrictive
 -- than this
@@ -69,10 +72,17 @@ colonDef :: Parser ()
 colonDef = do
   reserved ":"
   name <- identifier
-  body <- manyTill identifier (reserved ";")
-  body' <- lift $ mapM wordFromName body
-  lift $ addWord (ForthWord name False (Just $ Code Nothing Nothing (Just body')))
+  body <- manyTill colonWord (reserved ";")
+  lift $ addWord (ForthWord name False (Just $ Code Nothing Nothing (Just body)))
   return ()
+
+colonWord :: Cell cell => ParsecT String () (StateT (Machine cell) IO) (ColonElement cell)
+colonWord = do
+  ident <- identifier
+  word <- lift $ wordFromName ident
+  case word of
+    Just word -> return word
+    Nothing -> unexpected ident
 
 create :: Parser ()
 create = do

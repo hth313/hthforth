@@ -10,11 +10,18 @@ module Main (main) where
 
 import Data.Int
 import Forth.Block
+import Forth.Cell
+import Forth.Core
 import Forth.Configuration
 import Forth.Machine
 import Forth.Parser
 
-main = do
-    (blocks, shadows) <- readBlockFile "/Users/hth/projects/CalcForth/src/lib/core.fth"
-    let cellSize = 4 :: Int32
-    evalStateT (parseForth "SCR FOO" ": FOO ;" ) (initialState (newConfiguration cellSize LittleEndian))
+instance Cell Int32
+main =
+    let core1 = do
+          nativeWords
+          loadScreens "/Users/hth/projects/CalcForth/src/lib/core.fth"
+          load 100
+    in do
+      let cellSize = 4 :: Int32
+      evalStateT core1 (initialState (newConfiguration cellSize LittleEndian) parseForth)

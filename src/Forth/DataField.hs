@@ -11,6 +11,7 @@ module Forth.DataField (DataField(..), DataObject(..), storeData, fetchData, all
 import Data.Word
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Forth.Cell
 import Forth.Configuration
 
 data DataField cell = DataField { dataSize :: cell,
@@ -25,7 +26,7 @@ allot n conf = DataField n conf Map.empty
 -- | Store a given value.
 --   When writing a cell, kill any bytes it overlaps.
 --   When writing a byte, kill any cell that overlaps it.
-storeData :: Integral cell => DataObject cell -> cell -> DataField cell -> DataField cell
+storeData :: Cell cell => DataObject cell -> cell -> DataField cell -> DataField cell
 storeData obj offset field =
     let n = bytesPerCell (conf field)
         limitedOffsets = take (fromIntegral (n - 1)) offsets
@@ -39,7 +40,7 @@ storeData obj offset field =
     in field { objects = Map.insert offset obj objects' }
 
 -- | Fetch a data object from the given offset
-fetchData :: (Ord cell, Num cell) => cell -> DataField cell -> DataObject cell
+fetchData :: Cell cell => cell -> DataField cell -> DataObject cell
 fetchData offset field =
     case Map.lookup offset (objects field) of
       Nothing -> Cell 0

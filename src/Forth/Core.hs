@@ -6,17 +6,18 @@
 
 -}
 
-module Forth.Core () where
+module Forth.Core (nativeWords) where
 
 import Control.Monad
 import Data.Bits
+import Forth.Cell
 import Forth.Configuration
 import Forth.DataField
 import Forth.Machine
-import Forth.Input
+--import Forth.Input
 import qualified Data.Map as Map
 
-binary :: (ForthValue cell -> ForthValue cell -> ForthValue cell) ->
+binary :: Cell cell => (ForthValue cell -> ForthValue cell -> ForthValue cell) ->
           StateT (Machine cell) IO ()
 binary op = do
   ensureStack 2
@@ -34,7 +35,7 @@ updateStack n f = do
   ensureStack n
   update (\s -> s { stack = f (stack s) })
 
-instance (Eq cell, Show cell, Num cell, Integral cell) => Num (ForthValue cell) where
+instance Cell cell => Num (ForthValue cell) where
     (Val a) + (Val b) = Val (a + b)
     (Address key off) + (Val b) = Address key (off + (fromIntegral b))
     (Val a) * (Val b) = Val (a * b)
@@ -42,7 +43,7 @@ instance (Eq cell, Show cell, Num cell, Integral cell) => Num (ForthValue cell) 
     signum (Val a) = Val (signum a)
     fromInteger n = Val (fromInteger n)
 
-instance (Eq cell, Show cell, Bits cell, Integral cell) => Bits (ForthValue cell) where
+instance Cell cell => Bits (ForthValue cell) where
     (Val a) .&. (Val b) = Val (a .&. b)
     (Val a) .|. (Val b) = Val (a .|. b)
     xor (Val a) (Val b) = Val (xor a b)
@@ -51,11 +52,13 @@ instance (Eq cell, Show cell, Bits cell, Integral cell) => Bits (ForthValue cell
     isSigned (Val a) = isSigned a
 
 -- TODO: validate stack size
-ensureStack, ensureReturnStack :: Int -> ForthLambda cell
+ensureStack, ensureReturnStack :: Cell cell => Int -> ForthLambda cell
 ensureStack n = return ()
 ensureReturnStack n = return ()
 
-words = mapM_ native [-- Data stack
+-- | Define native and word header related words as lambdas
+nativeWords :: Cell cell => StateT (Machine cell) IO ()
+nativeWords = mapM_ native [-- Data stack
                       ("DROP", updateStack 1 tail),
                       ("DUP", updateStack 1 (\st -> head st : st)),
                       ("OVER", updateStack 2 (\st -> head (tail st) : st)),
@@ -84,26 +87,30 @@ words = mapM_ native [-- Data stack
                       ("CELLS", cellSize >>= \n -> unary (Val n *)),
                       -- Lambda versions of compiler words
                       ("IMMEDIATE", immediateWord),
-                      ("CREATE", create),
-                      ("EXIT", exit),
-                      ("POSTPONE", postpone)
+--                      ("CREATE", create),
+--                      ("POSTPONE", postpone)
+                      ("EXIT", exit)
 
         ]
     where native (name, fun) =
               addWord $ ForthWord name False (Just (Code (Just fun) Nothing Nothing))
 
+tor :: Cell cell => ForthLambda cell
 tor = do
   ensureStack 1
   update (\s -> s { rstack = head (stack s) : rstack s, stack = tail (stack s) })
 
+rto :: Cell cell => ForthLambda cell
 rto = do
   ensureReturnStack 1
   update (\s -> s { stack = head (rstack s) : stack s, rstack = tail (rstack s) })
 
+rfetch :: Cell cell => ForthLambda cell
 rfetch = do
   ensureReturnStack 1
   update (\s -> s { stack = head (rstack s) : stack s })
 
+store :: Cell cell => (cell -> DataObject cell) -> StateT (Machine cell) IO ()
 store ctor = do
   ensureStack 2
   update (\s ->
@@ -121,6 +128,7 @@ addressField (Address key offset) s =
       Just word -> case body word of
                      Just (Data field) -> (word, offset, field)
 
+fetch :: Cell cell => (DataObject cell -> ForthValue cell) -> StateT (Machine cell) IO ()
 fetch fval = do
   ensureStack 1
   update (\s -> case stack s of
@@ -134,6 +142,7 @@ cellValue (Byte val) = Val 0 -- TODO: error
 charValue (Byte val) = Val (fromIntegral val)
 charValue (Cell val) = Val 0 -- TODO: error
 
+{-
 create = do
   name <- nextWord
   update (\s ->
@@ -142,7 +151,9 @@ create = do
       in s { keys = keys', lastWord = Just key,
              wordKeyMap = Map.insert key newWord (wordKeyMap s),
              wordNameMap = Map.insert name key (wordNameMap s) })
+-}
 
+immediateWord :: Cell cell => ForthLambda cell
 immediateWord =
   update (\s ->
       case lastWord s of
@@ -150,14 +161,17 @@ immediateWord =
                                      key (wordKeyMap s) }
         Nothing -> s)
 
+exit :: Cell cell => ForthLambda cell
 exit =
   update (\s ->
       let (Continuation slice : rstack') = rstack s
       in s { rstack = rstack', ip = slice })
 
+{-
 postpone = do
   word <- nextWord
   compile word
+-}
 
 compile word =
   update (\s ->
@@ -174,21 +188,3 @@ compile word =
                     in Just $ def { body = Just body' }
             in case lastWord s of
                  Just key -> s { wordKeyMap = Map.update f key (wordKeyMap s) })
-
--- | TODO: this one needs to be a colon definition, need to use BEGIN AGAIN to
---   avoid having stack build up when QUIT is invoked.
-quit =
-    let loop = do
-          input <- liftIO getLine
-          -- TODO: set >IN to 0
-          -- TODO: write to input buffer
-          update (\s -> s { stack = n : inputBuffer : stack s })
-          evaluate
-          putStrLn " ok "
-    in do
-      update (\s -> s { rstack = [] })
-      -- TODO: enter interpretation state
-      forever loop
-
-evaluate = do
-  -- TODO: push input buffer state
