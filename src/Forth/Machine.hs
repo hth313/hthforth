@@ -8,7 +8,8 @@
 
 module Forth.Machine (ForthLambda, Key(..), Machine(..), ColonElement(..),
                       ColonSlice, ForthWord(..), Body(..), ForthValue(..),
-                      StateT(..), liftIO, lift, wordFromName, initialState, evalStateT,
+                      StateT(..), Construct(..),
+                      liftIO, lift, wordFromName, initialState, evalStateT,
                       loadScreens, load,
                       update, readMachine, addWord, cellSize) where
 
@@ -23,6 +24,7 @@ import Forth.DataField hiding (conf)
 import Forth.Block
 import Forth.Cell
 import Text.Parsec.Error
+import Numeric
 
 update :: Cell cell => (Machine cell -> Machine cell) -> ForthLambda cell
 update f = StateT (\s -> return ((), f s))
@@ -48,7 +50,14 @@ wordFromName name =
     StateT (\s ->
         case Map.lookup name (wordNameMap s) of
           Just wordkey -> return (Just $ WordRef wordkey, s)
-          Nothing -> return (Nothing, s))
+          Nothing ->
+              let literal n = return (Just $ Literal (Val n), s)
+              in case readDec name of
+                   [(n,"")] -> literal n
+                   otherwise ->
+                       case readSigned readDec name of
+                         [(n,"")] -> literal n
+                         otherwise -> return (Nothing, s))
 
 cellSize :: Cell cell => StateT (Machine cell) IO cell
 cellSize = StateT (\s -> return (bytesPerCell (conf s), s))
@@ -92,8 +101,11 @@ newtype Key = Key Int deriving (Show, Eq, Ord)
 -- An element of a colon definition
 data Cell cell => ColonElement cell  = WordRef Key |
                                        Literal (ForthValue cell) |
+                                       Structure Construct |
                                        Branch (ColonSlice cell)
                                        deriving (Show, Eq)
+
+data Construct = IF | ELSE | THEN deriving (Show, Eq)
 
 -- The contents of a colon definition body
 type (ColonSlice cell)  = [ColonElement cell]

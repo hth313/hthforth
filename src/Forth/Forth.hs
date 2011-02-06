@@ -17,6 +17,7 @@ import Forth.Machine
 import Forth.Parser
 
 instance Cell Int32
+
 main =
     let core1 = do
           nativeWords

@@ -39,7 +39,9 @@ lexer  = P.makeTokenParser (P.LanguageDef { P.commentStart = "( ",
                                             P.commentLine = "\\",
                                             P.nestedComments = False,
                                             P.reservedNames = [":", ";", "CREATE",
-                                                               "VARIABLE", "CONSTANT" ],
+                                                               "VARIABLE", "CONSTANT",
+                                                               "IF", "ELSE", "THEN"
+                                                              ],
                                             P.identStart = wordChar,
                                             P.identLetter = wordChar,
                                             P.opStart = never,
@@ -77,12 +79,17 @@ colonDef = do
   return ()
 
 colonWord :: Cell cell => ParsecT String () (StateT (Machine cell) IO) (ColonElement cell)
-colonWord = do
-  ident <- identifier
-  word <- lift $ wordFromName ident
+colonWord = try (identifier >>= compileToken ) <|>
+                (reserved "IF" >> return (Structure IF)) <|>
+                (reserved "ELSE" >> return (Structure ELSE)) <|>
+                (reserved "THEN" >> return (Structure THEN)) <?> "word"
+
+
+compileToken name = do
+  word <- lift $ wordFromName name
   case word of
     Just word -> return word
-    Nothing -> unexpected ident
+    Nothing -> unexpected name
 
 create :: Parser ()
 create = do
