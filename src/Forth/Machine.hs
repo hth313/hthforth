@@ -17,6 +17,8 @@ import Data.Bits
 import Data.Word
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.IntMap (IntMap)
+import qualified Data.IntMap as IntMap
 import Control.Monad.State.Lazy
 import Forth.Configuration
 import Forth.Cell
@@ -39,13 +41,30 @@ addWord :: Cell cell => (Key -> ForthWord cell) -> ForthLambda cell
 addWord word = update (\s ->
     let (key : keys') = keys s
         word' = word key
-    in s { wordKeyMap = Map.insert key word' (wordKeyMap s),
-           wordNameMap = Map.insert (wordName word') key (wordNameMap s),
+        finalWord = word' { body = fmap (compileStructure key) (body word') }
+    in s { wordKeyMap = Map.insert key finalWord (wordKeyMap s),
+           wordNameMap = Map.insert (wordName finalWord) key (wordNameMap s),
            keys = keys' })
+
+-- Compile structures like IF-ELSE-THEN into branch primitives
+compileStructure key body@(Code _ _ (Just colon)) =
+    let numbered = zip [1..] colon
+        visit (stack, colon) (n, Structure IF) = ((n, CondBranch False) : stack, colon)
+        visit ((nif, branch) : stack, colon) (nelse, Structure ELSE) =
+              let colon' = IntMap.update (const (Just (branch (key, nelse + 1)))) nif colon
+              in ((nelse, Branch) : stack, colon')
+        visit ((n, branch) : stack, colon) (nthen, Structure THEN) =
+              let colon' = IntMap.update (const (Just (branch (key, nthen + 1)))) n colon
+                  colon'' = IntMap.update (const (Just NOP)) nthen colon'
+              in (stack, colon'')
+        (stack', colon') = foldl visit ([], IntMap.fromList numbered) numbered
+        colonInt = IntMap.elems colon' -- TODO: replace with ColonSlice?
+    in body { colon = Just (IntMap.elems colon') }
 
 -- | Given the name of a word, look it up in the dictionary and return its
 --   compiled inner representation
-wordFromName :: Cell cell => String -> StateT (Machine cell) IO (Maybe (ColonElement cell))
+wordFromName :: Cell cell =>
+                String -> StateT (Machine cell) IO (Maybe (ColonElement cell))
 wordFromName name =
     StateT (\s ->
         case Map.lookup name (wordNameMap s) of
@@ -99,11 +118,14 @@ data Cell cell =>
 newtype Key = Key Int deriving (Show, Eq, Ord)
 
 -- An element of a colon definition
-data Cell cell => ColonElement cell  = WordRef Key |
-                                       Literal (ForthValue cell) |
-                                       Structure Construct |
-                                       Branch (ColonSlice cell)
-                                       deriving (Show, Eq)
+data Cell cell => ColonElement cell = WordRef Key |
+                                      Literal (ForthValue cell) |
+                                      Structure Construct |
+                                      CondBranch Bool Destination |
+                                      Branch Destination |
+                                      NOP -- empty placeholder
+                                      deriving (Show, Eq)
+type Destination = (Key, Int)  -- word and offset from current location
 
 data Construct = IF | ELSE | THEN deriving (Show, Eq)
 
