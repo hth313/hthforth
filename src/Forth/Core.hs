@@ -16,6 +16,8 @@ import Forth.DataField
 import Forth.Machine
 --import Forth.Input
 import qualified Data.Map as Map
+import Text.Parsec.Error
+import System.IO
 
 binary :: Cell cell => (ForthValue cell -> ForthValue cell -> ForthValue cell) ->
           StateT (Machine cell) IO ()
@@ -75,6 +77,7 @@ nativeWords = mapM_ native [-- Data stack
                       ("AND", binary (.&.)),
                       ("OR", binary (.|.)),
                       ("XOR", binary xor),
+                      ("0<", unary (\(Val n) -> if n < 0 then -1 else 0)),
                       -- Load and store
                       ("!", store Cell),
                       ("C!", store (Byte . fromIntegral)),
@@ -89,7 +92,9 @@ nativeWords = mapM_ native [-- Data stack
                       ("IMMEDIATE", immediateWord),
 --                      ("CREATE", create),
 --                      ("POSTPONE", postpone)
-                      ("EXIT", exit)
+                      ("EXIT", exit),
+                      -- Block related
+                      ("LOAD", loadScreen)
 
         ]
     where native (name, fun) =
@@ -188,3 +193,13 @@ compile word =
                     in Just $ def { body = Just body' }
             in case lastWord s of
                  Just key -> s { wordKeyMap = Map.update f key (wordKeyMap s) })
+
+loadScreen :: Cell cell => ForthLambda cell
+loadScreen = do
+    n <- StateT (\s ->
+             let (Val n) : ns = stack s
+             in return (n, s { stack = ns }))
+    result <- load (fromIntegral n)
+    case result of
+      Left err -> liftIO $ hPutStrLn stderr (show err)
+      Right () -> return ()

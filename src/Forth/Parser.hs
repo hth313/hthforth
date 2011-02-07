@@ -68,7 +68,7 @@ topLevel :: Parser ()
 topLevel = many definition >> eof
 
 definition :: Parser ()
-definition = colonDef <|> create
+definition = colonDef <|> create <|> exec
 
 colonDef :: Parser ()
 colonDef = do
@@ -84,7 +84,6 @@ colonWord = try (identifier >>= compileToken ) <|>
                 (reserved "ELSE" >> return (Structure ELSE)) <|>
                 (reserved "THEN" >> return (Structure THEN)) <?> "word"
 
-
 compileToken name = do
   word <- lift $ wordFromName name
   case word of
@@ -97,3 +96,11 @@ create = do
   name <- identifier
   return ()
 
+exec :: Parser ()
+exec = do
+  name <- identifier
+  word <- lift $ wordFromName name
+  case word of
+    Just (WordRef key) -> lift $ execute key
+    Just (Literal lit) -> lift $ pushLiteral lit
+    Nothing -> unexpected name

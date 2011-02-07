@@ -1,3 +1,12 @@
+( block 1  -- Load block )
+
+100 LOAD
+( shadow 1 )
+( block 2 )
+( shadow 2 )
+( block 3 )
+( shadow 3 )
+
 ( block 100 )
 
 : NIP ( n1 n2 -- n2)   SWAP DROP ;

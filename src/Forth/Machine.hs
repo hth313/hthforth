@@ -10,7 +10,7 @@ module Forth.Machine (ForthLambda, Key(..), Machine(..), ColonElement(..),
                       ColonSlice, ForthWord(..), Body(..), ForthValue(..),
                       StateT(..), Construct(..),
                       liftIO, lift, wordFromName, initialState, evalStateT,
-                      loadScreens, load,
+                      loadScreens, load, execute, pushLiteral,
                       update, readMachine, addWord, cellSize) where
 
 import Data.Bits
@@ -34,7 +34,7 @@ update f = StateT (\s -> return ((), f s))
 readMachine f = StateT (\s -> return (f s, s))
 
 initialState conf parser =
-    Machine [] [] Map.empty Map.empty [] conf Nothing Map.empty parser []
+    Machine [] [] Map.empty Map.empty [] conf Nothing Map.empty parser (map Key [1..])
 
 -- | Add a new Forth word
 addWord :: Cell cell => (Key -> ForthWord cell) -> ForthLambda cell
@@ -60,7 +60,7 @@ compileStructure key body@(Code _ _ (Just colon)) =
         (stack', colon') = foldl visit ([], IntMap.fromList numbered) numbered
         colonInt = IntMap.elems colon' -- TODO: replace with ColonSlice?
     in body { colon = Just (IntMap.elems colon') }
-
+compileStructure key body@(Code _ _ Nothing) = body
 -- | Given the name of a word, look it up in the dictionary and return its
 --   compiled inner representation
 wordFromName :: Cell cell =>
@@ -86,7 +86,7 @@ loadScreens :: Cell cell => FilePath -> StateT (Machine cell) IO ()
 loadScreens filepath = do
     (blocks, shadows) <-
         liftIO $ readBlockFile "/Users/hth/projects/CalcForth/src/lib/core.fth"
-    liftIO $ putStrLn (show blocks)
+    --liftIO $ putStrLn (show blocks)
     update (\s -> s { screens = blocks })
 
 -- | Load a screen
@@ -95,6 +95,18 @@ load n = do
   (text, parser) <- readMachine (\s -> (Map.lookup n (screens s), forthParser s))
   case text of
     Just text -> parser ("screen " ++ show n) text
+
+-- | Execute the given word
+execute :: Cell cell => Key -> StateT (Machine cell) IO ()
+execute key = do
+  word <- StateT (\s -> return (Map.lookup key (wordKeyMap s), s))
+  case word of
+    Just word -> case body word of
+                   Just (Code (Just lambda) _ _) -> lambda
+
+-- | Push a literal on stack
+pushLiteral lit =
+    update (\s -> s { stack = lit : stack s })
 
 -- The Forth state
 data Cell cell =>

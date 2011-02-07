@@ -22,7 +22,7 @@ main =
     let core1 = do
           nativeWords
           loadScreens "/Users/hth/projects/CalcForth/src/lib/core.fth"
-          load 100
+          load 1
     in do
       let cellSize = 4 :: Int32
       evalStateT core1 (initialState (newConfiguration cellSize LittleEndian) parseForth)
