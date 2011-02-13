@@ -9,9 +9,11 @@
 module Forth.Machine (ForthLambda, Key(..), Machine(..), ColonElement(..),
                       ColonSlice, ForthWord(..), Body(..), ForthValue(..), ForthValues,
                       StateT(..), Construct(..),
-                      liftIO, lift, wordFromName, initialState, evalStateT,
+                      liftIO, lift, createVariable, createConstant,
+                      wordFromName, initialState, evalStateT,
                       loadScreens, load, execute, pushLiteral, keyName,
-                      update, readMachine, addWord, cellSize) where
+                      update, readMachine, addWord, cellSize,
+                      ensureStack, ensureReturnStack, isValue, isAddress, isAny) where
 
 import Data.Bits
 import Data.Word
@@ -68,6 +70,18 @@ compileStructure key body@(Code _ _ (Just colon)) =
     in body { colon = Just (IntMap.elems colon') }
 compileStructure key body@(Code _ _ Nothing) = body
 compileStructure key body@(Data _) = body
+
+createVariable name = do
+  sz <- cellSize
+  conf <- readMachine conf
+  addWord $ ForthWord name False (Just (Data (allot sz conf)))
+
+createConstant name = ensureStack "CONSTANT" [isAny] action where
+    action = do
+      sz <- cellSize
+      conf <- readMachine conf
+      val <- StateT (\s -> return (head (stack s), s { stack = tail (stack s) } ))
+      addWord $ ForthWord name False (Just (Data (allot sz conf)))
 
 -- | Given the name of a word, look it up in the dictionary and return its
 --   compiled inner representation
@@ -208,3 +222,33 @@ type (ForthLambda cell)  = StateT (Machine cell) IO ()
 -- Temporary, replace with something that can actually represent a slice
 -- of assembler code.
 data Instruction = String
+
+{-
+  Words related to make sure that the stack contains enough things and kind of
+  things a word might expect.
+-}
+
+ensureStack, ensureReturnStack ::
+    Cell cell => String -> [ForthValue cell -> Bool] -> ForthLambda cell -> ForthLambda cell
+ensureStack = ensure stack
+ensureReturnStack = ensure rstack
+
+ensure :: Cell cell => (Machine cell -> ForthValues cell) -> String ->
+          [ForthValue cell -> Bool] -> ForthLambda cell -> ForthLambda cell
+ensure stack name preds action = do
+  s <- readMachine stack
+  if length preds > length s
+      then liftIO $ hPutStrLn stderr ("Empty stack for " ++ name)
+      else
+          let pairs = (zip preds s)
+              vals = map (\(f,a) -> f a) pairs
+          in if and vals
+                then action
+                else liftIO $ hPutStrLn stderr ("Bad stack argument for " ++ name ++
+                                                ", stack is " ++ show (map snd pairs))
+
+isValue (Val _) = True
+isValue _ = False
+isAddress (Address _ _) = True
+isAddress _ = False
+isAny = const True

@@ -79,7 +79,7 @@ topLevel :: Parser ()
 topLevel = many definition >> eof
 
 definition :: Parser ()
-definition = colonDef <|> create <|> exec
+definition = colonDef <|> create <|> variable <|> constant <|> exec
 
 colonDef :: Parser ()
 colonDef = do
@@ -106,6 +106,18 @@ create = do
   reserved "CREATE"
   name <- identifier
   return ()
+
+variable :: Parser ()
+variable = do
+  reserved "VARIABLE"
+  name <- identifier
+  lift $ createVariable name
+
+constant :: Parser ()
+constant = do
+  reserved "CONSTANT"
+  name <- identifier
+  lift $ createConstant name
 
 exec :: Parser ()
 exec = do

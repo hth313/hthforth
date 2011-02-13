@@ -51,76 +51,47 @@ instance Cell cell => Bits (ForthValue cell) where
     bitSize (Val a) = bitSize a
     isSigned (Val a) = isSigned a
 
-ensureStack, ensureReturnStack ::
-    Cell cell => String -> [ForthValue cell -> Bool] -> ForthLambda cell -> ForthLambda cell
-ensureStack = ensure stack
-ensureReturnStack = ensure rstack
-
-ensure :: Cell cell => (Machine cell -> ForthValues cell) -> String ->
-          [ForthValue cell -> Bool] -> ForthLambda cell -> ForthLambda cell
-ensure stack name preds action = do
-  s <- readMachine stack
-  if length preds > length s
-      then liftIO $ hPutStrLn stderr ("Empty stack for " ++ name)
-      else
-          let pairs = (zip preds s)
-              vals = map (\(f,a) -> f a) pairs
-          in if and vals
-                then action
-                else liftIO $ hPutStrLn stderr ("Bad stack argument for " ++ name ++
-                                                ", stack is " ++ show (map snd pairs))
-
-isValue (Val _) = True
-isValue _ = False
-isAddress (Address _ _) = True
-isAddress _ = False
-isAny = const True
-
 -- | Define native and word header related words as lambdas
 nativeWords :: Cell cell => ForthLambda cell
 nativeWords =
-  sequence_ (map native [-- Data stack
-                         ("DROP", updateStack 1 tail),
-                         ("DUP", updateStack 1 (\st -> head st : st)),
-                         ("OVER", updateStack 2 (\st -> head (tail st) : st)),
-                         ("SWAP", updateStack 2 (\(s1:s2:ss) -> s2:s1:ss)),
-                         ("ROT", updateStack 3 (\(s1:s2:s3:ss) -> s3:s1:s2:ss)),
-                         -- Return stack
-                         (">R", tor),
-                         (">R", rto),
-                         ("R@", rfetch),
-                         -- ALU
-                         ("+", binary (+)),
-                         ("*", binary (*)),
-                         ("-", binary (-)),
-                         ("AND", binary (.&.)),
-                         ("OR", binary (.|.)),
-                         ("XOR", binary xor),
-                         ("0<", unary (\(Val n) -> if n < 0 then -1 else 0)),
-                         -- Load and store
-                         ("!", store Cell),
-                         ("C!", store (Byte . fromIntegral)),
-                         ("@", fetch cellValue),
-                         ("C@", fetch charValue),
-                         -- Cell size and address related
-                         ("CHAR+", unary (1+)), -- characters are just bytes
-                         ("CHARS", unary id),
-                         ("CELL+", (\name -> cellSize >>= \n -> unary (Val n +) name)),
-                         ("CELLS", (\name -> cellSize >>= \n -> unary (Val n *) name)),
-                         -- Lambda versions of compiler words
-                         ("IMMEDIATE", immediateWord),
-                         --                      ("CREATE", create),
-                         --                      ("POSTPONE", postpone)
-                         ("EXIT", exit),
-                         -- Block related
-                         ("(LOAD)", loadScreen)
-                     ] ++ map variable [ "BLK" ])
+  mapM_  native [-- Data stack
+                 ("DROP", updateStack 1 tail),
+                 ("DUP", updateStack 1 (\st -> head st : st)),
+                 ("OVER", updateStack 2 (\st -> head (tail st) : st)),
+                 ("SWAP", updateStack 2 (\(s1:s2:ss) -> s2:s1:ss)),
+                 ("ROT", updateStack 3 (\(s1:s2:s3:ss) -> s3:s1:s2:ss)),
+                 -- Return stack
+                 (">R", tor),
+                 (">R", rto),
+                 ("R@", rfetch),
+                 -- ALU
+                 ("+", binary (+)),
+                 ("*", binary (*)),
+                 ("-", binary (-)),
+                 ("AND", binary (.&.)),
+                 ("OR", binary (.|.)),
+                 ("XOR", binary xor),
+                 ("0<", unary (\(Val n) -> if n < 0 then -1 else 0)),
+                 -- Load and store
+                 ("!", store Cell),
+                 ("C!", store (Byte . fromIntegral)),
+                 ("@", fetch cellValue),
+                 ("C@", fetch charValue),
+                 -- Cell size and address related
+                 ("CHAR+", unary (1+)), -- characters are just bytes
+                 ("CHARS", unary id),
+                 ("CELL+", (\name -> cellSize >>= \n -> unary (Val n +) name)),
+                 ("CELLS", (\name -> cellSize >>= \n -> unary (Val n *) name)),
+                 -- Lambda versions of compiler words
+                 ("IMMEDIATE", immediateWord),
+                 --                      ("CREATE", create),
+                 --                      ("POSTPONE", postpone)
+                 ("EXIT", exit),
+                 -- Block related
+                 ("(LOAD)", loadScreen)
+             ]
     where native (name, fun) =
               addWord $ ForthWord name False (Just (Code (Just (fun name)) Nothing Nothing))
-          variable name = do
-            sz <- cellSize
-            conf <- readMachine conf
-            addWord $ ForthWord name False (Just (Data (allot sz conf)))
 
 tor :: Cell cell => String -> ForthLambda cell
 tor name = ensureStack name [isAny] action where

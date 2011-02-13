@@ -1,5 +1,6 @@
 ( block 1  -- Main load block )
 
+VARIABLE BLK
 : FH  BLK @ + ;  \ relative block
 : LOAD  BLK @ SWAP DUP BLK ! (LOAD) BLK ! ;
 
