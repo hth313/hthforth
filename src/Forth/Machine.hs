@@ -7,10 +7,10 @@
 -}
 
 module Forth.Machine (ForthLambda, Key(..), Machine(..), ColonElement(..),
-                      ColonSlice, ForthWord(..), Body(..), ForthValue(..),
+                      ColonSlice, ForthWord(..), Body(..), ForthValue(..), ForthValues,
                       StateT(..), Construct(..),
                       liftIO, lift, wordFromName, initialState, evalStateT,
-                      loadScreens, load, execute, pushLiteral,
+                      loadScreens, load, execute, pushLiteral, keyName,
                       update, readMachine, addWord, cellSize) where
 
 import Data.Bits
@@ -25,8 +25,8 @@ import Forth.Cell
 import Forth.DataField hiding (conf)
 import Forth.Block
 import Forth.Cell
-import Text.Parsec.Error
 import Numeric
+import System.IO
 
 update :: Cell cell => (Machine cell -> Machine cell) -> ForthLambda cell
 update f = StateT (\s -> return ((), f s))
@@ -35,6 +35,11 @@ readMachine f = StateT (\s -> return (f s, s))
 
 initialState conf parser =
     Machine [] [] Map.empty Map.empty [] conf Nothing Map.empty parser (map Key [1..])
+
+keyName key = StateT (\s ->
+    case Map.lookup key (wordKeyMap s) of
+      Just word -> return (wordName word, s)
+      Nothing -> return (show key, s))
 
 -- | Add a new Forth word
 addWord :: Cell cell => (Key -> ForthWord cell) -> ForthLambda cell
@@ -57,10 +62,13 @@ compileStructure key body@(Code _ _ (Just colon)) =
               let colon' = IntMap.update (const (Just (branch (key, nthen + 1)))) n colon
                   colon'' = IntMap.update (const (Just NOP)) nthen colon'
               in (stack, colon'')
+        visit acc ins = acc
         (stack', colon') = foldl visit ([], IntMap.fromList numbered) numbered
         colonInt = IntMap.elems colon' -- TODO: replace with ColonSlice?
     in body { colon = Just (IntMap.elems colon') }
 compileStructure key body@(Code _ _ Nothing) = body
+compileStructure key body@(Data _) = body
+
 -- | Given the name of a word, look it up in the dictionary and return its
 --   compiled inner representation
 wordFromName :: Cell cell =>
@@ -81,6 +89,20 @@ wordFromName name =
 cellSize :: Cell cell => StateT (Machine cell) IO cell
 cellSize = StateT (\s -> return (bytesPerCell (conf s), s))
 
+-- | Update a variable an get its old value back. Mainly intended for update of special
+--   variables such as BLK while loading screens.
+updateVariable name newval = StateT (\s ->
+    case Map.lookup name (wordNameMap s) of
+      Just key ->
+          case Map.lookup key (wordKeyMap s) of
+            Just word ->
+                case body word of
+                  Just (Data field) ->
+                      let word' = word { body = Just (Data (storeData newval 0 field)) }
+                      in return (fetchData 0 field,
+                                 s { wordKeyMap = Map.update (const $ Just word') key
+                                                  (wordKeyMap s) }))
+
 -- | Load an entire set of screens from a file
 loadScreens :: Cell cell => FilePath -> StateT (Machine cell) IO ()
 loadScreens filepath = do
@@ -90,19 +112,50 @@ loadScreens filepath = do
     update (\s -> s { screens = blocks })
 
 -- | Load a screen
-load :: Cell cell => Int -> StateT (Machine cell) IO (Either ParseError ())
+load :: Cell cell => Int -> StateT (Machine cell) IO (Either String ())
 load n = do
   (text, parser) <- readMachine (\s -> (Map.lookup n (screens s), forthParser s))
+  liftIO $ putStr $ (show n) ++ " " -- show loading
   case text of
-    Just text -> parser ("screen " ++ show n) text
+    Just text -> do
+          oldval <- updateVariable "BLK" (Cell (fromIntegral n))
+          result <- parser ("screen " ++ show n) text
+          updateVariable "BLK" oldval
+          return result
+    Nothing -> return $ Left ("Screen does not exist: " ++ show n)
 
 -- | Execute the given word
 execute :: Cell cell => Key -> StateT (Machine cell) IO ()
 execute key = do
+--  name <- keyName key
+--  liftIO $ putStrLn $ "Execute " ++ name
   word <- StateT (\s -> return (Map.lookup key (wordKeyMap s), s))
   case word of
     Just word -> case body word of
-                   Just (Code (Just lambda) _ _) -> lambda
+                   Just (Code (Just lambda) _ _) -> lambda >> next
+                   Just (Code _ _ (Just colonSlice)) -> do
+                       update (\s -> s { ip = colonSlice,
+                                         rstack = Continuation (ip s) : rstack s })
+                       next
+                   Just (Data _) -> do
+                       update (\s -> s { stack = Address key 0 : stack s} )
+                       next
+
+-- | Execute next word in colon definition
+next :: Cell cell => StateT (Machine cell) IO ()
+next = do
+  lst <- readMachine ip
+--  liftIO $ putStrLn (show lst)
+  action <- StateT (\s -> case ip s of
+                            [] -> case rstack s of
+                                    Continuation slice : rstack' ->
+                                        return (next, s { rstack = rstack' })
+                                    otherwise -> return (return (), s)
+                            WordRef key : ip' -> return (execute key, s { ip = ip' })
+                            Literal val : ip' ->
+                                return (next, s { stack = val : stack s, ip = ip' })
+                   )
+  action
 
 -- | Push a literal on stack
 pushLiteral lit =
@@ -121,7 +174,7 @@ data Cell cell =>
                              -- Most recent word, or word being defined
                              lastWord :: Maybe Key,
                              screens :: Map Int String,
-                             forthParser :: String -> String -> StateT (Machine cell) IO (Either ParseError ()),
+                             forthParser :: String -> String -> StateT (Machine cell) IO (Either String ()),
                              --                              inputStream :: String,
                              -- Unique identities for words
                              keys :: [Key] }
@@ -161,7 +214,8 @@ data Cell cell => Body cell = Code { -- native Haskell version
 
 -- Values that can be stored on the stack
 data Cell cell => ForthValue cell = Continuation (ColonSlice cell)  |
-                                    Address Key cell | Val cell deriving (Eq, Show)
+                                    Address Key cell | Val cell |
+                                    UndefinedValue deriving (Eq, Show)
 type (ForthValues cell) = [ForthValue cell]
 
 -- A Forth native lambda should obey this signature

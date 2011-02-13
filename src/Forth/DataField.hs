@@ -18,7 +18,7 @@ data DataField cell = DataField { dataSize :: cell,
                                   conf :: Configuration cell,
                                   objects :: Map cell (DataObject cell) }
 
-data DataObject cell = Cell cell | Byte Word8
+data DataObject cell = Cell cell | Byte Word8 | Undefined
 
 -- Allocate a data field of the given size
 allot n conf = DataField n conf Map.empty
@@ -27,6 +27,7 @@ allot n conf = DataField n conf Map.empty
 --   When writing a cell, kill any bytes it overlaps.
 --   When writing a byte, kill any cell that overlaps it.
 storeData :: Cell cell => DataObject cell -> cell -> DataField cell -> DataField cell
+storeData Undefined _ field = field { objects = Map.empty }  -- remove all
 storeData obj offset field =
     let n = bytesPerCell (conf field)
         limitedOffsets = take (fromIntegral (n - 1)) offsets
@@ -43,5 +44,5 @@ storeData obj offset field =
 fetchData :: Cell cell => cell -> DataField cell -> DataObject cell
 fetchData offset field =
     case Map.lookup offset (objects field) of
-      Nothing -> Cell 0
+      Nothing -> Undefined
       Just val -> val

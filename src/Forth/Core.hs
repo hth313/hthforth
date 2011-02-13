@@ -12,30 +12,28 @@ import Control.Monad
 import Data.Bits
 import Forth.Cell
 import Forth.Configuration
-import Forth.DataField
+import Forth.DataField hiding (conf)
 import Forth.Machine
 --import Forth.Input
 import qualified Data.Map as Map
 import Text.Parsec.Error
 import System.IO
 
-binary :: Cell cell => (ForthValue cell -> ForthValue cell -> ForthValue cell) ->
-          StateT (Machine cell) IO ()
-binary op = do
-  ensureStack 2
-  update (\s ->
-      let tos : nos : rest = stack s
-      in s { stack = op tos nos : rest })
+binary :: Cell cell => (ForthValue cell -> ForthValue cell -> ForthValue cell) -> String ->
+          ForthLambda cell
+binary op name = ensureStack name [isValue, isValue] action where
+    action = update (\s ->
+                 let tos : nos : rest = stack s
+                 in s { stack = op tos nos : rest })
 
-unary op = do
-  ensureStack 1
-  update (\s ->
-      let tos : rest = stack s
-      in s { stack = op tos : rest })
+unary :: Cell cell => (ForthValue cell -> ForthValue cell) -> String -> ForthLambda cell
+unary op name = ensureStack name [isValue] action where
+    action = update (\s ->
+                 let tos : rest = stack s
+                 in s { stack = op tos : rest })
 
-updateStack n f = do
-  ensureStack n
-  update (\s -> s { stack = f (stack s) })
+updateStack n f name = ensureStack name (replicate n isAny) action where
+    action = update (\s -> s { stack = f (stack s) })
 
 instance Cell cell => Num (ForthValue cell) where
     (Val a) + (Val b) = Val (a + b)
@@ -53,99 +51,125 @@ instance Cell cell => Bits (ForthValue cell) where
     bitSize (Val a) = bitSize a
     isSigned (Val a) = isSigned a
 
--- TODO: validate stack size
-ensureStack, ensureReturnStack :: Cell cell => Int -> ForthLambda cell
-ensureStack n = return ()
-ensureReturnStack n = return ()
+ensureStack, ensureReturnStack ::
+    Cell cell => String -> [ForthValue cell -> Bool] -> ForthLambda cell -> ForthLambda cell
+ensureStack = ensure stack
+ensureReturnStack = ensure rstack
+
+ensure :: Cell cell => (Machine cell -> ForthValues cell) -> String ->
+          [ForthValue cell -> Bool] -> ForthLambda cell -> ForthLambda cell
+ensure stack name preds action = do
+  s <- readMachine stack
+  if length preds > length s
+      then liftIO $ hPutStrLn stderr ("Empty stack for " ++ name)
+      else
+          let pairs = (zip preds s)
+              vals = map (\(f,a) -> f a) pairs
+          in if and vals
+                then action
+                else liftIO $ hPutStrLn stderr ("Bad stack argument for " ++ name ++
+                                                ", stack is " ++ show (map snd pairs))
+
+isValue (Val _) = True
+isValue _ = False
+isAddress (Address _ _) = True
+isAddress _ = False
+isAny = const True
 
 -- | Define native and word header related words as lambdas
-nativeWords :: Cell cell => StateT (Machine cell) IO ()
-nativeWords = mapM_ native [-- Data stack
-                      ("DROP", updateStack 1 tail),
-                      ("DUP", updateStack 1 (\st -> head st : st)),
-                      ("OVER", updateStack 2 (\st -> head (tail st) : st)),
-                      ("SWAP", updateStack 2 (\(s1:s2:ss) -> s2:s1:ss)),
-                      ("ROT", updateStack 3 (\(s1:s2:s3:ss) -> s3:s1:s2:ss)),
-                      -- Return stack
-                      (">R", tor),
-                      (">R", rto),
-                      ("R@", rfetch),
-                      -- ALU
-                      ("+", binary (+)),
-                      ("*", binary (+)),
-                      ("-", binary (-)),
-                      ("AND", binary (.&.)),
-                      ("OR", binary (.|.)),
-                      ("XOR", binary xor),
-                      ("0<", unary (\(Val n) -> if n < 0 then -1 else 0)),
-                      -- Load and store
-                      ("!", store Cell),
-                      ("C!", store (Byte . fromIntegral)),
-                      ("@", fetch cellValue),
-                      ("C@", fetch charValue),
-                      -- Cell size and address related
-                      ("CHAR+", unary (1+)), -- characters are just bytes
-                      ("CHARS", unary id),
-                      ("CELL+", cellSize >>= \n -> unary (Val n +)),
-                      ("CELLS", cellSize >>= \n -> unary (Val n *)),
-                      -- Lambda versions of compiler words
-                      ("IMMEDIATE", immediateWord),
---                      ("CREATE", create),
---                      ("POSTPONE", postpone)
-                      ("EXIT", exit),
-                      -- Block related
-                      ("LOAD", loadScreen)
-
-        ]
+nativeWords :: Cell cell => ForthLambda cell
+nativeWords =
+  sequence_ (map native [-- Data stack
+                         ("DROP", updateStack 1 tail),
+                         ("DUP", updateStack 1 (\st -> head st : st)),
+                         ("OVER", updateStack 2 (\st -> head (tail st) : st)),
+                         ("SWAP", updateStack 2 (\(s1:s2:ss) -> s2:s1:ss)),
+                         ("ROT", updateStack 3 (\(s1:s2:s3:ss) -> s3:s1:s2:ss)),
+                         -- Return stack
+                         (">R", tor),
+                         (">R", rto),
+                         ("R@", rfetch),
+                         -- ALU
+                         ("+", binary (+)),
+                         ("*", binary (*)),
+                         ("-", binary (-)),
+                         ("AND", binary (.&.)),
+                         ("OR", binary (.|.)),
+                         ("XOR", binary xor),
+                         ("0<", unary (\(Val n) -> if n < 0 then -1 else 0)),
+                         -- Load and store
+                         ("!", store Cell),
+                         ("C!", store (Byte . fromIntegral)),
+                         ("@", fetch cellValue),
+                         ("C@", fetch charValue),
+                         -- Cell size and address related
+                         ("CHAR+", unary (1+)), -- characters are just bytes
+                         ("CHARS", unary id),
+                         ("CELL+", (\name -> cellSize >>= \n -> unary (Val n +) name)),
+                         ("CELLS", (\name -> cellSize >>= \n -> unary (Val n *) name)),
+                         -- Lambda versions of compiler words
+                         ("IMMEDIATE", immediateWord),
+                         --                      ("CREATE", create),
+                         --                      ("POSTPONE", postpone)
+                         ("EXIT", exit),
+                         -- Block related
+                         ("LOAD", loadScreen)
+                     ] ++ map variable [ "BLK" ])
     where native (name, fun) =
-              addWord $ ForthWord name False (Just (Code (Just fun) Nothing Nothing))
+              addWord $ ForthWord name False (Just (Code (Just (fun name)) Nothing Nothing))
+          variable name = do
+            sz <- cellSize
+            conf <- readMachine conf
+            addWord $ ForthWord name False (Just (Data (allot sz conf)))
 
-tor :: Cell cell => ForthLambda cell
-tor = do
-  ensureStack 1
-  update (\s -> s { rstack = head (stack s) : rstack s, stack = tail (stack s) })
+tor :: Cell cell => String -> ForthLambda cell
+tor name = ensureStack name [isAny] action where
+    action = update (\s -> s { rstack = head (stack s) : rstack s, stack = tail (stack s) })
 
-rto :: Cell cell => ForthLambda cell
-rto = do
-  ensureReturnStack 1
-  update (\s -> s { stack = head (rstack s) : stack s, rstack = tail (rstack s) })
+rto :: Cell cell => String -> ForthLambda cell
+rto name = ensureReturnStack name [isAny] action where
+    action = update (\s -> s { stack = head (rstack s) : stack s, rstack = tail (rstack s) })
 
-rfetch :: Cell cell => ForthLambda cell
-rfetch = do
-  ensureReturnStack 1
-  update (\s -> s { stack = head (rstack s) : stack s })
+rfetch :: Cell cell => String -> ForthLambda cell
+rfetch name = ensureReturnStack name [isAny] action where
+    action = update (\s -> s { stack = head (rstack s) : stack s })
 
-store :: Cell cell => (cell -> DataObject cell) -> StateT (Machine cell) IO ()
-store ctor = do
-  ensureStack 2
-  update (\s ->
-      case stack s of
-        (Val tos) : adr@(Address key offsetadr) : rest ->
-            let (word, offset, field) = addressField adr s
-                field' = storeData (ctor tos) offset field
-                write _ = Just $ word { body = Just (Data field') }
-            in s { stack = rest,
-                   wordKeyMap = Map.update write key (wordKeyMap s) }
-         )
+store :: Cell cell => (cell -> DataObject cell) -> String -> StateT (Machine cell) IO ()
+store ctor name = ensureStack name [isAddress, isValue] action where
+    action =
+        update (\s ->
+            case stack s of
+              adr@(Address key offsetadr) : (Val tos) : rest ->
+                  let (word, offset, field) = addressField adr s
+                      field' = storeData (ctor tos) offset field
+                      write _ = Just $ word { body = Just (Data field') }
+                  in s { stack = rest,
+                         wordKeyMap = Map.update write key (wordKeyMap s) }
+               )
 
 addressField (Address key offset) s =
     case Map.lookup key (wordKeyMap s) of
       Just word -> case body word of
                      Just (Data field) -> (word, offset, field)
 
-fetch :: Cell cell => (DataObject cell -> ForthValue cell) -> StateT (Machine cell) IO ()
-fetch fval = do
-  ensureStack 1
-  update (\s -> case stack s of
-                  adr@(Address key offsetadr) : rest ->
-                      let (word, offset, field) = addressField adr  s
-                          val = fval $ fetchData offset field
-                      in s { stack = val : rest } )
+fetch :: Cell cell =>
+         (DataObject cell -> ForthValue cell) -> String -> StateT (Machine cell) IO ()
+fetch fval name = ensureStack name [isAddress] action where
+  action = update (\s -> case stack s of
+               adr@(Address key offsetadr) : rest ->
+                   let (word, offset, field) = addressField adr  s
+                       val = fval $ fetchData offset field
+                   in s { stack = val : rest }
+               otherwise -> s  -- TODO: could use an error here
+         )
+
 
 cellValue (Cell val) = Val val
 cellValue (Byte val) = Val 0 -- TODO: error
+cellValue Undefined = UndefinedValue
 charValue (Byte val) = Val (fromIntegral val)
 charValue (Cell val) = Val 0 -- TODO: error
+charValue Undefined = UndefinedValue
 
 {-
 create = do
@@ -158,16 +182,16 @@ create = do
              wordNameMap = Map.insert name key (wordNameMap s) })
 -}
 
-immediateWord :: Cell cell => ForthLambda cell
-immediateWord =
+immediateWord :: Cell cell => String -> ForthLambda cell
+immediateWord name =
   update (\s ->
       case lastWord s of
         Just key -> s { wordKeyMap = Map.update (\word -> Just $ word { immediate = True })
                                      key (wordKeyMap s) }
         Nothing -> s)
 
-exit :: Cell cell => ForthLambda cell
-exit =
+exit :: Cell cell => String -> ForthLambda cell
+exit name  =
   update (\s ->
       let (Continuation slice : rstack') = rstack s
       in s { rstack = rstack', ip = slice })
@@ -194,12 +218,13 @@ compile word =
             in case lastWord s of
                  Just key -> s { wordKeyMap = Map.update f key (wordKeyMap s) })
 
-loadScreen :: Cell cell => ForthLambda cell
-loadScreen = do
-    n <- StateT (\s ->
-             let (Val n) : ns = stack s
-             in return (n, s { stack = ns }))
-    result <- load (fromIntegral n)
-    case result of
-      Left err -> liftIO $ hPutStrLn stderr (show err)
-      Right () -> return ()
+loadScreen :: Cell cell => String -> ForthLambda cell
+loadScreen name = ensureStack "LOAD" [isValue] action where
+    action = do
+      n <- StateT (\s ->
+               case stack s of
+                 (Val n) : ns -> return (n, s { stack = ns }))
+      result <- load (fromIntegral n)
+      case result of
+        Left err -> liftIO $ hPutStrLn stderr err
+        Right () -> return ()

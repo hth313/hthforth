@@ -1,5 +1,6 @@
-( block 1  -- Load block )
+( block 1  -- Main load block )
 
+: FH  BLK @ + ;  \ relative block
 100 LOAD
 ( shadow 1 )
 ( block 2 )
@@ -7,22 +8,32 @@
 ( block 3 )
 ( shadow 3 )
 
+( block 10 )
+( shadow 10 )
+( block 11 )
+( shadow 11 )
+( block 12 )
+( shadow 12 )
+
 ( block 100 )
 
-: NIP ( n1 n2 -- n2)   SWAP DROP ;
+1 FH LOAD  \ stack primitives
+2 FH LOAD  \ ALU
+
+( shadow 100 )
+( block 101 stack primitives )
+
 : 2DROP   DROP DROP ;
 : 2DUP  OVER OVER ;
 : ?DUP  DUP IF DUP THEN ;
+( shadow 101 )
+( block 102  ALU )
 
 : 1+  1 + ;
 : 1-  1 - ;
 : INVERT  -1 XOR ;
 : NEGATE  INVERT 1+ ;
 : ABS  DUP 0< IF NEGATE THEN ;
-( shadow 100 )
-( block 101 )
-( shadow 101 )
-( block 102 )
 
 ( shadow 102 )
 ( block 103 )

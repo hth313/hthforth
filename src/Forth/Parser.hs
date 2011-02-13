@@ -28,10 +28,21 @@ import Text.Parsec.Error
 
 type Parser a = Cell cell => ParsecT String () (StateT (Machine cell) IO) a
 
+parseErrorText err =
+    let text = tail $ snd $ break ('\n'==) (show err)
+        join [] = []
+        join [s] = s
+        join (l:ls) = l ++ ", " ++ join ls
+    in join (lines text)
+
 -- | The parser is based on Parsec and run as a Monad tranformer with the Forth Machine
 --   monad as the inner monad.
-parseForth :: Cell cell => String -> String -> StateT (Machine cell) IO (Either ParseError ())
-parseForth screenName text = runParserT (whiteSpace >> topLevel) () screenName text
+parseForth :: Cell cell => String -> String -> StateT (Machine cell) IO (Either String ())
+parseForth screenName text = do
+    result <- runParserT (whiteSpace >> topLevel) () screenName text
+    return $ case result of
+               Left err -> Left (parseErrorText err)
+               Right val -> Right val
 
 lexer :: Cell cell => P.GenTokenParser String () (StateT (Machine cell) IO)
 lexer  = P.makeTokenParser (P.LanguageDef { P.commentStart = "( ",
