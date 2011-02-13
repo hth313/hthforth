@@ -113,7 +113,7 @@ nativeWords =
                          --                      ("POSTPONE", postpone)
                          ("EXIT", exit),
                          -- Block related
-                         ("LOAD", loadScreen)
+                         ("(LOAD)", loadScreen)
                      ] ++ map variable [ "BLK" ])
     where native (name, fun) =
               addWord $ ForthWord name False (Just (Code (Just (fun name)) Nothing Nothing))
@@ -219,7 +219,7 @@ compile word =
                  Just key -> s { wordKeyMap = Map.update f key (wordKeyMap s) })
 
 loadScreen :: Cell cell => String -> ForthLambda cell
-loadScreen name = ensureStack "LOAD" [isValue] action where
+loadScreen name = ensureStack name [isValue] action where
     action = do
       n <- StateT (\s ->
                case stack s of

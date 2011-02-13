@@ -89,20 +89,6 @@ wordFromName name =
 cellSize :: Cell cell => StateT (Machine cell) IO cell
 cellSize = StateT (\s -> return (bytesPerCell (conf s), s))
 
--- | Update a variable an get its old value back. Mainly intended for update of special
---   variables such as BLK while loading screens.
-updateVariable name newval = StateT (\s ->
-    case Map.lookup name (wordNameMap s) of
-      Just key ->
-          case Map.lookup key (wordKeyMap s) of
-            Just word ->
-                case body word of
-                  Just (Data field) ->
-                      let word' = word { body = Just (Data (storeData newval 0 field)) }
-                      in return (fetchData 0 field,
-                                 s { wordKeyMap = Map.update (const $ Just word') key
-                                                  (wordKeyMap s) }))
-
 -- | Load an entire set of screens from a file
 loadScreens :: Cell cell => FilePath -> StateT (Machine cell) IO ()
 loadScreens filepath = do
@@ -118,9 +104,7 @@ load n = do
   liftIO $ putStr $ (show n) ++ " " -- show loading
   case text of
     Just text -> do
-          oldval <- updateVariable "BLK" (Cell (fromIntegral n))
           result <- parser ("screen " ++ show n) text
-          updateVariable "BLK" oldval
           return result
     Nothing -> return $ Left ("Screen does not exist: " ++ show n)
 

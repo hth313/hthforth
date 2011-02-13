@@ -1,6 +1,8 @@
 ( block 1  -- Main load block )
 
 : FH  BLK @ + ;  \ relative block
+: LOAD  BLK @ SWAP DUP BLK ! (LOAD) BLK ! ;
+
 100 LOAD
 ( shadow 1 )
 ( block 2 )
