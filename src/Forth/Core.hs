@@ -72,6 +72,7 @@ nativeWords =
                  -- ALU
                  ("+", binary (+)),
                  ("UM*", umstar),
+                 ("M*", umstar),
                  ("-", binary (-)),
                  ("AND", binary (.&.)),
                  ("OR", binary (.|.)),
@@ -230,12 +231,27 @@ ult (Val n1) (Val n2) =
         u2 = fromIntegral n2
     in if u1 < u2 then true else false
 
-umstar name = ensureStack name [isValue, isValue] action where
+-- Signed multiply to double cell
+mstar name = ensureStack name [isValue, isValue] action where
     action = update (\s -> case stack s of
                              Val n1 : Val n2 : stack' ->
                                  let v1, v2 :: Integer
                                      v1 = fromIntegral n1
-                                     v2 = fromIntegral v2
+                                     v2 = fromIntegral n2
+                                     prod = v1 * v2
+                                     lo = fromIntegral prod
+                                     hi = fromIntegral $ prod `shiftR` (bitSize n1)
+                                 in s { stack = hi : lo : stack' })
+
+-- Unsigned multiply to double cell
+umstar name = ensureStack name [isValue, isValue] action where
+    action = update (\s -> case stack s of
+                             Val n1 : Val n2 : stack' ->
+                                 let v1, v2 :: Integer
+                                     v1 = uext n1
+                                     v2 = uext n2
+                                     uext n = mask .&. (fromIntegral n)
+                                     mask = (1 `shiftL` bitSize n1) - 1
                                      prod = v1 * v2
                                      lo = fromIntegral prod
                                      hi = fromIntegral $ prod `shiftR` (bitSize n1)
