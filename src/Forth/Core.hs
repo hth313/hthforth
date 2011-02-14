@@ -8,6 +8,7 @@
 
 module Forth.Core (nativeWords) where
 
+import Data.Word
 import Control.Monad
 import Data.Bits
 import Forth.Cell
@@ -51,6 +52,10 @@ instance Cell cell => Bits (ForthValue cell) where
     bitSize (Val a) = bitSize a
     isSigned (Val a) = isSigned a
 
+true, false :: Cell cell => ForthValue cell
+true = -1
+false = 0
+
 -- | Define native and word header related words as lambdas
 nativeWords :: Cell cell => ForthLambda cell
 nativeWords =
@@ -71,7 +76,9 @@ nativeWords =
                  ("AND", binary (.&.)),
                  ("OR", binary (.|.)),
                  ("XOR", binary xor),
-                 ("0<", unary (\(Val n) -> if n < 0 then -1 else 0)),
+                 ("0<", unary (\(Val n) -> if n < 0 then true else false)),
+                 ("0=", unary (\(Val n) -> if n == 0 then true else false)),
+                 ("U<", binary ult),
                  -- Load and store
                  ("!", store Cell),
                  ("C!", store (Byte . fromIntegral)),
@@ -215,3 +222,10 @@ thru name = ensureStack name [isValue, isValue] action where
         Just load ->
             let makedef n = [Literal (Val n), load]
             in executeColonSlice (concatMap makedef range)
+
+ult :: Cell cell => ForthValue cell -> ForthValue cell -> ForthValue cell
+ult (Val n1) (Val n2) =
+    let u1, u2 :: Word64
+        u1 = fromIntegral n1
+        u2 = fromIntegral n2
+    in if u1 < u2 then true else false
