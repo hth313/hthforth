@@ -11,7 +11,7 @@ module Forth.Machine (ForthLambda, Key(..), Machine(..), ColonElement(..),
                       StateT(..), Construct(..),
                       liftIO, lift, createVariable, createConstant,
                       wordFromName, initialState, evalStateT,
-                      loadScreens, load, execute, pushLiteral, keyName,
+                      loadScreens, load, execute, executeColonSlice, pushLiteral, keyName,
                       update, readMachine, addWord, cellSize,
                       ensureStack, ensureReturnStack, isValue, isAddress, isAny) where
 
@@ -131,23 +131,25 @@ execute key = do
   case word of
     Just word -> case body word of
                    Just (Code (Just lambda) _ _) -> lambda >> next
-                   Just (Code _ _ (Just colonSlice)) -> do
-                       update (\s -> s { ip = colonSlice,
-                                         rstack = Continuation (ip s) : rstack s })
-                       next
+                   Just (Code _ _ (Just colonSlice)) ->
+                       executeColonSlice colonSlice
                    Just (Data _) -> do
                        update (\s -> s { stack = Address key 0 : stack s} )
                        next
 
+executeColonSlice colonSlice = do
+    update (\s -> s { ip = colonSlice, rstack = Continuation (ip s) : rstack s })
+    next
+
 -- | Execute next word in colon definition
 next :: Cell cell => StateT (Machine cell) IO ()
 next = do
-  lst <- readMachine ip
+--  lst <- readMachine ip
 --  liftIO $ putStrLn (show lst)
   action <- StateT (\s -> case ip s of
                             [] -> case rstack s of
                                     Continuation slice : rstack' ->
-                                        return (next, s { rstack = rstack' })
+                                        return (next, s { rstack = rstack', ip = slice })
                                     otherwise -> return (return (), s)
                             WordRef key : ip' -> return (execute key, s { ip = ip' })
                             Literal val : ip' ->

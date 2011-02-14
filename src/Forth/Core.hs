@@ -88,7 +88,8 @@ nativeWords =
                  --                      ("POSTPONE", postpone)
                  ("EXIT", exit),
                  -- Block related
-                 ("(LOAD)", loadScreen)
+                 ("(LOAD)", loadScreen),
+                 ("THRU", thru)
              ]
     where native (name, fun) =
               addWord $ ForthWord name False (Just (Code (Just (fun name)) Nothing Nothing))
@@ -192,10 +193,25 @@ compile word =
 loadScreen :: Cell cell => String -> ForthLambda cell
 loadScreen name = ensureStack name [isValue] action where
     action = do
-      n <- StateT (\s ->
-               case stack s of
-                 (Val n) : ns -> return (n, s { stack = ns }))
+      (n, rstack1, ip1) <-
+          StateT (\s ->
+              case stack s of
+                (Val n) : ns -> return ((n, rstack s, ip s),
+                                        s { stack = ns, ip = [], rstack = [] }))
       result <- load (fromIntegral n)
+      update (\s -> s { ip = ip1, rstack = rstack1 })
       case result of
         Left err -> liftIO $ hPutStrLn stderr err
         Right () -> return ()
+
+-- THRU, load a range of sceens. Implemented here since we do not have looping
+-- capabilitty at Forth level from start.
+thru name = ensureStack name [isValue, isValue] action where
+    action = do
+      range <- StateT (\s -> case stack s of
+                               Val to : Val from : ns -> return ([from..to], s))
+      word <- wordFromName "LOAD"
+      case word of
+        Just load ->
+            let makedef n = [Literal (Val n), load]
+            in executeColonSlice (concatMap makedef range)
