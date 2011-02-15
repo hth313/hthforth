@@ -81,6 +81,7 @@ nativeWords =
                  ("0<", unary (\(Val n) -> if n < 0 then true else false)),
                  ("0=", unary (\(Val n) -> if n == 0 then true else false)),
                  ("U<", binary ult),
+                 ("2/", unary (`shiftR` 1)),
                  -- Load and store
                  ("!", store Cell),
                  ("C!", store (Byte . fromIntegral)),
