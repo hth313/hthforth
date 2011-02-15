@@ -67,11 +67,12 @@ nativeWords =
                  ("ROT", updateStack 3 (\(s1:s2:s3:ss) -> s3:s1:s2:ss)),
                  -- Return stack
                  (">R", tor),
-                 (">R", rto),
+                 ("R>", rto),
                  ("R@", rfetch),
                  -- ALU
                  ("+", binary (+)),
                  ("UM*", umstar),
+                 ("UM/MOD", ummod),
                  ("M*", umstar),
                  ("-", binary (-)),
                  ("AND", binary (.&.)),
@@ -243,16 +244,26 @@ mstar name = ensureStack name [isValue, isValue] action where
                                      hi = fromIntegral $ prod `shiftR` (bitSize n1)
                                  in s { stack = hi : lo : stack' })
 
+uext :: Cell cell => cell -> Integer
+uext n = mask .&. (fromIntegral n) where
+    mask = (1 `shiftL` bitSize n) - 1
+
 -- Unsigned multiply to double cell
 umstar name = ensureStack name [isValue, isValue] action where
     action = update (\s -> case stack s of
                              Val n1 : Val n2 : stack' ->
-                                 let v1, v2 :: Integer
-                                     v1 = uext n1
+                                 let v1 = uext n1
                                      v2 = uext n2
-                                     uext n = mask .&. (fromIntegral n)
-                                     mask = (1 `shiftL` bitSize n1) - 1
                                      prod = v1 * v2
                                      lo = fromIntegral prod
                                      hi = fromIntegral $ prod `shiftR` (bitSize n1)
                                  in s { stack = hi : lo : stack' })
+
+-- Unsigned double cell to cell divide and remainder
+ummod name = ensureStack name [isValue, isValue, isValue] action where
+    action = update (\s -> case stack s of
+                             Val n3 : Val n2 : Val n1 : stack' ->
+                                 let ud = uext n2 `shiftL` bitSize n1
+                                     u = uext n3
+                                     (quot, rem) = ud `quotRem` u
+                                 in s { stack = fromIntegral quot : fromIntegral rem : stack'})
