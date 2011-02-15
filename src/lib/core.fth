@@ -20,46 +20,82 @@ VARIABLE BLK
 
 ( block 100 )
 
-1 FH LOAD  \ stack primitives
-2 FH LOAD  \ ALU
+1 FH 6 FH THRU
 
 ( shadow 100 )
 ( block 101 stack primitives )
 
+: ROT   >R SWAP R> SWAP ;
+: -ROT  SWAP >R SWAP R> ;  \ or ROT ROT
+: ?DUP  DUP IF DUP THEN ;
+: NIP  ( n1 n2 -- n2 )       SWAP DROP ;
+: TUCK ( n1 n2 -- n2 n1 n2 ) SWAP OVER ;
+
 : 2DROP   DROP DROP ;
 : 2DUP  OVER OVER ;
-: ?DUP  DUP IF DUP THEN ;
+: 2SWAP  ROT >R ROT R> ;
+: 2OVER  >R >R 2DUP R> R> 2SWAP ;
 ( shadow 101 )
-( block 102  ALU )
+( block 102  comparisons )
+
+-1 CONSTANT TRUE   0 CONSTANT FALSE
+
+:  =  ( n n -- f) XOR  0= ;
+:  < ( n n -- f ) - 0< ;
+:  > ( n n -- f ) SWAP < ;
+
+: MAX ( n n -- n ) 2DUP < IF SWAP THEN DROP ;
+: MIN ( n n -- n ) 2DUP > IF SWAP THEN DROP ;
+
+: WITHIN  ( u ul uh -- f ) OVER - >R - R> U< ;
+( shadow 102 )
+( block 103 ALU )
 
 : 1+  1 + ;
 : 1-  1 - ;
-: INVERT  -1 XOR ;
+: INVERT  TRUE XOR ;
 : NEGATE  INVERT 1+ ;
-: ABS  DUP 0< IF NEGATE THEN ;
+: DNEGATE  INVERT SWAP NEGATE TUCK 0= - ;
+: S>D  ( n -- d ) DUP 0< ;   \ sign extend
+: ABS  S>D IF NEGATE THEN ;
+: DABS  DUP 0< IF DNEGATE THEN ;
 
-( shadow 102 )
-( block 103 )
+
+: +-  0< IF NEGATE THEN ;
+: D+- 0< IF DNEGATE THEN ;
+
 ( shadow 103 )
-( block 104 )
+( block 104  variables )
+
+VARIABLE BASE
+: DECIMAL 10 BASE ! ;   : HEX 16 BASE ! ;
 ( shadow 104 )
-( block 105 interpreter )
+( block 105 math )
 
-CREATE _INPUT-BUFFER 80 CHARS ALLOT ( may do this internally? )
+: SM/REM ( d n -- r q )  \ symmetric
+  OVER >R >R DABS R@ ABS UM/MOD
+  R> R@ XOR 0< IF NEGATE THEN
+  R> 0< IF >R NEGATE R> THEN ;
 
-: EVALUATE  >IN @ >R 0 >IN ! SOURCE >R >R #IN 2! _INTERPRET
-    R> R> #IN 2! R> >IN ! ;
+: FM/MOD ( d n -- r q )  \ floored
+  DUP 0< DUP >R IF NEGATE >R DNEGATE R> THEN
+  >R DUP 0< IF R@ + THEN
+  R> UM/MOD R> IF >R NEGATE R> THEN ;
 
-: QUIT  _RESET-RSTACK
-      BEGIN
-        BEGIN
-	  _READ-LINE 0 >IN ! _INPUT-BUFFER 0 EVALUATE CR
-	  STATE @
-        UNTIL ." ok "  ( exhausted input in interpretation mode )
-      AGAIN ;
+: /MOD OVER 0< SWAP FM/MOD ;
+: MOD  /MOD DROP ;
+: /    /MOD NIP ;
 
-  ( shadow 105 )
-( block 106 )
+( shadow 105 )
+( block 106  math continued )
+
+: *  UM* DROP ;
+: M*  2DUP XOR R> ABS SWAP ABS UM* R> D+- ;
+: */MOD  >R M* R> FM/MOD ;
+: */     */MOD NIP ;
+
+: 2* DUP + ;
+\ 2/ which is right shift is native
 ( shadow 106 )
 ( block 107 )
 ( shadow 107 )
@@ -83,5 +119,18 @@ VARIABLE STATE  ( compilation state variable )
 ( shadow 110 )
 ( block 111 )
 ( shadow 111 )
-( block 112 )
+( block 112 interpreter )
+
+CREATE _INPUT-BUFFER 80 CHARS ALLOT ( may do this internally? )
+
+: EVALUATE  >IN @ >R 0 >IN ! SOURCE >R >R #IN 2! _INTERPRET
+    R> R> #IN 2! R> >IN ! ;
+
+: QUIT  _RESET-RSTACK
+      BEGIN
+        BEGIN
+	  _READ-LINE 0 >IN ! _INPUT-BUFFER 0 EVALUATE CR
+	  STATE @
+        UNTIL ." ok "  ( exhausted input in interpretation mode )
+      AGAIN ;
 ( shadow 112 )
