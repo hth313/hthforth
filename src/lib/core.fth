@@ -4,7 +4,7 @@ VARIABLE BLK
 : FH  BLK @ + ;  \ relative block
 : LOAD  BLK @ SWAP DUP BLK ! (LOAD) BLK ! ;
 
-100 LOAD
+30 LOAD
 ( shadow 1 )
 ( block 2 )
 ( shadow 2 )
@@ -18,16 +18,18 @@ VARIABLE BLK
 ( block 12 )
 ( shadow 12 )
 
-( block 100 )
+( block 30  CORE words )
 
 1 FH 6 FH THRU
 
-( shadow 100 )
-( block 101 stack primitives )
+( shadow 30 )
+( block 31 stack primitives )
 
 : ROT   >R SWAP R> SWAP ;
-\ : -ROT  SWAP >R SWAP R> ;  \ or ROT ROT
 : ?DUP  DUP IF DUP THEN ;
+
+( Not part of CORE, disabled at the moment )
+\ : -ROT  SWAP >R SWAP R> ;  \ or ROT ROT
 \ : NIP  ( n1 n2 -- n2 )       SWAP DROP ;
 \ : TUCK ( n1 n2 -- n2 n1 n2 ) SWAP OVER ;
 
@@ -35,8 +37,8 @@ VARIABLE BLK
 : 2DUP  OVER OVER ;
 : 2SWAP  ROT >R ROT R> ;
 : 2OVER  >R >R 2DUP R> R> 2SWAP ;
-( shadow 101 )
-( block 102  comparisons )
+( shadow 31 )
+( block 32  comparisons )
 
 -1 CONSTANT TRUE   0 CONSTANT FALSE
 
@@ -48,8 +50,8 @@ VARIABLE BLK
 : MIN ( n n -- n ) 2DUP > IF SWAP THEN DROP ;
 
 : WITHIN  ( u ul uh -- f ) OVER - >R - R> U< ;
-( shadow 102 )
-( block 103 ALU )
+( shadow 32 )
+( block 33 ALU )
 
 : 1+  1 + ;
 : 1-  1 - ;
@@ -60,17 +62,16 @@ VARIABLE BLK
 : ABS  S>D IF NEGATE THEN ;
 : DABS  DUP 0< IF DNEGATE THEN ;
 
-
 : +-  0< IF NEGATE THEN ;
 : D+- 0< IF DNEGATE THEN ;
 
-( shadow 103 )
-( block 104  variables )
+( shadow 33 )
+( block 34  variables )
 
 VARIABLE BASE
 : DECIMAL 10 BASE ! ;   : HEX 16 BASE ! ;
-( shadow 104 )
-( block 105 math )
+( shadow 34 )
+( block 35 math )
 
 : SM/REM ( d n -- r q )  \ symmetric
   OVER >R >R DABS R@ ABS UM/MOD
@@ -86,24 +87,30 @@ VARIABLE BASE
 : MOD  /MOD DROP ;
 : /    /MOD SWAP DROP ;
 
-( shadow 105 )
-( block 106  math continued )
+( shadow 35 )
+( block 36  math continued )
 
 : *  UM* DROP ;
 : M*  2DUP XOR R> ABS SWAP ABS UM* R> D+- ;
 : */MOD  >R M* R> FM/MOD ;
-: */     */MOD NIP ;
+: */     */MOD SWAP DROP ;
 
 : 2* DUP + ;
 \ 2/ which is right shift is native
-( shadow 106 )
-( block 107 )
-( shadow 107 )
-( block 108 )
-( shadow 108 )
-( block 109 )
-( shadow 109 )
-( block 110 compiler )
+
+: LSHIFT ( x1 u -- x2 )
+  BEGIN DUP WHILE SWAP 2* SWAP 1- REPEAT DROP ;
+
+: RSHIFT ( x1 u -- x2 )
+  BEGIN DUP WHILE SWAP 2/ SWAP 1- REPEAT DROP ;
+  ( shadow 36 )
+( block 37 )
+( shadow 37 )
+( block 38 )
+( shadow 38 )
+( block 39 )
+( shadow 39 )
+( block 40 compiler )
 
 : VARIABLE CREATE 1 CELLS ALLOT ;
 
@@ -116,10 +123,10 @@ VARIABLE STATE  ( compilation state variable )
 : :  CREATE ] ;
 : ;  POSTPONE EXIT SMUDGE [ ; IMMEDIATE
 
-( shadow 110 )
-( block 111 )
-( shadow 111 )
-( block 112 interpreter )
+( shadow 40 )
+( block 41 )
+( shadow 41 )
+( block 42 interpreter )
 
 CREATE _INPUT-BUFFER 80 CHARS ALLOT ( may do this internally? )
 
@@ -133,4 +140,4 @@ CREATE _INPUT-BUFFER 80 CHARS ALLOT ( may do this internally? )
 	  STATE @
         UNTIL ." ok "  ( exhausted input in interpretation mode )
       AGAIN ;
-( shadow 112 )
+( shadow 42 )
