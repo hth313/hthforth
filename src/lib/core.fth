@@ -26,10 +26,10 @@ VARIABLE BLK
 ( block 101 stack primitives )
 
 : ROT   >R SWAP R> SWAP ;
-: -ROT  SWAP >R SWAP R> ;  \ or ROT ROT
+\ : -ROT  SWAP >R SWAP R> ;  \ or ROT ROT
 : ?DUP  DUP IF DUP THEN ;
-: NIP  ( n1 n2 -- n2 )       SWAP DROP ;
-: TUCK ( n1 n2 -- n2 n1 n2 ) SWAP OVER ;
+\ : NIP  ( n1 n2 -- n2 )       SWAP DROP ;
+\ : TUCK ( n1 n2 -- n2 n1 n2 ) SWAP OVER ;
 
 : 2DROP   DROP DROP ;
 : 2DUP  OVER OVER ;
@@ -55,7 +55,7 @@ VARIABLE BLK
 : 1-  1 - ;
 : INVERT  TRUE XOR ;
 : NEGATE  INVERT 1+ ;
-: DNEGATE  INVERT SWAP NEGATE TUCK 0= - ;
+: DNEGATE  INVERT SWAP NEGATE SWAP OVER 0= - ;
 : S>D  ( n -- d ) DUP 0< ;   \ sign extend
 : ABS  S>D IF NEGATE THEN ;
 : DABS  DUP 0< IF DNEGATE THEN ;
@@ -84,7 +84,7 @@ VARIABLE BASE
 
 : /MOD OVER 0< SWAP FM/MOD ;
 : MOD  /MOD DROP ;
-: /    /MOD NIP ;
+: /    /MOD SWAP DROP ;
 
 ( shadow 105 )
 ( block 106  math continued )
