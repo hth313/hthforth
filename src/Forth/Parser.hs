@@ -93,7 +93,10 @@ colonWord :: Cell cell => ParsecT String () (StateT (Machine cell) IO) (ColonEle
 colonWord = try (identifier >>= compileToken ) <|>
                 (reserved "IF" >> return (Structure IF)) <|>
                 (reserved "ELSE" >> return (Structure ELSE)) <|>
-                (reserved "THEN" >> return (Structure THEN)) <?> "word"
+                (reserved "THEN" >> return (Structure THEN)) <|>
+                (reserved "BEGIN" >> return (Structure BEGIN)) <|>
+                (reserved "WHILE" >> return (Structure WHILE)) <|>
+                (reserved "REPEAT" >> return (Structure REPEAT)) <?> "word"
 
 compileToken name = do
   word <- lift $ wordFromName name

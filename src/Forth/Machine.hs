@@ -64,7 +64,17 @@ compileStructure key body@(Code _ _ (Just colon)) =
               let colon' = IntMap.update (const (Just (branch (key, nthen + 1)))) n colon
                   colon'' = IntMap.update (const (Just NOP)) nthen colon'
               in (stack, colon'')
+        visit (stack, colon) (n, Structure BEGIN) =
+            let colon' = IntMap.update (const (Just NOP)) n colon'
+            in ((n, Begin) : stack, colon')
+        visit (stack, colon) (n, Structure WHILE) =  ((n, While) : stack, colon)
+        visit ((nwhile, while) : (nbegin, begin) : stack, colon) (n, Structure REPEAT)
+              | while x == While x && begin x == Begin x =
+                  let colon' = IntMap.update (const (Just (Branch (key, nbegin)))) n colon
+                      colon'' = IntMap.update (const (Just (CondBranch False (key, n + 1)))) nbegin colon'
+                  in (stack, colon'')
         visit acc ins = acc
+        x = (key, 0)
         (stack', colon') = foldl visit ([], IntMap.fromList numbered) numbered
         colonInt = IntMap.elems colon' -- TODO: replace with ColonSlice?
     in body { colon = Just (IntMap.elems colon') }
@@ -188,11 +198,13 @@ data Cell cell => ColonElement cell = WordRef Key |
                                       Structure Construct |
                                       CondBranch Bool Destination |
                                       Branch Destination |
+                                      Begin Destination |
+                                      While Destination |
                                       NOP -- empty placeholder
                                       deriving (Show, Eq)
 type Destination = (Key, Int)  -- word and offset from current location
 
-data Construct = IF | ELSE | THEN deriving (Show, Eq)
+data Construct = IF | ELSE | THEN | BEGIN | WHILE | REPEAT deriving (Show, Eq)
 
 -- The contents of a colon definition body
 type (ColonSlice cell)  = [ColonElement cell]
