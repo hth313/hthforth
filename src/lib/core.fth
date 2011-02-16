@@ -20,7 +20,7 @@ VARIABLE BLK
 
 ( block 30  CORE words )
 
-1 FH 6 FH THRU
+1 FH 7 FH THRU
 
 ( shadow 30 )
 ( block 31 stack primitives )
@@ -70,6 +70,8 @@ VARIABLE BLK
 
 VARIABLE BASE
 : DECIMAL 10 BASE ! ;   : HEX 16 BASE ! ;
+
+VARIABLE DP
 ( shadow 34 )
 ( block 35 math )
 
@@ -104,7 +106,21 @@ VARIABLE BASE
 : RSHIFT ( x1 u -- x2 )
   BEGIN DUP WHILE SWAP 2/ SWAP 1- REPEAT DROP ;
   ( shadow 36 )
-( block 37 )
+( block 37 numeric output primitives )
+
+VARIABLE HLD
+: HERE ( -- addr )  DP @ ;
+: PAD ( -- c-addr )  HERE 64 CHARS + ;
+
+: <# ( -- )  PAD HLD ! ;
+: #> ( xd -- c-addr u )  2DROP HLD @ PAD OVER - ;
+: HOLD ( c -- )  HLD @ -1 CHARS - DUP HLD ! C! ;
+: DIGIT ( u -- c )  9 OVER < 7 AND + 30 +  ;
+: # ( ud1 -- ud2 )
+  0 BASE @ UM/MOD >R BASE @ UM/MOD SWAP DIGIT HOLD R> ;
+: #S ( ud1 -- ud2 )  BEGIN # 2DUP OR 0= UNTIL ;
+: SIGN ( n -- )  0< IF 45 ( - ) HOLD THEN ;
+
 ( shadow 37 )
 ( block 38 )
 ( shadow 38 )
