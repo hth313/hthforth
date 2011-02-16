@@ -73,6 +73,10 @@ compileStructure key body@(Code _ _ (Just colon)) =
                   let colon' = IntMap.update (const (Just (Branch (key, nbegin)))) n colon
                       colon'' = IntMap.update (const (Just (CondBranch False (key, n + 1)))) nbegin colon'
                   in (stack, colon'')
+        visit ((nbegin, begin) : stack, colon) (n, Structure UNTIL)
+              | begin x == Begin x =
+                  let colon' = IntMap.update (const (Just (CondBranch False (key, nbegin)))) n colon
+                  in (stack, colon')
         visit acc ins = acc
         x = (key, 0)
         (stack', colon') = foldl visit ([], IntMap.fromList numbered) numbered
@@ -204,7 +208,7 @@ data Cell cell => ColonElement cell = WordRef Key |
                                       deriving (Show, Eq)
 type Destination = (Key, Int)  -- word and offset from current location
 
-data Construct = IF | ELSE | THEN | BEGIN | WHILE | REPEAT deriving (Show, Eq)
+data Construct = IF | ELSE | THEN | BEGIN | WHILE | REPEAT | UNTIL deriving (Show, Eq)
 
 -- The contents of a colon definition body
 type (ColonSlice cell)  = [ColonElement cell]

@@ -96,6 +96,7 @@ colonWord = try (identifier >>= compileToken ) <|>
                 (reserved "THEN" >> return (Structure THEN)) <|>
                 (reserved "BEGIN" >> return (Structure BEGIN)) <|>
                 (reserved "WHILE" >> return (Structure WHILE)) <|>
+                (reserved "UNTIL" >> return (Structure UNTIL)) <|>
                 (reserved "REPEAT" >> return (Structure REPEAT)) <?> "word"
 
 compileToken name = do
