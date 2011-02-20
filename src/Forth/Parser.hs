@@ -26,7 +26,7 @@ import Text.Parsec.Char
 import Text.Parsec.Combinator
 import Text.Parsec.Error
 
-type Parser a = Cell cell => ParsecT String () (StateT (Machine cell) IO) a
+type Parser a = Cell cell => ParsecT String () (MachineM cell) a
 
 parseErrorText err =
     let text = tail $ snd $ break ('\n'==) (show err)
@@ -37,14 +37,14 @@ parseErrorText err =
 
 -- | The parser is based on Parsec and run as a Monad tranformer with the Forth Machine
 --   monad as the inner monad.
-parseForth :: Cell cell => String -> String -> StateT (Machine cell) IO (Either String ())
+parseForth :: Cell cell => String -> String -> (MachineM cell) (Either String ())
 parseForth screenName text = do
     result <- runParserT (whiteSpace >> topLevel) () screenName text
     return $ case result of
                Left err -> Left (parseErrorText err)
                Right val -> Right val
 
-lexer :: Cell cell => P.GenTokenParser String () (StateT (Machine cell) IO)
+lexer :: Cell cell => P.GenTokenParser String () (MachineM cell)
 lexer  = P.makeTokenParser (P.LanguageDef { P.commentStart = "( ",
                                             P.commentEnd = ")",
                                             P.commentLine = "\\",
@@ -89,7 +89,7 @@ colonDef = do
   lift $ addWord (ForthWord name False (Just $ Code Nothing Nothing (Just body)))
   return ()
 
-colonWord :: Cell cell => ParsecT String () (StateT (Machine cell) IO) (ColonElement cell)
+colonWord :: Cell cell => ParsecT String () (MachineM cell) (ColonElement cell)
 colonWord = try (identifier >>= compileToken ) <|>
                 (reserved "IF" >> return (Structure IF)) <|>
                 (reserved "ELSE" >> return (Structure ELSE)) <|>

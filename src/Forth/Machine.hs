@@ -6,13 +6,13 @@
 
 -}
 
-module Forth.Machine (ForthLambda, Key(..), Machine(..), ColonElement(..),
+module Forth.Machine (MachineM, ForthLambda, Key(..), Machine(..), ColonElement(..),
                       ColonSlice, ForthWord(..), Body(..), ForthValue(..), ForthValues,
                       StateT(..), Construct(..),
                       liftIO, lift, createVariable, createConstant,
-                      wordFromName, initialState, evalStateT,
+                      wordFromName, initialState, evalStateT, configuration,
                       loadScreens, load, execute, executeColonSlice, pushLiteral, keyName,
-                      update, readMachine, addWord, cellSize,
+                      update, readMachine, addWord, cellSize, executionTokenSize,
                       ensureStack, ensureReturnStack, isValue, isAddress, isAny) where
 
 import Data.Bits
@@ -21,22 +21,27 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
-import Control.Monad.State.Lazy
+import Control.Monad.State.Lazy hiding (liftIO)
 import Forth.Configuration
 import Forth.Cell
-import Forth.DataField hiding (conf)
+import Forth.DataField
 import Forth.Block
 import Forth.Cell
 import Numeric
 import System.IO
+
+type MachineM cell = StateT (Machine cell) (ConfigurationM cell)
+
+configuration :: Cell cell => (MachineM cell) (Configuration cell)
+configuration = lift ask
 
 update :: Cell cell => (Machine cell -> Machine cell) -> ForthLambda cell
 update f = StateT (\s -> return ((), f s))
 
 readMachine f = StateT (\s -> return (f s, s))
 
-initialState conf parser =
-    Machine [] [] Map.empty Map.empty [] conf Nothing Map.empty parser (map Key [1..])
+initialState parser =
+    Machine [] [] Map.empty Map.empty [] Nothing Map.empty parser (map Key [1..])
 
 keyName key = StateT (\s ->
     case Map.lookup key (wordKeyMap s) of
@@ -87,20 +92,17 @@ compileStructure key body@(Data _) = body
 
 createVariable name = do
   sz <- cellSize
-  conf <- readMachine conf
-  addWord $ ForthWord name False (Just (Data (allot sz conf)))
+  addWord $ ForthWord name False (Just (Data (allot sz)))
 
 createConstant name = ensureStack "CONSTANT" [isAny] action where
     action = do
       sz <- cellSize
-      conf <- readMachine conf
       val <- StateT (\s -> return (head (stack s), s { stack = tail (stack s) } ))
-      addWord $ ForthWord name False (Just (Data (allot sz conf)))
+      addWord $ ForthWord name False (Just (Data (allot sz)))
 
 -- | Given the name of a word, look it up in the dictionary and return its
 --   compiled inner representation
-wordFromName :: Cell cell =>
-                String -> StateT (Machine cell) IO (Maybe (ColonElement cell))
+wordFromName :: Cell cell => String -> (MachineM cell) (Maybe (ColonElement cell))
 wordFromName name =
     StateT (\s ->
         case Map.lookup name (wordNameMap s) of
@@ -114,22 +116,28 @@ wordFromName name =
                          [(n,"")] -> literal n
                          otherwise -> return (Nothing, s))
 
-cellSize :: Cell cell => StateT (Machine cell) IO cell
-cellSize = StateT (\s -> return (bytesPerCell (conf s), s))
+cellSize :: Cell cell => (MachineM cell) cell
+cellSize = accessConfigurationSize bytesPerCell
+
+executionTokenSize :: Cell cell => (MachineM cell) cell
+executionTokenSize = accessConfigurationSize bytesPerExecutionToken
+
+accessConfigurationSize accessor = do
+  lift ask >>= return.accessor
 
 -- | Load an entire set of screens from a file
-loadScreens :: Cell cell => FilePath -> StateT (Machine cell) IO ()
+loadScreens :: Cell cell => FilePath -> (MachineM cell) ()
 loadScreens filepath = do
     (blocks, shadows) <-
-        liftIO $ readBlockFile "/Users/hth/projects/CalcForth/src/lib/core.fth"
+        lift $ liftIO $ readBlockFile "/Users/hth/projects/CalcForth/src/lib/core.fth"
     --liftIO $ putStrLn (show blocks)
     update (\s -> s { screens = blocks })
 
 -- | Load a screen
-load :: Cell cell => Int -> StateT (Machine cell) IO (Either String ())
+load :: Cell cell => Int -> (MachineM cell) (Either String ())
 load n = do
   (text, parser) <- readMachine (\s -> (Map.lookup n (screens s), forthParser s))
-  liftIO $ putStr $ (show n) ++ " " -- show loading
+  lift $ liftIO $ putStr $ (show n) ++ " " -- show loading
   case text of
     Just text -> do
           result <- parser ("screen " ++ show n) text
@@ -137,7 +145,7 @@ load n = do
     Nothing -> return $ Left ("Screen does not exist: " ++ show n)
 
 -- | Execute the given word
-execute :: Cell cell => Key -> StateT (Machine cell) IO ()
+execute :: Cell cell => Key -> (MachineM cell) ()
 execute key = do
 --  name <- keyName key
 --  liftIO $ putStrLn $ "Execute " ++ name
@@ -156,7 +164,7 @@ executeColonSlice colonSlice = do
     next
 
 -- | Execute next word in colon definition
-next :: Cell cell => StateT (Machine cell) IO ()
+next :: Cell cell => (MachineM cell) ()
 next = do
 --  lst <- readMachine ip
 --  liftIO $ putStrLn (show lst)
@@ -184,11 +192,10 @@ data Cell cell =>
                              wordNameMap :: Map String Key,
                              -- The interpretive pointer
                              ip :: ColonSlice cell,
-                             conf :: Configuration cell,
                              -- Most recent word, or word being defined
                              lastWord :: Maybe Key,
                              screens :: Map Int String,
-                             forthParser :: String -> String -> StateT (Machine cell) IO (Either String ()),
+                             forthParser :: String -> String -> (MachineM cell) (Either String ()),
                              --                              inputStream :: String,
                              -- Unique identities for words
                              keys :: [Key] }
@@ -235,7 +242,7 @@ data Cell cell => ForthValue cell = Continuation (ColonSlice cell)  |
 type (ForthValues cell) = [ForthValue cell]
 
 -- A Forth native lambda should obey this signature
-type (ForthLambda cell)  = StateT (Machine cell) IO ()
+type ForthLambda cell = (MachineM cell) ()
 
 -- Temporary, replace with something that can actually represent a slice
 -- of assembler code.
@@ -256,14 +263,14 @@ ensure :: Cell cell => (Machine cell -> ForthValues cell) -> String ->
 ensure stack name preds action = do
   s <- readMachine stack
   if length preds > length s
-      then liftIO $ hPutStrLn stderr ("Empty stack for " ++ name)
+      then lift $ liftIO $ hPutStrLn stderr ("Empty stack for " ++ name)
       else
           let pairs = (zip preds s)
               vals = map (\(f,a) -> f a) pairs
           in if and vals
                 then action
-                else liftIO $ hPutStrLn stderr ("Bad stack argument for " ++ name ++
-                                                ", stack is " ++ show (map snd pairs))
+                else lift $ liftIO $ hPutStrLn stderr ("Bad stack argument for " ++ name ++
+                                                       ", stack is " ++ show (map snd pairs))
 
 isValue (Val _) = True
 isValue _ = False

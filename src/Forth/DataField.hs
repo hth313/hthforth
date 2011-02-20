@@ -15,21 +15,20 @@ import Forth.Cell
 import Forth.Configuration
 
 data DataField cell = DataField { dataSize :: cell,
-                                  conf :: Configuration cell,
                                   objects :: Map cell (DataObject cell) }
 
 data DataObject cell = Cell cell | Byte Word8 | Undefined
 
 -- Allocate a data field of the given size
-allot n conf = DataField n conf Map.empty
+allot n = DataField n Map.empty
 
 -- | Store a given value.
 --   When writing a cell, kill any bytes it overlaps.
 --   When writing a byte, kill any cell that overlaps it.
-storeData :: Cell cell => DataObject cell -> cell -> DataField cell -> DataField cell
-storeData Undefined _ field = field { objects = Map.empty }  -- remove all
-storeData obj offset field =
-    let n = bytesPerCell (conf field)
+storeData :: Cell cell => DataObject cell -> cell -> DataField cell -> Configuration cell -> DataField cell
+storeData Undefined _ field conf = field { objects = Map.empty }  -- remove all
+storeData obj offset field conf =
+    let n = bytesPerCell conf
         limitedOffsets = take (fromIntegral (n - 1)) offsets
         (eraser, offsets) =
             case obj of

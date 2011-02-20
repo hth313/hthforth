@@ -12,8 +12,7 @@ import Data.Word
 import Control.Monad
 import Data.Bits
 import Forth.Cell
-import Forth.Configuration
-import Forth.DataField hiding (conf)
+import Forth.DataField
 import Forth.Machine
 --import Forth.Input
 import qualified Data.Map as Map
@@ -90,8 +89,10 @@ nativeWords =
                  -- Cell size and address related
                  ("CHAR+", unary (1+)), -- characters are just bytes
                  ("CHARS", unary id),
-                 ("CELL+", (\name -> cellSize >>= \n -> unary (Val n +) name)),
-                 ("CELLS", (\name -> cellSize >>= \n -> unary (Val n *) name)),
+                 ("CELL+", unitPlus cellSize),
+                 ("CELLS", units cellSize),
+                 ("XT+", unitPlus executionTokenSize),
+                 ("XTS", units executionTokenSize),
                  -- Lambda versions of compiler words
                  ("IMMEDIATE", immediateWord),
                  --                      ("CREATE", create),
@@ -103,6 +104,9 @@ nativeWords =
              ]
     where native (name, fun) =
               addWord $ ForthWord name False (Just (Code (Just (fun name)) Nothing Nothing))
+          unitPlus = unit (+)
+          units = unit (*)
+          unit op sz name = sz >>= \n -> unary (Val n `op`) name
 
 tor :: Cell cell => String -> ForthLambda cell
 tor name = ensureStack name [isAny] action where
@@ -116,17 +120,18 @@ rfetch :: Cell cell => String -> ForthLambda cell
 rfetch name = ensureReturnStack name [isAny] action where
     action = update (\s -> s { stack = head (rstack s) : stack s })
 
-store :: Cell cell => (cell -> DataObject cell) -> String -> StateT (Machine cell) IO ()
+store :: Cell cell => (cell -> DataObject cell) -> String -> (MachineM cell) ()
 store ctor name = ensureStack name [isAddress, isValue] action where
-    action =
-        update (\s ->
-            case stack s of
-              adr@(Address key offsetadr) : (Val tos) : rest ->
-                  let (word, offset, field) = addressField adr s
-                      field' = storeData (ctor tos) offset field
-                      write _ = Just $ word { body = Just (Data field') }
-                  in s { stack = rest,
-                         wordKeyMap = Map.update write key (wordKeyMap s) }
+    action = do
+      conf <- configuration
+      update (\s ->
+          case stack s of
+            adr@(Address key offsetadr) : (Val tos) : rest ->
+                let (word, offset, field) = addressField adr s
+                    field' = storeData (ctor tos) offset field conf
+                    write _ = Just $ word { body = Just (Data field') }
+                in s { stack = rest,
+                       wordKeyMap = Map.update write key (wordKeyMap s) }
                )
 
 addressField (Address key offset) s =
@@ -135,7 +140,7 @@ addressField (Address key offset) s =
                      Just (Data field) -> (word, offset, field)
 
 fetch :: Cell cell =>
-         (DataObject cell -> ForthValue cell) -> String -> StateT (Machine cell) IO ()
+         (DataObject cell -> ForthValue cell) -> String -> (MachineM cell) ()
 fetch fval name = ensureStack name [isAddress] action where
   action = update (\s -> case stack s of
                adr@(Address key offsetadr) : rest ->
@@ -211,7 +216,7 @@ loadScreen name = ensureStack name [isValue] action where
       result <- load (fromIntegral n)
       update (\s -> s { ip = ip1, rstack = rstack1 })
       case result of
-        Left err -> liftIO $ hPutStrLn stderr err
+        Left err -> lift $ liftIO $ hPutStrLn stderr err
         Right () -> return ()
 
 -- THRU, load a range of sceens. Implemented here since we do not have looping
