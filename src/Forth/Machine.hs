@@ -21,7 +21,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
-import Control.Monad.State.Lazy hiding (liftIO)
+import Control.Monad.State.Lazy
 import Forth.Configuration
 import Forth.Cell
 import Forth.DataField
@@ -129,7 +129,7 @@ accessConfigurationSize accessor = do
 loadScreens :: Cell cell => FilePath -> (MachineM cell) ()
 loadScreens filepath = do
     (blocks, shadows) <-
-        lift $ liftIO $ readBlockFile "/Users/hth/projects/CalcForth/src/lib/core.fth"
+        liftIO $ readBlockFile "/Users/hth/projects/CalcForth/src/lib/core.fth"
     --liftIO $ putStrLn (show blocks)
     update (\s -> s { screens = blocks })
 
@@ -137,7 +137,7 @@ loadScreens filepath = do
 load :: Cell cell => Int -> (MachineM cell) (Either String ())
 load n = do
   (text, parser) <- readMachine (\s -> (Map.lookup n (screens s), forthParser s))
-  lift $ liftIO $ putStr $ (show n) ++ " " -- show loading
+  liftIO $ putStr $ (show n) ++ " " -- show loading
   case text of
     Just text -> do
           result <- parser ("screen " ++ show n) text
@@ -263,13 +263,13 @@ ensure :: Cell cell => (Machine cell -> ForthValues cell) -> String ->
 ensure stack name preds action = do
   s <- readMachine stack
   if length preds > length s
-      then lift $ liftIO $ hPutStrLn stderr ("Empty stack for " ++ name)
+      then liftIO $ hPutStrLn stderr ("Empty stack for " ++ name)
       else
           let pairs = (zip preds s)
               vals = map (\(f,a) -> f a) pairs
           in if and vals
                 then action
-                else lift $ liftIO $ hPutStrLn stderr ("Bad stack argument for " ++ name ++
+                else liftIO $ hPutStrLn stderr ("Bad stack argument for " ++ name ++
                                                        ", stack is " ++ show (map snd pairs))
 
 isValue (Val _) = True

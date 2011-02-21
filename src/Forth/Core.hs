@@ -216,7 +216,7 @@ loadScreen name = ensureStack name [isValue] action where
       result <- load (fromIntegral n)
       update (\s -> s { ip = ip1, rstack = rstack1 })
       case result of
-        Left err -> lift $ liftIO $ hPutStrLn stderr err
+        Left err -> liftIO $ hPutStrLn stderr err
         Right () -> return ()
 
 -- THRU, load a range of sceens. Implemented here since we do not have looping

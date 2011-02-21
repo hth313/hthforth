@@ -7,14 +7,14 @@
 
 -}
 
-module Forth.Configuration (ConfigurationM, Configuration(..), Endian(..), liftIO,
+module Forth.Configuration (ConfigurationM, Configuration(..), Endian(..),
                             ask, withConfiguration, newConfiguration) where
 
 import Data.Bits
 import Data.Word
 import Forth.Cell
 import Control.Monad.Trans.Reader
-import "transformers" Control.Monad.Trans
+import Control.Monad.Trans
 
 type ConfigurationM cell = ReaderT (Configuration cell) IO
 
