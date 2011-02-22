@@ -10,6 +10,7 @@ module Forth.Core (nativeWords) where
 
 import Data.Word
 import Control.Monad
+import Control.Monad.Trans
 import Data.Bits
 import Forth.Cell
 import Forth.DataField
@@ -144,7 +145,7 @@ fetch :: Cell cell =>
 fetch fval name = ensureStack name [isAddress] action where
   action = update (\s -> case stack s of
                adr@(Address key offsetadr) : rest ->
-                   let (word, offset, field) = addressField adr  s
+                   let (word, offset, field) = addressField adr s
                        val = fval $ fetchData offset field
                    in s { stack = val : rest }
                otherwise -> s  -- TODO: could use an error here

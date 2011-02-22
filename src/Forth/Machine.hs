@@ -9,9 +9,10 @@
 module Forth.Machine (MachineM, ForthLambda, Key(..), Machine(..), ColonElement(..),
                       ColonSlice, ForthWord(..), Body(..), ForthValue(..), ForthValues,
                       StateT(..), Construct(..),
-                      liftIO, lift, createVariable, createConstant,
+                      createVariable, createConstant, perform, compileWord,
                       wordFromName, initialState, evalStateT, configuration,
-                      loadScreens, load, execute, executeColonSlice, pushLiteral, keyName,
+                      loadScreens, load, execute, executeSlice, executeColonSlice,
+                      pushLiteral, keyName, openColonDef, closeColonDef,
                       update, readMachine, addWord, cellSize, executionTokenSize,
                       ensureStack, ensureReturnStack, isValue, isAddress, isAny) where
 
@@ -40,8 +41,11 @@ update f = StateT (\s -> return ((), f s))
 
 readMachine f = StateT (\s -> return (f s, s))
 
+lookupWord key = StateT (\s -> return (Map.lookup key (wordKeyMap s), s))
+
 initialState parser =
-    Machine [] [] Map.empty Map.empty [] Nothing Map.empty parser (map Key [1..])
+    Machine [] [] Map.empty Map.empty [] Nothing Map.empty parser
+            Nothing [] (map Key [1..])
 
 keyName key = StateT (\s ->
     case Map.lookup key (wordKeyMap s) of
@@ -116,6 +120,48 @@ wordFromName name =
                          [(n,"")] -> literal n
                          otherwise -> return (Nothing, s))
 
+-- | Perform interpretation or compilation semantics for the given word.
+perform :: Cell cell => String -> (MachineM cell) Bool
+perform name = do
+  -- check compilation or execution state
+  Just (WordRef stateKey) <- wordFromName "STATE"
+  state <- lookupWord stateKey
+  let field = case state of
+                Just word ->
+                    case body word of
+                      Just (Data field) -> field
+  let Cell stateVal = fetchData 0 field
+  -- Dispatch on state and either execute or compile the word
+  word <- wordFromName name
+  case word of
+    Just ref@(WordRef wordKey) -> do
+        word <- lookupWord wordKey
+        if stateVal == 0 || maybe False immediate word
+           then execute wordKey
+           else compileWord ref
+        return True
+    Just lit@(Literal val) -> do
+        case stateVal of
+          0 -> pushLiteral val
+          otherwise -> compileWord lit
+        return True
+    Nothing -> return False
+
+openColonDef name = StateT (\s ->
+    return ((), s { activeColonDef = Just $ ForthWord name False,
+                    activeColonBody = [] }))
+
+closeColonDef :: Cell cell => ForthLambda cell
+closeColonDef = do
+    (def, body) <- StateT (\s -> return ((activeColonDef s, activeColonBody s), s))
+    case def of
+      Just def ->
+          addWord $ def (Just $ Code Nothing Nothing (Just body))
+
+compileWord :: Cell cell => ColonElement cell -> ForthLambda cell
+compileWord elt = StateT (\s ->
+    return ((), s { activeColonBody = activeColonBody s ++ [elt] }))
+
 cellSize :: Cell cell => (MachineM cell) cell
 cellSize = accessConfigurationSize bytesPerCell
 
@@ -149,7 +195,7 @@ execute :: Cell cell => Key -> (MachineM cell) ()
 execute key = do
 --  name <- keyName key
 --  liftIO $ putStrLn $ "Execute " ++ name
-  word <- StateT (\s -> return (Map.lookup key (wordKeyMap s), s))
+  word <- lookupWord key
   case word of
     Just word -> case body word of
                    Just (Code (Just lambda) _ _) -> lambda >> next
@@ -158,6 +204,17 @@ execute key = do
                    Just (Data _) -> do
                        update (\s -> s { stack = Address key 0 : stack s} )
                        next
+
+-- | Given a list of Forth words (as strings), compile it to a slice and execute it
+executeSlice :: Cell cell => [String] -> ForthLambda cell
+executeSlice list =
+    let compile name = do
+          word <- wordFromName name
+          case word of
+            Just ref -> return ref
+    in do
+      slice <- mapM compile list
+      executeColonSlice slice
 
 executeColonSlice colonSlice = do
     update (\s -> s { ip = colonSlice, rstack = Continuation (ip s) : rstack s })
@@ -196,6 +253,8 @@ data Cell cell =>
                              lastWord :: Maybe Key,
                              screens :: Map Int String,
                              forthParser :: String -> String -> (MachineM cell) (Either String ()),
+                             activeColonDef :: Maybe (Maybe (Body cell) -> Key -> ForthWord cell),
+                             activeColonBody :: [ColonElement cell],
                              --                              inputStream :: String,
                              -- Unique identities for words
                              keys :: [Key] }

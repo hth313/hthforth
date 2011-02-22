@@ -25,6 +25,7 @@ import Text.Parsec.Language
 import Text.Parsec.Char
 import Text.Parsec.Combinator
 import Text.Parsec.Error
+import Control.Monad.Trans
 
 type Parser a = Cell cell => ParsecT String () (MachineM cell) a
 
@@ -51,7 +52,9 @@ lexer  = P.makeTokenParser (P.LanguageDef { P.commentStart = "( ",
                                             P.nestedComments = False,
                                             P.reservedNames = [":", ";", "CREATE",
                                                                "VARIABLE", "CONSTANT",
-                                                               "IF", "ELSE", "THEN"
+                                                               "IF", "ELSE", "THEN",
+                                                               "BEGIN", "WHILE", "UNTIL",
+                                                               "REPEAT", "UNTIL"
                                                               ],
                                             P.identStart = wordChar,
                                             P.identLetter = wordChar,
@@ -85,25 +88,32 @@ colonDef :: Parser ()
 colonDef = do
   reserved ":"
   name <- identifier
+  lift $ executeSlice [ "-1", "STATE", "!" ]
+  lift $ openColonDef name
   body <- manyTill colonWord (reserved ";")
-  lift $ addWord (ForthWord name False (Just $ Code Nothing Nothing (Just body)))
+  lift $ closeColonDef
+  lift $ executeSlice [ "0", "STATE", "!" ]
   return ()
 
-colonWord :: Cell cell => ParsecT String () (MachineM cell) (ColonElement cell)
-colonWord = try (identifier >>= compileToken ) <|>
-                (reserved "IF" >> return (Structure IF)) <|>
-                (reserved "ELSE" >> return (Structure ELSE)) <|>
-                (reserved "THEN" >> return (Structure THEN)) <|>
-                (reserved "BEGIN" >> return (Structure BEGIN)) <|>
-                (reserved "WHILE" >> return (Structure WHILE)) <|>
-                (reserved "UNTIL" >> return (Structure UNTIL)) <|>
-                (reserved "REPEAT" >> return (Structure REPEAT)) <?> "word"
+colonWord :: Parser ()
+colonWord = compileToken <|>
+            (construct "IF" IF) <|>
+            (construct "ELSE" ELSE) <|>
+            (construct "THEN" THEN) <|>
+            (construct "BEGIN" BEGIN) <|>
+            (construct "WHILE" WHILE) <|>
+            (construct "UNTIL" UNTIL) <|>
+            (construct "REPEAT" REPEAT) <?> "word"
 
-compileToken name = do
-  word <- lift $ wordFromName name
-  case word of
-    Just word -> return word
-    Nothing -> unexpected name
+construct name cons = (reserved name >> lift (compileWord (Structure cons)))
+
+compileToken :: Parser ()
+compileToken = do
+  name <- identifier
+  result <- lift $ perform name
+  case result of
+    True -> return ()
+    False -> unexpected name
 
 create :: Parser ()
 create = do
