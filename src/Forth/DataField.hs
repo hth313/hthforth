@@ -15,12 +15,13 @@ import Forth.Cell
 import Forth.Configuration
 
 data DataField cell = DataField { dataSize :: cell,
+                                  writeable :: Bool,
                                   objects :: Map cell (DataObject cell) }
 
 data DataObject cell = Cell cell | Byte Word8 | Undefined
 
 -- Allocate a data field of the given size
-allot n = DataField n Map.empty
+allot n = DataField n True Map.empty
 
 -- | Store a given value.
 --   When writing a cell, kill any bytes it overlaps.

@@ -7,8 +7,8 @@
 -}
 
 module Forth.Machine (MachineM, ForthLambda, Key(..), Machine(..), ColonElement(..),
-                      ColonSlice, ForthWord(..), Body(..), ForthValue(..), ForthValues,
-                      StateT(..), Construct(..),
+                      ColonSlice, ForthWord(..), ForthValue(..), ForthValues,
+                      StateT(..), Construct(..), newKey,
                       createVariable, createConstant, perform, compileWord,
                       wordFromName, initialState, evalStateT, configuration,
                       loadScreens, load, execute, executeSlice, executeColonSlice,
@@ -17,6 +17,7 @@ module Forth.Machine (MachineM, ForthLambda, Key(..), Machine(..), ColonElement(
                       ensureStack, ensureReturnStack, isValue, isAddress, isAny) where
 
 import Data.Bits
+import Data.Maybe
 import Data.Word
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -30,6 +31,7 @@ import Forth.Block
 import Forth.Cell
 import Numeric
 import System.IO
+import Control.Exception
 
 type MachineM cell = StateT (Machine cell) (ConfigurationM cell)
 
@@ -43,6 +45,10 @@ readMachine f = StateT (\s -> return (f s, s))
 
 lookupWord key = StateT (\s -> return (Map.lookup key (wordKeyMap s), s))
 
+lookupWordFromName name = do
+  Just (WordRef key) <- wordFromName name
+  lookupWord key
+
 initialState parser =
     Machine [] [] Map.empty Map.empty [] Nothing Map.empty parser
             Nothing [] (map Key [1..])
@@ -52,18 +58,21 @@ keyName key = StateT (\s ->
       Just word -> return (wordName word, s)
       Nothing -> return (show key, s))
 
+newKey :: Cell cell => (MachineM cell) Key
+newKey = StateT (\s ->
+             let key : keys' = keys s
+             in return (key, s { keys = keys' }))
+
 -- | Add a new Forth word
-addWord :: Cell cell => (Key -> ForthWord cell) -> ForthLambda cell
+addWord :: Cell cell => ForthWord cell -> ForthLambda cell
 addWord word = update (\s ->
-    let (key : keys') = keys s
-        word' = word key
-        finalWord = word' { body = fmap (compileStructure key) (body word') }
+    let finalWord = word { body = fmap (compileStructure key) (body word) }
+        key = wordKey finalWord
     in s { wordKeyMap = Map.insert key finalWord (wordKeyMap s),
-           wordNameMap = Map.insert (wordName finalWord) key (wordNameMap s),
-           keys = keys' })
+           wordNameMap = Map.insert (wordName finalWord) key (wordNameMap s) } )
 
 -- Compile structures like IF-ELSE-THEN into branch primitives
-compileStructure key body@(Code _ _ (Just colon)) =
+compileStructure key colon =
     let numbered = zip [1..] colon
         visit (stack, colon) (n, Structure IF) = ((n, CondBranch False) : stack, colon)
         visit ((nif, branch) : stack, colon) (nelse, Structure ELSE) =
@@ -90,19 +99,24 @@ compileStructure key body@(Code _ _ (Just colon)) =
         x = (key, 0)
         (stack', colon') = foldl visit ([], IntMap.fromList numbered) numbered
         colonInt = IntMap.elems colon' -- TODO: replace with ColonSlice?
-    in body { colon = Just (IntMap.elems colon') }
-compileStructure key body@(Code _ _ Nothing) = body
-compileStructure key body@(Data _) = body
+    in IntMap.elems colon'
 
 createVariable name = do
   sz <- cellSize
-  addWord $ ForthWord name False (Just (Data (allot sz)))
+  key <- newKey
+  Just does <- lookupWordFromName "_VAR"
+  addWord (ForthWord name False key (Just (allot sz)) Nothing Nothing
+                     (Just (wordKey does)) Nothing)
 
+createConstant :: Cell cell => String -> ForthLambda cell
 createConstant name = ensureStack "CONSTANT" [isAny] action where
     action = do
       sz <- cellSize
+      key <- newKey
+      Just does <- lookupWordFromName "_CON"
       val <- StateT (\s -> return (head (stack s), s { stack = tail (stack s) } ))
-      addWord $ ForthWord name False (Just (Data (allot sz)))
+      addWord (ForthWord name False key (Just (allot sz)) Nothing Nothing
+                         (Just (wordKey does)) Nothing)
 
 -- | Given the name of a word, look it up in the dictionary and return its
 --   compiled inner representation
@@ -124,12 +138,11 @@ wordFromName name =
 perform :: Cell cell => String -> (MachineM cell) Bool
 perform name = do
   -- check compilation or execution state
-  Just (WordRef stateKey) <- wordFromName "STATE"
-  state <- lookupWord stateKey
-  let field = case state of
+  stateWord <- lookupWordFromName "STATE"
+  let field = case stateWord of
                 Just word ->
-                    case body word of
-                      Just (Data field) -> field
+                    case dataField word of
+                      Just field -> field
   let Cell stateVal = fetchData 0 field
   -- Dispatch on state and either execute or compile the word
   word <- wordFromName name
@@ -147,16 +160,18 @@ perform name = do
         return True
     Nothing -> return False
 
-openColonDef name = StateT (\s ->
-    return ((), s { activeColonDef = Just $ ForthWord name False,
-                    activeColonBody = [] }))
+openColonDef name = do
+  key <- newKey
+  StateT (\s ->
+      return ((), s { activeColonDef = Just (ForthWord name False key Nothing Nothing
+                                                       Nothing Nothing Nothing),
+                      activeColonBody = [] }))
 
 closeColonDef :: Cell cell => ForthLambda cell
 closeColonDef = do
     (def, body) <- StateT (\s -> return ((activeColonDef s, activeColonBody s), s))
     case def of
-      Just def ->
-          addWord $ def (Just $ Code Nothing Nothing (Just body))
+      Just def -> addWord $ def { body = Just body }
 
 compileWord :: Cell cell => ColonElement cell -> ForthLambda cell
 compileWord elt = StateT (\s ->
@@ -197,13 +212,13 @@ execute key = do
 --  liftIO $ putStrLn $ "Execute " ++ name
   word <- lookupWord key
   case word of
-    Just word -> case body word of
-                   Just (Code (Just lambda) _ _) -> lambda >> next
-                   Just (Code _ _ (Just colonSlice)) ->
-                       executeColonSlice colonSlice
-                   Just (Data _) -> do
-                       update (\s -> s { stack = Address key 0 : stack s} )
-                       next
+    Just (ForthWord _ _ _ (Just field) _ _ (Just cfa) _) -> do
+        -- Push address on stack
+        update (\s -> s { stack = Address key 0 : stack s} )
+        execute cfa
+    Just (ForthWord _ _ _ _ (Just lambda) _ _ _) -> lambda >> next
+    Just (ForthWord _ _ _ _ _ _ _ (Just colonSlice)) ->
+        executeColonSlice colonSlice
 
 -- | Given a list of Forth words (as strings), compile it to a slice and execute it
 executeSlice :: Cell cell => [String] -> ForthLambda cell
@@ -212,6 +227,7 @@ executeSlice list =
           word <- wordFromName name
           case word of
             Just ref -> return ref
+            Nothing -> throw $ ErrorCall ("Failed to find: " ++ show name)
     in do
       slice <- mapM compile list
       executeColonSlice slice
@@ -253,7 +269,7 @@ data Cell cell =>
                              lastWord :: Maybe Key,
                              screens :: Map Int String,
                              forthParser :: String -> String -> (MachineM cell) (Either String ()),
-                             activeColonDef :: Maybe (Maybe (Body cell) -> Key -> ForthWord cell),
+                             activeColonDef :: Maybe (ForthWord cell),
                              activeColonBody :: [ColonElement cell],
                              --                              inputStream :: String,
                              -- Unique identities for words
@@ -277,22 +293,26 @@ type Destination = (Key, Int)  -- word and offset from current location
 data Construct = IF | ELSE | THEN | BEGIN | WHILE | REPEAT | UNTIL deriving (Show, Eq)
 
 -- The contents of a colon definition body
-type (ColonSlice cell)  = [ColonElement cell]
+type ColonSlice cell = [ColonElement cell]
 
 -- A Forth word, contains the header and its associated body
 data Cell cell => ForthWord cell = ForthWord { wordName :: String,
                                                immediate :: Bool,
-                                               body :: Maybe (Body cell),
-                                               wordKey :: Key }
-
--- The body of a Forth word
-data Cell cell => Body cell = Code { -- native Haskell version
-                                     lambda :: Maybe (ForthLambda cell),
-                                     -- Native code for a given target
-                                     targetNative :: Maybe [Instruction],
-                                     -- Colon definition version
-                                     colon :: Maybe (ColonSlice cell) } |
-                              Data (DataField cell)
+                                               wordKey :: Key,
+                                               -- For data words.
+                                               dataField :: Maybe (DataField cell),
+                                               -- Native Haskell implementation
+                                               lambda :: Maybe (ForthLambda cell),
+                                               -- Native target code
+                                               targetNative :: Maybe [Instruction],
+                                               -- Forth level run-time semantics for
+                                               -- this word. This will refer to a
+                                               -- nameless word that implements the
+                                               -- DOES> part. If invoked, the dataField
+                                               -- is first to be pused on the stack
+                                               cfa :: Maybe Key,
+                                               -- Colon definition for this word
+                                               body :: Maybe (ColonSlice cell) }
 
 -- Values that can be stored on the stack
 data Cell cell => ForthValue cell = Continuation (ColonSlice cell)  |

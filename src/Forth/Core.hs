@@ -99,12 +99,17 @@ nativeWords =
                  --                      ("CREATE", create),
                  --                      ("POSTPONE", postpone)
                  ("EXIT", exit),
+                 -- DOES> part of CONSTANT and VARIABLE
+                 ("_VAR", doesVariable),
+                 ("_CON", doesConstant),
                  -- Block related
                  ("(LOAD)", loadScreen),
                  ("THRU", thru)
              ]
-    where native (name, fun) =
-              addWord $ ForthWord name False (Just (Code (Just (fun name)) Nothing Nothing))
+    where native (name, fun) = do
+            key <- newKey
+            addWord (ForthWord name False key Nothing (Just (fun name))
+                               Nothing Nothing Nothing)
           unitPlus = unit (+)
           units = unit (*)
           unit op sz name = sz >>= \n -> unary (Val n `op`) name
@@ -130,15 +135,15 @@ store ctor name = ensureStack name [isAddress, isValue] action where
             adr@(Address key offsetadr) : (Val tos) : rest ->
                 let (word, offset, field) = addressField adr s
                     field' = storeData (ctor tos) offset field conf
-                    write _ = Just $ word { body = Just (Data field') }
+                    write _ = Just $ word { dataField = Just field' }
                 in s { stack = rest,
                        wordKeyMap = Map.update write key (wordKeyMap s) }
                )
 
 addressField (Address key offset) s =
     case Map.lookup key (wordKeyMap s) of
-      Just word -> case body word of
-                     Just (Data field) -> (word, offset, field)
+      Just word -> case dataField word of
+                     Just field -> (word, offset, field)
 
 fetch :: Cell cell =>
          (DataObject cell -> ForthValue cell) -> String -> (MachineM cell) ()
@@ -190,6 +195,7 @@ postpone = do
   compile word
 -}
 
+{-
 compile word =
   update (\s ->
       case Map.lookup word (wordNameMap s) of
@@ -205,6 +211,7 @@ compile word =
                     in Just $ def { body = Just body' }
             in case lastWord s of
                  Just key -> s { wordKeyMap = Map.update f key (wordKeyMap s) })
+-}
 
 loadScreen :: Cell cell => String -> ForthLambda cell
 loadScreen name = ensureStack name [isValue] action where
@@ -274,3 +281,10 @@ ummod name = ensureStack name [isValue, isValue, isValue] action where
                                      u = uext n3
                                      (quot, rem) = ud `quotRem` u
                                  in s { stack = fromIntegral quot : fromIntegral rem : stack'})
+
+doesVariable :: Cell cell => String -> ForthLambda cell
+doesVariable name = return ()
+
+doesConstant :: Cell cell => String -> ForthLambda cell
+doesConstant name = ensureStack name [isAddress] action where
+    action = fetch cellValue name
