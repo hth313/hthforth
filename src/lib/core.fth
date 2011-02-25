@@ -1,5 +1,8 @@
 ( block 1  -- Main load block )
 
+VARIABLE STATE  ( compilation state variable )
+0 STATE !       ( interpreting by default )
+
 VARIABLE BLK
 : FH  BLK @ + ;  \ relative block
 : LOAD  BLK @ SWAP DUP BLK ! (LOAD) BLK ! ;
@@ -20,7 +23,7 @@ VARIABLE BLK
 
 ( block 30  CORE words )
 
-1 FH 7 FH THRU
+1 FH 8 FH THRU
 
 ( shadow 30 )
 ( block 31 stack primitives )
@@ -122,18 +125,30 @@ VARIABLE HLD
 : SIGN ( n -- )  0< IF 45 ( - ) HOLD THEN ;
 
 ( shadow 37 )
-( block 38 )
+( block 38 memory access )
+
+: +! ( n a-addr -- )  DUP >R @ + R> ! ;
+: 2! ( x1 x2 a-addr -- )  SWAP OVER ! CELL+ ! ;
+: 2@ ( a-addr -- x1 x2 )  DUP CELL+ @ SWAP @ ;
+: COUNT ( c-addr1 -- c-addr2 u )  DUP CHAR+ SWAP C@ ;
 ( shadow 38 )
 ( block 39 )
 ( shadow 39 )
 ( block 40 compiler )
 
-: VARIABLE CREATE 1 CELLS ALLOT ;
-
-VARIABLE STATE  ( compilation state variable )
-0 STATE !       ( interpreting by default )
-: [  FALSE STATE ! ;
+: [  FALSE STATE ! ; IMMEDIATE
 : ]  TRUE STATE ! ;
+
+: LITERAL ( x -- )  ['] (LIT) , ; IMMEDIATE
+: ALLOT ( n -- )  DP +! ;
+
+: COMPILE, ( xt -- )  HERE [ 1 XTS ] LITERAL ALLOT ! ;
+
+( Data allocation )
+: , ( n -- )  HERE [ 1 CELLS ] LITERAL ALLOT ! ;
+
+: VARIABLE CREATE 1 CELLS ALLOT ;
+: CONSTANT CREATE , DOES> @ ;
 
 ( Colon definitions )
 : :  CREATE ] ;
