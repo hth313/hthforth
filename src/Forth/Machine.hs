@@ -6,9 +6,8 @@
 
 -}
 
-module Forth.Machine (MachineM, ForthLambda, Key(..), Machine(..), ColonElement(..),
-                      ColonSlice, ForthWord(..), ForthValue(..), ForthValues,
-                      StateT(..), Construct(..), newKey,
+module Forth.Machine (MachineM, ForthLambda, Machine(..),
+                      ForthWord(..), StateT(..), newKey,
                       createVariable, createConstant, perform, compileWord,
                       wordFromName, initialState, evalStateT, configuration,
                       loadScreens, load, execute, executeSlice, executeColonSlice,
@@ -16,6 +15,7 @@ module Forth.Machine (MachineM, ForthLambda, Key(..), Machine(..), ColonElement(
                       update, readMachine, addWord, cellSize, executionTokenSize,
                       ensureStack, ensureReturnStack, isValue, isAddress, isAny) where
 
+import Data.Int
 import Data.Bits
 import Data.Maybe
 import Data.Word
@@ -29,13 +29,14 @@ import Forth.Cell
 import Forth.DataField
 import Forth.Block
 import Forth.Cell
+import Forth.Types
 import Numeric
 import System.IO
 import Control.Exception
 
 type MachineM cell = StateT (Machine cell) (ConfigurationM cell)
 
-configuration :: Cell cell => (MachineM cell) (Configuration cell)
+configuration :: Cell cell => MachineM cell (Configuration cell)
 configuration = lift ask
 
 update :: Cell cell => (Machine cell -> Machine cell) -> ForthLambda cell
@@ -58,7 +59,7 @@ keyName key = StateT (\s ->
       Just word -> return (wordName word, s)
       Nothing -> return (show key, s))
 
-newKey :: Cell cell => (MachineM cell) Key
+newKey :: Cell cell => MachineM cell Key
 newKey = StateT (\s ->
              let key : keys' = keys s
              in return (key, s { keys = keys' }))
@@ -101,6 +102,7 @@ compileStructure key colon =
         colonInt = IntMap.elems colon' -- TODO: replace with ColonSlice?
     in IntMap.elems colon'
 
+createVariable :: Cell cell => String -> ForthLambda cell
 createVariable name = do
   sz <- cellSize
   key <- newKey
@@ -115,12 +117,14 @@ createConstant name = ensureStack "CONSTANT" [isAny] action where
       key <- newKey
       Just does <- lookupWordFromName "_CON"
       val <- StateT (\s -> return (head (stack s), s { stack = tail (stack s) } ))
-      addWord (ForthWord name False key (Just (allot sz)) Nothing Nothing
+      conf <- configuration
+      let field = storeData (Cell val) 0 (allot sz) conf
+      addWord (ForthWord name False key (Just field) Nothing Nothing
                          (Just (wordKey does)) Nothing)
 
 -- | Given the name of a word, look it up in the dictionary and return its
 --   compiled inner representation
-wordFromName :: Cell cell => String -> (MachineM cell) (Maybe (ColonElement cell))
+wordFromName :: Cell cell => String -> MachineM cell (Maybe (ColonElement cell))
 wordFromName name =
     StateT (\s ->
         case Map.lookup name (wordNameMap s) of
@@ -135,7 +139,7 @@ wordFromName name =
                          otherwise -> return (Nothing, s))
 
 -- | Perform interpretation or compilation semantics for the given word.
-perform :: Cell cell => String -> (MachineM cell) Bool
+perform :: Cell cell => String -> MachineM cell Bool
 perform name = do
   -- check compilation or execution state
   stateWord <- lookupWordFromName "STATE"
@@ -143,7 +147,7 @@ perform name = do
                 Just word ->
                     case dataField word of
                       Just field -> field
-  let Cell stateVal = fetchData 0 field
+  let Cell (Val stateVal) = fetchData 0 field
   -- Dispatch on state and either execute or compile the word
   word <- wordFromName name
   case word of
@@ -177,17 +181,17 @@ compileWord :: Cell cell => ColonElement cell -> ForthLambda cell
 compileWord elt = StateT (\s ->
     return ((), s { activeColonBody = activeColonBody s ++ [elt] }))
 
-cellSize :: Cell cell => (MachineM cell) cell
+cellSize :: Cell cell => MachineM cell cell
 cellSize = accessConfigurationSize bytesPerCell
 
-executionTokenSize :: Cell cell => (MachineM cell) cell
+executionTokenSize :: Cell cell => MachineM cell cell
 executionTokenSize = accessConfigurationSize bytesPerExecutionToken
 
 accessConfigurationSize accessor = do
-  lift ask >>= return.accessor
+  configuration >>= return.accessor
 
 -- | Load an entire set of screens from a file
-loadScreens :: Cell cell => FilePath -> (MachineM cell) ()
+loadScreens :: Cell cell => FilePath -> MachineM cell ()
 loadScreens filepath = do
     (blocks, shadows) <-
         liftIO $ readBlockFile "/Users/hth/projects/CalcForth/src/lib/core.fth"
@@ -195,7 +199,7 @@ loadScreens filepath = do
     update (\s -> s { screens = blocks })
 
 -- | Load a screen
-load :: Cell cell => Int -> (MachineM cell) (Either String ())
+load :: Cell cell => Int -> MachineM cell (Either String ())
 load n = do
   (text, parser) <- readMachine (\s -> (Map.lookup n (screens s), forthParser s))
   liftIO $ putStr $ (show n) ++ " " -- show loading
@@ -206,7 +210,7 @@ load n = do
     Nothing -> return $ Left ("Screen does not exist: " ++ show n)
 
 -- | Execute the given word
-execute :: Cell cell => Key -> (MachineM cell) ()
+execute :: Cell cell => Key -> MachineM cell ()
 execute key = do
 --  name <- keyName key
 --  liftIO $ putStrLn $ "Execute " ++ name
@@ -237,7 +241,7 @@ executeColonSlice colonSlice = do
     next
 
 -- | Execute next word in colon definition
-next :: Cell cell => (MachineM cell) ()
+next :: Cell cell => MachineM cell ()
 next = do
 --  lst <- readMachine ip
 --  liftIO $ putStrLn (show lst)
@@ -268,32 +272,12 @@ data Cell cell =>
                              -- Most recent word, or word being defined
                              lastWord :: Maybe Key,
                              screens :: Map Int String,
-                             forthParser :: String -> String -> (MachineM cell) (Either String ()),
+                             forthParser :: String -> String -> MachineM cell (Either String ()),
                              activeColonDef :: Maybe (ForthWord cell),
                              activeColonBody :: [ColonElement cell],
                              --                              inputStream :: String,
                              -- Unique identities for words
                              keys :: [Key] }
-
--- Key type to identify a Forth word internally
-newtype Key = Key Int deriving (Show, Eq, Ord)
-
--- An element of a colon definition
-data Cell cell => ColonElement cell = WordRef Key |
-                                      Literal (ForthValue cell) |
-                                      Structure Construct |
-                                      CondBranch Bool Destination |
-                                      Branch Destination |
-                                      Begin Destination |
-                                      While Destination |
-                                      NOP -- empty placeholder
-                                      deriving (Show, Eq)
-type Destination = (Key, Int)  -- word and offset from current location
-
-data Construct = IF | ELSE | THEN | BEGIN | WHILE | REPEAT | UNTIL deriving (Show, Eq)
-
--- The contents of a colon definition body
-type ColonSlice cell = [ColonElement cell]
 
 -- A Forth word, contains the header and its associated body
 data Cell cell => ForthWord cell = ForthWord { wordName :: String,
@@ -314,14 +298,8 @@ data Cell cell => ForthWord cell = ForthWord { wordName :: String,
                                                -- Colon definition for this word
                                                body :: Maybe (ColonSlice cell) }
 
--- Values that can be stored on the stack
-data Cell cell => ForthValue cell = Continuation (ColonSlice cell)  |
-                                    Address Key cell | Val cell |
-                                    UndefinedValue deriving (Eq, Show)
-type (ForthValues cell) = [ForthValue cell]
-
 -- A Forth native lambda should obey this signature
-type ForthLambda cell = (MachineM cell) ()
+type ForthLambda cell = MachineM cell ()
 
 -- Temporary, replace with something that can actually represent a slice
 -- of assembler code.

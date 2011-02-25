@@ -15,6 +15,7 @@ import Data.Bits
 import Forth.Cell
 import Forth.DataField
 import Forth.Machine
+import Forth.Types
 --import Forth.Input
 import qualified Data.Map as Map
 import Text.Parsec.Error
@@ -22,23 +23,26 @@ import System.IO
 
 binary :: Cell cell => (ForthValue cell -> ForthValue cell -> ForthValue cell) -> String ->
           ForthLambda cell
-binary op name = ensureStack name [isValue, isValue] action where
+binary op name = ensureStack name [isAny, isAny] action where
     action = update (\s ->
                  let tos : nos : rest = stack s
                  in s { stack = op tos nos : rest })
 
 unary :: Cell cell => (ForthValue cell -> ForthValue cell) -> String -> ForthLambda cell
-unary op name = ensureStack name [isValue] action where
+unary op name = ensureStack name [isAny] action where
     action = update (\s ->
                  let tos : rest = stack s
                  in s { stack = op tos : rest })
 
+updateStack :: Cell cell => Int -> (ForthValues cell -> ForthValues cell) -> String ->
+               (ForthLambda cell)
 updateStack n f name = ensureStack name (replicate n isAny) action where
     action = update (\s -> s { stack = f (stack s) })
 
 instance Cell cell => Num (ForthValue cell) where
     (Val a) + (Val b) = Val (a + b)
     (Address key off) + (Val b) = Address key (off + (fromIntegral b))
+    (Val b) + (Address key off) = Address key (off + (fromIntegral b))
     (Val a) * (Val b) = Val (a * b)
     abs (Val a) = Val (abs a)
     signum (Val a) = Val (signum a)
@@ -52,12 +56,15 @@ instance Cell cell => Bits (ForthValue cell) where
     bitSize (Val a) = bitSize a
     isSigned (Val a) = isSigned a
 
+instance Cell cell => Ord (ForthValue cell) where
+    compare (Val a) (Val b) = compare a b
+
 true, false :: Cell cell => ForthValue cell
-true = -1
-false = 0
+true = Val (-1)
+false = Val 0
 
 -- | Define native and word header related words as lambdas
-nativeWords :: Cell cell => ForthLambda cell
+nativeWords :: Cell cell => MachineM cell ()
 nativeWords =
   mapM_  native [-- Data stack
                  ("DROP", updateStack 1 tail),
@@ -78,15 +85,19 @@ nativeWords =
                  ("AND", binary (.&.)),
                  ("OR", binary (.|.)),
                  ("XOR", binary xor),
-                 ("0<", unary (\(Val n) -> if n < 0 then true else false)),
-                 ("0=", unary (\(Val n) -> if n == 0 then true else false)),
+
+
+                 ("0<", unary (\n -> truth (n < 0))),
+                 ("0=", unary (\n -> truth (n == 0))),
                  ("U<", binary ult),
                  ("2/", unary (`shiftR` 1)),
                  -- Load and store
                  ("!", store Cell),
-                 ("C!", store (Byte . fromIntegral)),
+                 ("C!", store (\(Val n) -> Byte (fromIntegral n))),
                  ("@", fetch cellValue),
                  ("C@", fetch charValue),
+
+
                  -- Cell size and address related
                  ("CHAR+", unary (1+)), -- characters are just bytes
                  ("CHARS", unary id),
@@ -106,13 +117,17 @@ nativeWords =
                  ("(LOAD)", loadScreen),
                  ("THRU", thru)
              ]
-    where native (name, fun) = do
+    where
+      native :: Cell cell => (String, (String -> ForthLambda cell)) -> MachineM cell ()
+      native (name, fun) = do
             key <- newKey
             addWord (ForthWord name False key Nothing (Just (fun name))
                                Nothing Nothing Nothing)
-          unitPlus = unit (+)
-          units = unit (*)
-          unit op sz name = sz >>= \n -> unary (Val n `op`) name
+      unitPlus = unit (+)
+      units = unit (*)
+      unit op sz name = sz >>= \n -> unary (Val n `op`) name
+      truth True = true
+      truth False = false
 
 tor :: Cell cell => String -> ForthLambda cell
 tor name = ensureStack name [isAny] action where
@@ -126,13 +141,13 @@ rfetch :: Cell cell => String -> ForthLambda cell
 rfetch name = ensureReturnStack name [isAny] action where
     action = update (\s -> s { stack = head (rstack s) : stack s })
 
-store :: Cell cell => (cell -> DataObject cell) -> String -> (MachineM cell) ()
-store ctor name = ensureStack name [isAddress, isValue] action where
+store :: Cell cell => (ForthValue cell -> DataObject cell) -> String -> MachineM cell ()
+store ctor name = ensureStack name [isAddress, isAny] action where
     action = do
       conf <- configuration
       update (\s ->
           case stack s of
-            adr@(Address key offsetadr) : (Val tos) : rest ->
+            adr@(Address key offsetadr) : tos : rest ->
                 let (word, offset, field) = addressField adr s
                     field' = storeData (ctor tos) offset field conf
                     write _ = Just $ word { dataField = Just field' }
@@ -140,13 +155,15 @@ store ctor name = ensureStack name [isAddress, isValue] action where
                        wordKeyMap = Map.update write key (wordKeyMap s) }
                )
 
+addressField :: Cell cell => ForthValue cell -> Machine cell ->
+                (ForthWord cell, cell, DataField cell)
 addressField (Address key offset) s =
     case Map.lookup key (wordKeyMap s) of
       Just word -> case dataField word of
                      Just field -> (word, offset, field)
 
 fetch :: Cell cell =>
-         (DataObject cell -> ForthValue cell) -> String -> (MachineM cell) ()
+         (DataObject cell -> ForthValue cell) -> String -> MachineM cell ()
 fetch fval name = ensureStack name [isAddress] action where
   action = update (\s -> case stack s of
                adr@(Address key offsetadr) : rest ->
@@ -156,12 +173,14 @@ fetch fval name = ensureStack name [isAddress] action where
                otherwise -> s  -- TODO: could use an error here
          )
 
-
-cellValue (Cell val) = Val val
-cellValue (Byte val) = Val 0 -- TODO: error
+cellValue :: Cell cell => DataObject cell -> ForthValue cell
+cellValue (Cell (Val val)) = Val val
+cellValue (Byte val) = UndefinedValue
 cellValue Undefined = UndefinedValue
+
+charValue :: Cell cell => DataObject cell -> ForthValue cell
 charValue (Byte val) = Val (fromIntegral val)
-charValue (Cell val) = Val 0 -- TODO: error
+charValue (Cell val) = UndefinedValue
 charValue Undefined = UndefinedValue
 
 {-
@@ -229,6 +248,7 @@ loadScreen name = ensureStack name [isValue] action where
 
 -- THRU, load a range of sceens. Implemented here since we do not have looping
 -- capabilitty at Forth level from start.
+thru :: Cell cell => String -> ForthLambda cell
 thru name = ensureStack name [isValue, isValue] action where
     action = do
       range <- StateT (\s -> case stack s of
@@ -247,6 +267,7 @@ ult (Val n1) (Val n2) =
     in if u1 < u2 then true else false
 
 -- Signed multiply to double cell
+mstar :: Cell cell => String -> ForthLambda cell
 mstar name = ensureStack name [isValue, isValue] action where
     action = update (\s -> case stack s of
                              Val n1 : Val n2 : stack' ->
@@ -256,13 +277,14 @@ mstar name = ensureStack name [isValue, isValue] action where
                                      prod = v1 * v2
                                      lo = fromIntegral prod
                                      hi = fromIntegral $ prod `shiftR` (bitSize n1)
-                                 in s { stack = hi : lo : stack' })
+                                 in s { stack = Val hi : Val lo : stack' })
 
 uext :: Cell cell => cell -> Integer
 uext n = mask .&. (fromIntegral n) where
     mask = (1 `shiftL` bitSize n) - 1
 
 -- Unsigned multiply to double cell
+umstar :: Cell cell => String -> ForthLambda cell
 umstar name = ensureStack name [isValue, isValue] action where
     action = update (\s -> case stack s of
                              Val n1 : Val n2 : stack' ->
@@ -271,16 +293,18 @@ umstar name = ensureStack name [isValue, isValue] action where
                                      prod = v1 * v2
                                      lo = fromIntegral prod
                                      hi = fromIntegral $ prod `shiftR` (bitSize n1)
-                                 in s { stack = hi : lo : stack' })
+                                 in s { stack = Val hi : Val lo : stack' })
 
 -- Unsigned double cell to cell divide and remainder
+ummod :: Cell cell => String -> ForthLambda cell
 ummod name = ensureStack name [isValue, isValue, isValue] action where
     action = update (\s -> case stack s of
                              Val n3 : Val n2 : Val n1 : stack' ->
                                  let ud = uext n2 `shiftL` bitSize n1
                                      u = uext n3
                                      (quot, rem) = ud `quotRem` u
-                                 in s { stack = fromIntegral quot : fromIntegral rem : stack'})
+                                 in s { stack = Val (fromIntegral quot) :
+                                                Val (fromIntegral rem) : stack'})
 
 doesVariable :: Cell cell => String -> ForthLambda cell
 doesVariable name = return ()

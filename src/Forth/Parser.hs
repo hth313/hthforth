@@ -19,6 +19,7 @@ module Forth.Parser (parseForth) where
 
 import Forth.Cell
 import Forth.Machine
+import Forth.Types
 import Text.Parsec.Prim
 import qualified Text.Parsec.Token as P
 import Text.Parsec.Language

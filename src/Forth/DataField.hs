@@ -6,21 +6,17 @@
 
 -}
 
-module Forth.DataField (DataField(..), DataObject(..), storeData, fetchData, allot) where
+module Forth.DataField (DataField(..), storeData, fetchData, allot) where
 
 import Data.Word
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Forth.Cell
 import Forth.Configuration
+import Forth.Types
 
-data DataField cell = DataField { dataSize :: cell,
-                                  writeable :: Bool,
-                                  objects :: Map cell (DataObject cell) }
-
-data DataObject cell = Cell cell | Byte Word8 | Undefined
-
--- Allocate a data field of the given size
+-- | Allocate a data field of the given size
+allot :: Cell cell => cell -> DataField cell
 allot n = DataField n True Map.empty
 
 -- | Store a given value.
