@@ -43,18 +43,27 @@ instance Cell cell => Num (ForthValue cell) where
     (Val a) + (Val b) = Val (a + b)
     (Address key off) + (Val b) = Address key (off + (fromIntegral b))
     (Val b) + (Address key off) = Address key (off + (fromIntegral b))
+    a + b = Bottom $ show a ++ " " ++ show b ++ " +"
     (Val a) * (Val b) = Val (a * b)
+    a * b = Bottom $ show a ++ " " ++ show b ++ " *"
     abs (Val a) = Val (abs a)
+    abs a = Bottom $ show a ++ " ABS"
     signum (Val a) = Val (signum a)
+    signum a = Bottom $ show a ++ " SIGNUM"
     fromInteger n = Val (fromInteger n)
 
 instance Cell cell => Bits (ForthValue cell) where
     (Val a) .&. (Val b) = Val (a .&. b)
+    a .&. b = Bottom $ show a ++ " " ++ show b ++ " AND"
     (Val a) .|. (Val b) = Val (a .|. b)
+    a .|. b = Bottom $ show a ++ " " ++ show b ++ " OR"
     xor (Val a) (Val b) = Val (xor a b)
+    xor a b = Bottom $ show a ++ " " ++ show b ++ " XOR"
     complement (Val a) = Val (complement a)
+    complement a = Bottom $ show a ++ " INVERT"
     bitSize (Val a) = bitSize a
     isSigned (Val a) = isSigned a
+    isSigned _ = False
 
 instance Cell cell => Ord (ForthValue cell) where
     compare (Val a) (Val b) = compare a b
@@ -85,8 +94,6 @@ nativeWords =
                  ("AND", binary (.&.)),
                  ("OR", binary (.|.)),
                  ("XOR", binary xor),
-
-
                  ("0<", unary (\n -> truth (n < 0))),
                  ("0=", unary (\n -> truth (n == 0))),
                  ("U<", binary ult),
@@ -96,8 +103,6 @@ nativeWords =
                  ("C!", store (\(Val n) -> Byte (fromIntegral n))),
                  ("@", fetch cellValue),
                  ("C@", fetch charValue),
-
-
                  -- Cell size and address related
                  ("CHAR+", unary (1+)), -- characters are just bytes
                  ("CHARS", unary id),
