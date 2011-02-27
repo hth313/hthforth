@@ -151,5 +151,5 @@ bracketTick = do
   name <- identifier
   word <- lift $ wordFromName name
   case word of
-    Just [WordRef key] -> lift $ pushLiteral (Address key 0)
+    Just [WordRef key] -> lift $ pushLiteral (ExecutionToken key)
     Nothing -> unexpected name

@@ -13,7 +13,8 @@ module Forth.Machine (MachineM, ForthLambda, Machine(..),
                       loadScreens, load, execute, executeSlice, executeColonSlice,
                       pushLiteral, keyName, openColonDef, closeColonDef,
                       update, readMachine, addWord, cellSize, instructionSize,
-                      ensureStack, ensureReturnStack, isValue, isAddress, isAny) where
+                      ensureStack, ensureReturnStack,
+                      isValue, isAddress, isAny, isExecutionToken) where
 
 import Data.Int
 import Data.Bits
@@ -345,3 +346,5 @@ isValue _ = False
 isAddress (Address _ _) = True
 isAddress _ = False
 isAny = const True
+isExecutionToken (ExecutionToken _) = True
+isExecutionToken _ = False

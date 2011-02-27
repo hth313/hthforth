@@ -127,6 +127,7 @@ nativeWords = do
 --  native "LITERAL" literal
 --  immediate
   native "_LIT" lit
+  native ">BODY" toBody
   -- Block related
   native "(LOAD)" loadScreen
   native "THRU" thru
@@ -328,14 +329,6 @@ doesConstant :: Cell cell => String -> ForthLambda cell
 doesConstant name = ensureStack name [isAddress] action where
     action = fetch cellValue name
 
-{-
-literal :: Cell cell => String -> ForthLambda cell
-literal name = ensureStack name [isValue] action where
-    action = do
-      val <- StateT (\s -> return (head (stack s), s { stack = tail (stack s) } ))
-      compileWord (Literal val)
--}
-
 -- | Words that need to exist, but do not have any defined behavior in the Haskell
 --   emulated Forth as it is implemented in a different way. It will need a target
 --   version though.
@@ -353,3 +346,12 @@ lit name = update (\s ->
 
 --    let Literal val : ip' = ip s
 --    in s { ip = ip', stack = val : stack s })
+
+toBody :: Cell cell => String -> ForthLambda cell
+toBody name = ensureStack name [isExecutionToken] action where
+    action = update (\s ->
+                let ExecutionToken key : stack' = stack s
+                in case Map.lookup key (wordKeyMap s) of
+                     Just word ->
+                         case dataField word of
+                           Just field -> s { stack = Address key 0 : stack' })

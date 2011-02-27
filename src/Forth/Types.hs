@@ -19,6 +19,7 @@ newtype Key = Key Int deriving (Show, Eq, Ord)
 -- Values that can be stored on the stack
 data Cell cell => ForthValue cell = Continuation (ColonSlice cell)  |
                                     Address Key cell | Val cell |
+                                    ExecutionToken Key |
                                     Bottom String |
                                     UndefinedValue deriving (Eq, Show)
 type (ForthValues cell) = [ForthValue cell]
