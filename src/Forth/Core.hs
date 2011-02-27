@@ -113,8 +113,8 @@ nativeWords = do
   native "CHARS" (unary id)
   native "CELL+" (unitPlus cellSize)
   native "CELLS" (units cellSize)
-  native "XT+" (unitPlus executionTokenSize)
-  native "XTS" (units executionTokenSize)
+  native "INSTR+" (unitPlus instructionSize)
+  native "INSTRS" (units instructionSize)
   -- Lambda versions of compiler words
   native "IMMEDIATE" immediateWord
 --                      native "CREATE" create

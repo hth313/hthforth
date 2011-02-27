@@ -26,7 +26,7 @@ withConfiguration conf action = runReaderT action conf
 -- information. The internal representation of a
 data Cell cell =>
     Configuration cell = Configuration { bytesPerCell :: cell,
-                                         bytesPerExecutionToken :: cell,
+                                         bytesPerInstruction :: cell,
                                          bytesPerChar :: cell,
                                          toBytes :: cell -> [Word8],
                                          toValue :: [Word8] -> cell,

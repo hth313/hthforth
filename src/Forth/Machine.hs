@@ -12,7 +12,7 @@ module Forth.Machine (MachineM, ForthLambda, Machine(..),
                       wordFromName, initialState, evalStateT, configuration,
                       loadScreens, load, execute, executeSlice, executeColonSlice,
                       pushLiteral, keyName, openColonDef, closeColonDef,
-                      update, readMachine, addWord, cellSize, executionTokenSize,
+                      update, readMachine, addWord, cellSize, instructionSize,
                       ensureStack, ensureReturnStack, isValue, isAddress, isAny) where
 
 import Data.Int
@@ -194,8 +194,8 @@ compileWord elt = StateT (\s ->
 cellSize :: Cell cell => MachineM cell cell
 cellSize = accessConfigurationSize bytesPerCell
 
-executionTokenSize :: Cell cell => MachineM cell cell
-executionTokenSize = accessConfigurationSize bytesPerExecutionToken
+instructionSize :: Cell cell => MachineM cell cell
+instructionSize = accessConfigurationSize bytesPerInstruction
 
 accessConfigurationSize accessor = do
   configuration >>= return.accessor
@@ -305,7 +305,7 @@ data Cell cell => ForthWord cell = ForthWord { wordName :: String,
                                                -- nameless word that implements the
                                                -- DOES> part. If invoked, the dataField
                                                -- is first to be pused on the stack
-                                               cfa :: Maybe Key,
+                                               codeField :: Maybe Key,
                                                -- Colon definition for this word
                                                body :: Maybe (ColonSlice cell) }
 

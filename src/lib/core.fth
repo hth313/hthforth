@@ -141,7 +141,7 @@ VARIABLE HLD
 
 : ALLOT ( n -- )  DP +! ;
 : LITERAL ( x -- )  ['] _LIT COMPILE, , ; IMMEDIATE
-: COMPILE, ( xt -- )  HERE [ 1 XTS ] LITERAL ALLOT ! ;
+: COMPILE, ( xt -- )  HERE [ 1 INSTRS ] LITERAL ALLOT ! ;
 
 ( Data allocation )
 : , ( n -- )  HERE [ 1 CELLS ] LITERAL ALLOT ! ;
