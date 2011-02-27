@@ -79,57 +79,60 @@ false = Val 0
 
 -- | Define native and word header related words as lambdas
 nativeWords :: Cell cell => MachineM cell ()
-nativeWords =
-  mapM_  native [-- Data stack
-                 ("DROP", updateStack 1 tail),
-                 ("DUP", updateStack 1 (\st -> head st : st)),
-                 ("OVER", updateStack 2 (\st -> head (tail st) : st)),
-                 ("SWAP", updateStack 2 (\(s1:s2:ss) -> s2:s1:ss)),
-                 ("ROT", updateStack 3 (\(s1:s2:s3:ss) -> s3:s1:s2:ss)),
-                 -- Return stack
-                 (">R", tor),
-                 ("R>", rto),
-                 ("R@", rfetch),
-                 -- ALU
-                 ("+", binary (+)),
-                 ("UM*", umstar),
-                 ("UM/MOD", ummod),
-                 ("M*", umstar),
-                 ("-", binary (-)),
-                 ("AND", binary (.&.)),
-                 ("OR", binary (.|.)),
-                 ("XOR", binary xor),
-                 ("0<", unary (\n -> truth (n < 0))),
-                 ("0=", unary (\n -> truth (n == 0))),
-                 ("U<", binary ult),
-                 ("2/", unary (`shiftR` 1)),
-                 -- Load and store
-                 ("!", store Cell),
-                 ("C!", store (\(Val n) -> Byte (fromIntegral n))),
-                 ("@", fetch cellValue),
-                 ("C@", fetch charValue),
-                 -- Cell size and address related
-                 ("CHAR+", unary (1+)), -- characters are just bytes
-                 ("CHARS", unary id),
-                 ("CELL+", unitPlus cellSize),
-                 ("CELLS", units cellSize),
-                 ("XT+", unitPlus executionTokenSize),
-                 ("XTS", units executionTokenSize),
-                 -- Lambda versions of compiler words
-                 ("IMMEDIATE", immediateWord),
-                 --                      ("CREATE", create),
-                 --                      ("POSTPONE", postpone)
-                 ("EXIT", exit),
-                 -- DOES> part of CONSTANT and VARIABLE
-                 ("_VAR", doesVariable),
-                 ("_CON", doesConstant),
-                 -- Block related
-                 ("(LOAD)", loadScreen),
-                 ("THRU", thru)
-             ]
+nativeWords = do
+  -- Data stack
+  native "DROP"  (updateStack 1 tail)
+  native "DUP"   (updateStack 1 (\st -> head st : st))
+  native "OVER"  (updateStack 2 (\st -> head (tail st) : st))
+  native "SWAP"  (updateStack 2 (\(s1:s2:ss) -> s2:s1:ss))
+  native "ROT"   (updateStack 3 (\(s1:s2:s3:ss) -> s3:s1:s2:ss))
+  -- Return stack
+  native ">R" tor
+  native "R>" rto
+  native "R@" rfetch
+  -- ALU
+  native "+" (binary (+))
+  native "UM*" umstar
+  native "UM/MOD" ummod
+  native "M*" umstar
+  native "-" (binary (-))
+  native "AND" (binary (.&.))
+  native "OR" (binary (.|.))
+  native "XOR" (binary xor)
+  native "0<" (unary (\n -> truth (n < 0)))
+  native "0=" (unary (\n -> truth (n == 0)))
+  native "U<" (binary ult)
+  native "2/" (unary (`shiftR` 1))
+  -- Load and store
+  native "!" (store Cell)
+  native "C!" (store (\(Val n) -> Byte (fromIntegral n)))
+  native "@" (fetch cellValue)
+  native "C@" (fetch charValue)
+  -- Cell size and address related
+  native "CHAR+" (unary (1+)) -- characters are just byt
+  native "CHARS" (unary id)
+  native "CELL+" (unitPlus cellSize)
+  native "CELLS" (units cellSize)
+  native "XT+" (unitPlus executionTokenSize)
+  native "XTS" (units executionTokenSize)
+  -- Lambda versions of compiler words
+  native "IMMEDIATE" immediateWord
+--                      native "CREATE" create
+--                      native "POSTPONE" postpon
+  native "EXIT" exit
+-- DOES> part of CONSTANT and VARIABLE
+  native "_VAR" doesVariable
+  native "_CON" doesConstant
+  -- Compiler related
+--  native "LITERAL" literal
+--  immediate
+  native "_LIT" lit
+  -- Block related
+  native "(LOAD)" loadScreen
+  native "THRU" thru
     where
-      native :: Cell cell => (String, (String -> ForthLambda cell)) -> MachineM cell ()
-      native (name, fun) = do
+      native :: Cell cell => String -> (String -> ForthLambda cell) -> MachineM cell ()
+      native name fun = do
             key <- newKey
             addWord (ForthWord name False key Nothing (Just (fun name))
                                Nothing Nothing Nothing)
@@ -138,6 +141,7 @@ nativeWords =
       unit op sz name = sz >>= \n -> unary (Val n `op`) name
       truth True = true
       truth False = false
+--      immediate = immediateWord "IMMEDIATE"
 
 tor :: Cell cell => String -> ForthLambda cell
 tor name = ensureStack name [isAny] action where
@@ -265,9 +269,10 @@ thru name = ensureStack name [isValue, isValue] action where
                                Val to : Val from : ns -> return ([from..to], s))
       word <- wordFromName "LOAD"
       case word of
-        Just load ->
-            let makedef n = [Literal (Val n), load]
-            in executeColonSlice (concatMap makedef range)
+        Just [load] -> do
+            loadLit <- loadLiteralWordRef
+            let makedef n = [loadLit, Literal (Val n), load]
+            executeColonSlice (concatMap makedef range)
 
 ult :: Cell cell => ForthValue cell -> ForthValue cell -> ForthValue cell
 ult (Val n1) (Val n2) =
@@ -322,3 +327,29 @@ doesVariable name = return ()
 doesConstant :: Cell cell => String -> ForthLambda cell
 doesConstant name = ensureStack name [isAddress] action where
     action = fetch cellValue name
+
+{-
+literal :: Cell cell => String -> ForthLambda cell
+literal name = ensureStack name [isValue] action where
+    action = do
+      val <- StateT (\s -> return (head (stack s), s { stack = tail (stack s) } ))
+      compileWord (Literal val)
+-}
+
+-- | Words that need to exist, but do not have any defined behavior in the Haskell
+--   emulated Forth as it is implemented in a different way. It will need a target
+--   version though.
+doNotCall :: Cell cell => String -> ForthLambda cell
+doNotCall name =
+    liftIO $ hPutStrLn stderr (show name ++ " not to be executed (intended for target)")
+
+-- | Pick up next item in the colon definition which should be a literal and push
+--   it on stack.
+lit :: Cell cell => String -> ForthLambda cell
+lit name = update (\s ->
+               case ip s of
+                 [] -> s  -- TODO why is this needed?
+                 Literal val : ip' -> s { ip = ip', stack = val : stack s })
+
+--    let Literal val : ip' = ip s
+--    in s { ip = ip', stack = val : stack s })

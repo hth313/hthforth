@@ -24,7 +24,7 @@ VARIABLE BLK
 ( block 30  CORE words )
 
 1 FH 8 FH THRU
-
+10 FH LOAD          \ compiler
 ( shadow 30 )
 ( block 31 stack primitives )
 
@@ -139,9 +139,8 @@ VARIABLE HLD
 : [  FALSE STATE ! ; IMMEDIATE
 : ]  TRUE STATE ! ;
 
-: LITERAL ( x -- )  ['] (LIT) , ; IMMEDIATE
 : ALLOT ( n -- )  DP +! ;
-
+: LITERAL ( x -- )  ['] _LIT COMPILE, , ; IMMEDIATE
 : COMPILE, ( xt -- )  HERE [ 1 XTS ] LITERAL ALLOT ! ;
 
 ( Data allocation )

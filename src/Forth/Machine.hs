@@ -7,7 +7,7 @@
 -}
 
 module Forth.Machine (MachineM, ForthLambda, Machine(..),
-                      ForthWord(..), StateT(..), newKey,
+                      ForthWord(..), StateT(..), newKey, loadLiteralWordRef,
                       createVariable, createConstant, perform, compileWord,
                       wordFromName, initialState, evalStateT, configuration,
                       loadScreens, load, execute, executeSlice, executeColonSlice,
@@ -47,7 +47,7 @@ readMachine f = StateT (\s -> return (f s, s))
 lookupWord key = StateT (\s -> return (Map.lookup key (wordKeyMap s), s))
 
 lookupWordFromName name = do
-  Just (WordRef key) <- wordFromName name
+  Just [WordRef key] <- wordFromName name
   lookupWord key
 
 initialState parser =
@@ -70,7 +70,8 @@ addWord word = update (\s ->
     let finalWord = word { body = fmap (compileStructure key) (body word) }
         key = wordKey finalWord
     in s { wordKeyMap = Map.insert key finalWord (wordKeyMap s),
-           wordNameMap = Map.insert (wordName finalWord) key (wordNameMap s) } )
+           wordNameMap = Map.insert (wordName finalWord) key (wordNameMap s),
+           lastWord = Just key } )
 
 -- Compile structures like IF-ELSE-THEN into branch primitives
 compileStructure key colon =
@@ -124,19 +125,27 @@ createConstant name = ensureStack "CONSTANT" [isAny] action where
 
 -- | Given the name of a word, look it up in the dictionary and return its
 --   compiled inner representation
-wordFromName :: Cell cell => String -> MachineM cell (Maybe (ColonElement cell))
-wordFromName name =
-    StateT (\s ->
-        case Map.lookup name (wordNameMap s) of
-          Just wordkey -> return (Just $ WordRef wordkey, s)
-          Nothing ->
-              let literal n = return (Just $ Literal (Val n), s)
-              in case readDec name of
-                   [(n,"")] -> literal n
-                   otherwise ->
-                       case readSigned readDec name of
-                         [(n,"")] -> literal n
-                         otherwise -> return (Nothing, s))
+wordFromName :: Cell cell => String -> MachineM cell (Maybe [ColonElement cell])
+wordFromName name = do
+  StateT (\s ->
+      case Map.lookup name (wordNameMap s) of
+        Just wordkey -> return (Just [WordRef wordkey], s)
+        Nothing ->
+          let literal n = return (Just $ [lit, Literal (Val n)], s)
+              lit = case Map.lookup "_LIT" (wordNameMap s) of
+                      Just ref -> WordRef ref
+          in case readDec name of
+               [(n,"")] -> literal n
+               otherwise ->
+                   case readSigned readDec name of
+                     [(n,"")] -> literal n
+                     otherwise -> return (Nothing, s))
+
+loadLiteralWordRef :: Cell cell => MachineM cell (ColonElement cell)
+loadLiteralWordRef = do
+  loadLit <- wordFromName "_LIT"
+  case loadLit of
+    Just [loadLit] -> return loadLit
 
 -- | Perform interpretation or compilation semantics for the given word.
 perform :: Cell cell => String -> MachineM cell Bool
@@ -151,17 +160,18 @@ perform name = do
   -- Dispatch on state and either execute or compile the word
   word <- wordFromName name
   case word of
-    Just ref@(WordRef wordKey) -> do
-        word <- lookupWord wordKey
-        if stateVal == 0 || maybe False immediate word
-           then execute wordKey
-           else compileWord ref
+    Just words -> do
+        mapM_ perform1 words
         return True
-    Just lit@(Literal val) -> do
-        case stateVal of
-          0 -> pushLiteral val
-          otherwise -> compileWord lit
-        return True
+        where
+          perform1 ref@(WordRef key) = do
+              word <- lookupWord key
+              if stateVal == 0 || maybe False immediate word
+                 then execute key
+                 else compileWord ref
+          perform1 lit@(Literal val)
+              | stateVal == 0 = pushLiteral val
+              | otherwise = compileWord lit
     Nothing -> return False
 
 openColonDef name = do
@@ -234,7 +244,7 @@ executeSlice list =
             Nothing -> throw $ ErrorCall ("Failed to find: " ++ show name)
     in do
       slice <- mapM compile list
-      executeColonSlice slice
+      executeColonSlice (concat slice)
 
 executeColonSlice colonSlice = do
     update (\s -> s { ip = colonSlice, rstack = Continuation (ip s) : rstack s })
@@ -251,8 +261,9 @@ next = do
                                         return (next, s { rstack = rstack', ip = slice })
                                     otherwise -> return (return (), s)
                             WordRef key : ip' -> return (execute key, s { ip = ip' })
-                            Literal val : ip' ->
-                                return (next, s { stack = val : stack s, ip = ip' })
+-- This one should be loaded by a preceeding _LIT
+--                            Literal val : ip' ->
+--                                return (next, s { stack = val : stack s, ip = ip' })
                    )
   action
 
@@ -269,7 +280,7 @@ data Cell cell =>
                              wordNameMap :: Map String Key,
                              -- The interpretive pointer
                              ip :: ColonSlice cell,
-                             -- Most recent word, or word being defined
+                             -- Most recent word
                              lastWord :: Maybe Key,
                              screens :: Map Int String,
                              forthParser :: String -> String -> MachineM cell (Either String ()),

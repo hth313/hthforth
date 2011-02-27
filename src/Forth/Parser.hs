@@ -55,7 +55,8 @@ lexer  = P.makeTokenParser (P.LanguageDef { P.commentStart = "( ",
                                                                "VARIABLE", "CONSTANT",
                                                                "IF", "ELSE", "THEN",
                                                                "BEGIN", "WHILE", "UNTIL",
-                                                               "REPEAT", "UNTIL"
+                                                               "REPEAT", "UNTIL",
+                                                               "[']"
                                                               ],
                                             P.identStart = wordChar,
                                             P.identLetter = wordChar,
@@ -83,7 +84,7 @@ topLevel :: Parser ()
 topLevel = many definition >> eof
 
 definition :: Parser ()
-definition = colonDef <|> create <|> variable <|> constant <|> exec
+definition = colonDef <|> create <|> variable <|> constant <|> bracketTick <|> exec
 
 colonDef :: Parser ()
 colonDef = do
@@ -104,7 +105,8 @@ colonWord = compileToken <|>
             (construct "BEGIN" BEGIN) <|>
             (construct "WHILE" WHILE) <|>
             (construct "UNTIL" UNTIL) <|>
-            (construct "REPEAT" REPEAT) <?> "word"
+            (construct "REPEAT" REPEAT) <|>
+            bracketTick <?> "word"
 
 construct name cons = (reserved name >> lift (compileWord (Structure cons)))
 
@@ -139,6 +141,15 @@ exec = do
   name <- identifier
   word <- lift $ wordFromName name
   case word of
-    Just (WordRef key) -> lift $ execute key
-    Just (Literal lit) -> lift $ pushLiteral lit
+    Just [WordRef key] -> lift $ execute key
+    Just [_, Literal lit] -> lift $ pushLiteral lit
+    Nothing -> unexpected name
+
+bracketTick :: Parser ()
+bracketTick = do
+  reserved "[']"
+  name <- identifier
+  word <- lift $ wordFromName name
+  case word of
+    Just [WordRef key] -> lift $ pushLiteral (Address key 0)
     Nothing -> unexpected name
