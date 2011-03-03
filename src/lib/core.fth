@@ -140,11 +140,10 @@ VARIABLE HLD
 : ]  TRUE STATE ! ;
 
 : ALLOT ( n -- )  DP +! ;
-: LITERAL ( x -- )  ['] _LIT COMPILE, , ; IMMEDIATE
-: COMPILE, ( xt -- )  HERE [ 1 INSTRS ] LITERAL ALLOT ! ;
-
-( Data allocation )
+: HERE ( -- a ) DP @ ;
 : , ( n -- )  HERE [ 1 CELLS ] LITERAL ALLOT ! ;
+: COMPILE, ( xt -- )  HERE [ 1 INSTRS ] LITERAL ALLOT ! ;
+: LITERAL ( x -- )  ['] _LIT COMPILE, , ; IMMEDIATE
 
 : VARIABLE CREATE 1 CELLS ALLOT ;
 : CONSTANT CREATE , DOES> @ ;

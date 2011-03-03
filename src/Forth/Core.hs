@@ -43,6 +43,8 @@ instance Cell cell => Num (ForthValue cell) where
     (Val a) + (Val b) = Val (a + b)
     (Address key off) + (Val b) = Address key (off + (fromIntegral b))
     (Val b) + (Address key off) = Address key (off + (fromIntegral b))
+    (ColonAddress key off) + (Val b) = ColonAddress key (off + (fromIntegral b))
+    (Val b) + (ColonAddress key off) = ColonAddress key (off + (fromIntegral b))
     a + b = Bottom $ show a ++ " " ++ show b ++ " +"
     (Val a) - (Val b) = Val (a - b)
     (Address key off) - (Val b) = Address key (off - (fromIntegral b))
@@ -124,10 +126,12 @@ nativeWords = do
   native "_VAR" doesVariable
   native "_CON" doesConstant
   -- Compiler related
---  native "LITERAL" literal
+  native "LITERAL" literal
 --  immediate
   native "_LIT" lit
   native ">BODY" toBody
+--  native "COMPILE," compileComma
+--  native "," comma
   -- Block related
   native "(LOAD)" loadScreen
   native "THRU" thru
@@ -344,6 +348,14 @@ lit name = update (\s ->
                  [] -> s  -- TODO why is this needed?
                  Literal val : ip' -> s { ip = ip', stack = val : stack s })
 
+-- | Compile a literal.
+literal name = ensureStack name [isAny] action where
+    action = do
+      loadLit <- loadLiteralWordRef
+      compileWord loadLit
+      lit <- popLiteral
+      compileWord (Literal lit)
+
 --    let Literal val : ip' = ip s
 --    in s { ip = ip', stack = val : stack s })
 
@@ -355,3 +367,42 @@ toBody name = ensureStack name [isExecutionToken] action where
                      Just word ->
                          case dataField word of
                            Just field -> s { stack = Address key 0 : stack' })
+
+{-
+compileComma :: Cell cell => String -> ForthLambda cell
+compileComma name = ensureStack name [isExecutionToken] action where
+    action = do
+      ref <- StateT (\s ->
+                 let ExecutionToken key : stack' = stack s
+                 in return (WordRef key, s { stack = stack' }))
+      compileWord ref
+
+comma :: Cell cell => String -> ForthLambda cell
+comma name = ensureStack name [isAny] action where
+    action = do
+      conf <- configuration
+      sz <- cellSize
+      (val, activeColon, last) <-
+          StateT (\s ->
+              let val : stack' = stack s
+              in return ((val, activeColonDef s, lastWord s), s { stack = stack' }))
+      case activeColon of
+        Just colonDef -> compileWord (Literal val)
+        Nothing ->  -- take care of data field
+            case last of
+              Just last -> do
+                  word <- lookupWord last
+                  case word of
+                    Just word ->
+                        case dataField word of
+                            Just field
+                                | writable field ->
+                                    let field' = (storeData (Cell val) (dataSize field)
+                                                            field conf)
+                                                 { dataSize = dataSize field + sz }
+                                        alter word = Just $ word { dataField = Just field' }
+                                    in update (\s ->
+                                           s { wordKeyMap =
+                                                   Map.update alter last (wordKeyMap s)} )
+
+-}

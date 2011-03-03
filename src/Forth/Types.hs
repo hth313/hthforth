@@ -19,6 +19,7 @@ newtype Key = Key Int deriving (Show, Eq, Ord)
 -- Values that can be stored on the stack
 data Cell cell => ForthValue cell = Continuation (ColonSlice cell)  |
                                     Address Key cell | Val cell |
+                                    ColonAddress Key cell |
                                     ExecutionToken Key |
                                     Bottom String |
                                     UndefinedValue deriving (Eq, Show)
@@ -47,6 +48,5 @@ data Cell cell => DataObject cell = Cell (ForthValue cell) | Byte Word8 | Undefi
 
 -- A data field is the body of a data word
 data Cell cell => DataField cell = DataField { dataSize :: cell,
-                                               writeable :: Bool,
+                                               writable :: Bool,
                                                objects :: Map cell (DataObject cell) }
-

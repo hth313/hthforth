@@ -6,12 +6,12 @@
 
 -}
 
-module Forth.Machine (MachineM, ForthLambda, Machine(..),
+module Forth.Machine (MachineM, ForthLambda, Machine(..), lookupWord,
                       ForthWord(..), StateT(..), newKey, loadLiteralWordRef,
                       createVariable, createConstant, perform, compileWord,
                       wordFromName, initialState, evalStateT, configuration,
                       loadScreens, load, execute, executeSlice, executeColonSlice,
-                      pushLiteral, keyName, openColonDef, closeColonDef,
+                      pushLiteral, popLiteral, keyName, openColonDef, closeColonDef,
                       update, readMachine, addWord, cellSize, instructionSize,
                       ensureStack, ensureReturnStack,
                       isValue, isAddress, isAny, isExecutionToken) where
@@ -111,6 +111,7 @@ createVariable name = do
   Just does <- lookupWordFromName "_VAR"
   addWord (ForthWord name False key (Just (allot sz)) Nothing Nothing
                      (Just (wordKey does)) Nothing)
+  putDP (Address key 0)
 
 createConstant :: Cell cell => String -> ForthLambda cell
 createConstant name = ensureStack "CONSTANT" [isAny] action where
@@ -123,6 +124,13 @@ createConstant name = ensureStack "CONSTANT" [isAny] action where
       let field = storeData (Cell val) 0 (allot sz) conf
       addWord (ForthWord name False key (Just field) Nothing Nothing
                          (Just (wordKey does)) Nothing)
+      putDP (Address key 0)
+
+-- | Set dictionary pointer. This need to ensure that DP exists, which it does not
+--   initially.
+putDP lit = do
+  dp <- wordFromName "DP"
+  when (isJust dp) (pushLiteral lit >>  executeSlice [ "DP", "!" ])
 
 -- | Given the name of a word, look it up in the dictionary and return its
 --   compiled inner representation
@@ -181,12 +189,15 @@ openColonDef name = do
       return ((), s { activeColonDef = Just (ForthWord name False key Nothing Nothing
                                                        Nothing Nothing Nothing),
                       activeColonBody = [] }))
+  putDP (ColonAddress key 0)
 
 closeColonDef :: Cell cell => ForthLambda cell
 closeColonDef = do
-    (def, body) <- StateT (\s -> return ((activeColonDef s, activeColonBody s), s))
+    (def, body) <- StateT (\s -> return ((activeColonDef s, activeColonBody s),
+                                         s { activeColonDef = Nothing } ))
     case def of
-      Just def -> addWord $ def { body = Just body }
+      Just def -> do
+          addWord $ def { body = Just body }
 
 compileWord :: Cell cell => ColonElement cell -> ForthLambda cell
 compileWord elt = StateT (\s ->
@@ -272,6 +283,12 @@ next = do
 pushLiteral lit =
     update (\s -> s { stack = lit : stack s })
 
+-- | Pop a literal from stack
+popLiteral :: Cell cell => MachineM cell (ForthValue cell)
+popLiteral = StateT (\s ->
+    let val : stack' = stack s
+    in return (val, s { stack = stack' }))
+
 -- The Forth state
 data Cell cell =>
     Machine cell = Machine { -- The Forth stacks
@@ -344,6 +361,7 @@ ensure stack name preds action = do
 isValue (Val _) = True
 isValue _ = False
 isAddress (Address _ _) = True
+isAddress (ColonAddress _ _) = True
 isAddress _ = False
 isAny = const True
 isExecutionToken (ExecutionToken _) = True
