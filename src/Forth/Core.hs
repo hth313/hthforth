@@ -164,15 +164,21 @@ store :: Cell cell => (ForthValue cell -> DataObject cell) -> String -> MachineM
 store ctor name = ensureStack name [isAddress, isAny] action where
     action = do
       conf <- configuration
-      update (\s ->
-          case stack s of
-            adr@(Address key offsetadr) : tos : rest ->
+      adr <- popLiteral
+      val <- popLiteral
+      case adr of
+        Address key offsetadr ->
+            update (\s ->
                 let (word, offset, field) = addressField adr s
-                    field' = storeData (ctor tos) offset field conf
+                    field' = storeData (ctor val) offset field conf
                     write _ = Just $ word { dataField = Just field' }
-                in s { stack = rest,
-                       wordKeyMap = Map.update write key (wordKeyMap s) }
-               )
+                in s { wordKeyMap = Map.update write key (wordKeyMap s) })
+        ColonAddress key offset ->
+            -- Will write to last location. This is OK for literals which we will
+            -- see this way. For back patching control words, we rely on that we
+            -- insert special words and ise compileStructure to fix branching.
+            -- Thus, we can ignore the offset as it is, we only write at the end.
+            compileWord (Literal val)
 
 addressField :: Cell cell => ForthValue cell -> Machine cell ->
                 (ForthWord cell, cell, DataField cell)
