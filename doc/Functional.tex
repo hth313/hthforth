@@ -22,8 +22,8 @@ Thanks to tremendous processing power available in 32-bit RISC devices, there is
 Forth had its heyday in the early eighties when microcomputers were far less powerful than today.
 Today Forth has its followers, but they are rather few. Forth is still an appealing choice for a small interactive environment. An alternative language could be Scheme, but for this project Forth was chosen for the following reasons:
 \begin{enumerate}
-\item Forth is not a language to write programs with, it is a language that is extended to suit the problem.
-\item Forth comes with an interactive environment, well suited for experimenting and playing with, rather than just running a ready made program.  This fits better with how a calculator is actually best used.
+\item Forth is not a language to write programs in, it is a language that is extended to suit the problem.
+\item Forth comes with an interactive environment, well suited for experimenting and playing with, rather than just running a ready made program.  This fits better with how an advanced calculator is best used.
 \item Ability to record simple user programs comes more or less free with the language. Larger programs are also possible, but as mentioned, are more likely to be implemented as smaller building blocks to help solving the problems at hand.
 \item There is no gap between the built-in functionality and what the end user adds to it. Such gaps are common in most calculators that are implemented in a different language than what is provided to the user.
 \item Small footprint and good performance.
@@ -38,25 +38,30 @@ Forth itself relies on a traditional keyboard, not a calculator style keyboard. 
 It may still be desirable to hit the low level Forth engine from a traditional alphanumeric keyboard and this will be made possible as a another keyboard mode. In reality, the calculator hardware may be more or less ill suited for this, providing too few keys, no alphanumeric keyboard labeling or even a display that can show alpha characters. Thus, while it may be more or less possible to provide a Forth low level command line mode, the user experience may suffer quite a bit depending on the hardware at hand.
 
 \subsection{Host Mode}
-Since the hardware is expected to more or less severely limited, a host computer is meant to be used for development. This will allow for disk I/O (loading Forth screens,\footnote{This is the traditional way of handling Forth source code.} building flash images and playing with the hardware using a real alphanumeric keyboard.
+Since the hardware is expected to more or less severely limited, a host computer is meant to be used for development. This will allow for disk I/O (loading Forth source), building flash images and playing with the hardware using a real alphanumeric keyboard. In addition to Forth screens, Forth stream files are also supported
 
 The host mode is only needed for development. In daily use CalcForth will act as a standalone environment on the calculator hardware. Adding smaller programs (definitions) shall be possible on the standalone calculator.
 
 A cable of some kind will be needed, it can be a serial cable, USB or JTAG that will allow the host to talk to the calculator to provide the following use cases:
 \begin{itemize}
 \item Use the host as a Forth terminal.
-\item Load screens from disk. Definitions are written to CalcForth RAM for immediate availability, commands are executed on hardware.
+\item Load source code from disk. Definitions are written to CalcForth RAM for immediate availability, commands are executed on hardware.
 \item Make CalcForth images and flash the calculator.
 \end{itemize}
 
 \subsubsection{Forth Screens}
+This is the traditional way of handling Forth source code.
 Multiple screens are kept in a disk. A disk will correspond to a file on the host. Inside a disk, multiple Forth screens are stored using Forth mode in Emacs, which uses narrowing to display a screen at a time.
 
+\subsubsection{Forth Stream Files}
+As an alternative to Forth screens, Forth stream files are supported. They are just plain source files with Forth source code, without line length or file length limitations.
+
+Forth stream files work quite nicely with the modular word set approach used by the Forth 200x standard, a word set has a name and is just a correspondingly named source file.
 
 \subsection{Calculator Shell}
 CalcForth provides several shells of which one can be the active one. The shell affects the keyboard and the default display.
 
-A scientific shell can provide suitable scientific functions on the keys and display the floating point number on top of the floating point stack. Another shell could be a business shell that provides a different keyboard, but a display routine that also displays the top of the floating point stack, but may impose different formatting of numbers output to be more suitable for monetary values.
+A scientific shell can provide suitable scientific functions on the keys and display the floating point number on top of the floating point stack. Another shell could be a business shell, which provides a different keyboard and a display routine that displays numbers in a more suitable way for monetary values.
 
 It is worth noting that the shell does not change any of the inner working of the calculator in any way, only  the user interface. Thus, it is perfectly possible to perform business functions when in scientific mode.
 
@@ -73,6 +78,8 @@ In addition to these, the user can create shells (or application shells) by basi
 
 \subsubsection{Talking Keys}
 Since keys change behavior there need to be a way to find out what a key does without actually performing its action. The ``talking keys'' feature is borrowed from the HP-41. When you press a key, the function it will perform will be displayed and if you keep the key pressed, the action will be NULLed.
+
+An alternative, or perhaps complement to the talking key approach is to have dynamic overlays. That is however not an easy feat on a traditional calculator, but could be a possibility on a hardware based on E-ink, a smartphone or a tablet.
 
 \subsubsection{User Mode Customization}
 In addition to provide pre-defined shells, the end user can customize the keyboard by assigning a different function to a key. The re-assigned functions are available in User mode which can be toggled on and off.
@@ -101,6 +108,10 @@ The upper 64-bits holds the imaginary part. A complex number on the stack will s
 When going between stack modes, numbers on the stack may change meaning depending on the mode and no special conversions take place. This make it possible to switch to integer mode to manipulate IEEE floating point numbers at bit level.
 
 The rationale here is that while the RPN stack is kind of short, it is well thought out and familiar to many people. The advantage of a longer stack with Forth semantics would be allow for keeping a record of previous calculations, but that works better if the display is multilevel, something we do not expect to have. The limitation of the short stack can be compensated by using the other Forth stacks as a temporary storage area for RPN stack values.\footnote{This could be a mechanism similar to {\tt R>} and {\tt >R} that Forth programmer have abused with great success to ease the pressure on the data stack.}
+
+On the other hand, once you get used to having a virtually unlimited stack, the 4-level RPN stack becomes a severe limitation. The Forth 200x standard comes with an alternative floating point stack that shall be at least 6 items, which of course easily can be configured to be something more reasonable large. Using that stack for the calculator values is tempting and solves the problem of the too small RPN stack. On the other hand, it does not address the LastX register which gives a way of undoing an undesired operation.\footnote{While it is useful up to a point, it is not the most user friendly way of recovering from a disaster, a proper undo would be more user friendly.}
+
+It remains to be decided which user value stack to provide, either a traditional RPN stack or a larger stack and losing some of the nifty special features of the RPN stack, but then solving the most glaring problem with the RPN stack.
 
 \subsection{Overflows and Underflows}
 Forth stack overflows and underflows are detected and if they occur, execution is aborted.  The RPN stack can neither overflow or underflow by design.
