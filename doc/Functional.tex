@@ -31,7 +31,7 @@ Today Forth has its followers, but they are rather few. Forth is still an appeal
 \end{enumerate}
 
 \section{User Experience}
-A calculator is an ``instant on device'', meaning you do not need to wait for it to start. The calculator will be ready to use within a fraction of a second after pressing the ON key. Calculators are also use specialized keyboards where often used single functions available at single key presses. Extensions to this scheme are often also provided by the use of shift keys or secondary key presses to provide more functions easy at hand. This in contrast to a traditional keyboard where you need to spell out longer sequences to form commands.
+A calculator is an ``instant on device'', meaning you do not need to wait for it to start. The calculator will be ready to use within a fraction of a second after pressing the ON key. Calculators also use specialized keyboards, where often used functions are available at single key presses. Extensions to this scheme are often also provided by the use of shift keys or secondary key presses to provide more functions easy at hand. This in contrast to a traditional keyboard where you need to spell out longer sequences to form commands.
 
 Forth itself relies on a traditional keyboard, not a calculator style keyboard. Another problem is that a traditional keyboard may not even be available. Since Forth is a language that is meant to be extended, a calculator style keyboard handling is one of the extensions to be provided and this will act as the input interface when activated.
 
@@ -111,7 +111,7 @@ The following are issues that are {\it not\/} to be solved by CalcForth:
 \item The problem of how the keys and keyboard are labeled is not addressed at all. This result is that the end product may be far from the most user friendly calculator you have used.
 \item CalcForth will not provide arbitrary I/O to the world except for the host mode. Though, it is quite possible to write such extensions if the hardware is available.\footnote{Sadly, such hardware tend not to be available these days.}
 \item Arbitrary precision numbers will not be supported.
-\item Text capabilities are to be handled at Forth level. This is not meant to be a seamless alphanumeric calculator.\footnote{This may be a future extension. An alpha register like on the HP-41 could make sense}
+\item Text capabilities are to be handled at Forth level. This is not meant to be a seamless alphanumeric calculator.\footnote{This may be a future extension. An alpha register like on the HP-41 could make sense.}
 \item Symbolic math is not supported.
 \item Units, such as unit tagged numbers or conversions are not supported.\footnote{This is also a very nice feature and could be a future extension. However, the problem with putting a unit on numbers is that you are essentially tagging numbers and the basic idea here is to work with untagged numbers. Otherwise we may end up with something similar to RPL and the HP-48, and that is definitely a non-goal. However, if implemented in scientific mode, the unused upper part could serve as the unit tag.}
 \item No specific means to capture runaway programs are defined.
