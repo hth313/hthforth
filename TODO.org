@@ -1,0 +1,25 @@
+* Emacs
+** TODO add a font lock mode for forthblocks
+
+* Forth
+** DONE implement some kind of load relative screen facility
+*** TODO need to update BLK with the block being loaded (load in Forth.Machine)
+*** TODO FH is a colon word, so now EXECUTE need to be able to execute such\
+** TODO consider moving away from the Parsec parser. The benefit would be that we gain access to the input stream which several words want (see what words relate to this, hint >IN).
+** DONE Constant does not have a proper runtime behavior, it acts as a variable, need to be fixed
+** TODO figure out how to deal with compile-time and run-tume behavior (CREATE DOES>), figured out but need to be implement in the compiler
+** TODO consider small constants as words, 0 1 2 4 -1
+** TODO what about XTS, execution token size, is there some well defined name for it in the standard like it is for CELLS and CHARS? Changed to INSTR at the moment, WORD would be better except for that it is (probably) taken for other use.
+** DONE implement (LIT) (or call it _LIT) to load a literal, it probably need to be different in Haskell compared to target
+** TODO check M* vs UM*, should they really be the same function?
+** DONE unary/binary need to be rather flexible on inputs, as (+) accept Address mixed with Val, but that flexibility is not always valid, how do we deal with bad cases?
+** TODO Forth.Core.store has to be flexible when storing values, it allows anything, but that does not always make sence, i.e. storing an Address using C!
+** TODO Control.Monad.Error, consider if it should be used (ErrorT)
+** DONE the , word is just too complicated, it is better defined in Forth, which means that HERE/DP/ALLOT should be defined instead. It should also be transparent whether we are defining a data word or a colon definition. Thus, manipulating DP with an address that can point to either kind of word being defined would probably help a lot. DP is not defined from start, so this feature can only be used after it has been created.
+** TODO try hlint
+** TODO literals can be compiled as sign extended half words, which should save space
+** TODO need a primitive that allows to specify and load a screen file
+** TODO add command line switch to specify command line to be executed, like "LOAD 1"
+** TODO "CREATE" and ":" need to be lambdas, should set DP to point to the open area we are writing to. (Already done for VARIABLE, CONSTANT and the current ":" word that is to be changed).
+** DONE There could be two different addresses, Address and ColonAddress so we know what we are writing to. This is because a data field use DataField, which is based on a Map, while a colon definition is a list. This will most likely show its need when "," is executed, though that will be the colon LITERAL for which we have a lambda, maybe control words will need it later.
+** TODO "!" to colon definition need to figure out where to write it. IT will often be at the last location (which is supported now), but when compiling control words, there may be a need to write to a previous location, in case we do not keep the current compilation behavior of writing special things and fixing it later.
