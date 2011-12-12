@@ -1,3 +1,4 @@
+all: Functional.pdf Design.pdf
 
 Functional.pdf: Functional.tex
 	pdflatex Functional
