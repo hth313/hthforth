@@ -1,0 +1,35 @@
+
+\documentclass[a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{paralist}
+\begin{document}
+\title{CalcForth Functional Specification}
+\author{Håkan Thörngren}
+
+ \maketitle
+
+
+\section{Words}
+Forth words comes in four flavors,
+\begin{inparaenum}[\itshape 1\upshape)]
+\item colon definitions;
+\item native assembler;
+\item lambdas; and
+\item colon lambdas.
+\end{inparaenum}
+
+Initially, lambdas and colon lambdas are the only words available. Lambdas are really replacements for native words, but implemented on the host side. Colon lambdas are hardcoded colon definitions that execute as normal colon definitions. They are marked as colon lambdas and are meant to be replaced by a real colon (or native) definition.
+
+All lambdas serve as bootstrap code needed before actual definitions can be loaded.
+
+\subsection{Identity}
+Each word have a unique identity that is its token. A map from tokens to definitions is used to look up a word. Tokens are stored in colon definitions which allows multiple versions of a word with the same name to coexist.
+
+\section{Dictionary}
+The dictionary is implemented as a linked list just as an ordinary Forth dictionary. This means linear search for a name in the dictionary. This allows multiple vocabularies and ability to forget words.
+
+\section{Body}
+Words can either be writable or read-only. A body consists of a list of cells which are stored in a dlist.
+
+\end{document}
