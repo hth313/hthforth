@@ -1,5 +1,9 @@
+#+PROPERTY: Effort_ALL 0 0:10 0:30 1:00 2:00 3:00 4:00 5:00 6:00 7:00 8:00 10:00 12:00 14:00 16:00
+#+COLUMNS: %60ITEM(Task) %8Effort(Estimated Effort){:} %CLOCKSUM
+
 * Emacs
 ** TODO add a font lock mode for forthblocks
+
 
 * Forth
 ** DONE implement some kind of load relative screen facility
@@ -23,3 +27,6 @@
 ** TODO "CREATE" and ":" need to be lambdas, should set DP to point to the open area we are writing to. (Already done for VARIABLE, CONSTANT and the current ":" word that is to be changed).
 ** DONE There could be two different addresses, Address and ColonAddress so we know what we are writing to. This is because a data field use DataField, which is based on a Map, while a colon definition is a list. This will most likely show its need when "," is executed, though that will be the colon LITERAL for which we have a lambda, maybe control words will need it later.
 ** TODO "!" to colon definition need to figure out where to write it. IT will often be at the last location (which is supported now), but when compiling control words, there may be a need to write to a previous location, in case we do not keep the current compilation behavior of writing special things and fixing it later.
+** TODO I did write down some ideas on how to restart that actual project with a different approach to bootstrap the whole thing. Go through the papers (laptop?) and see if there are any notes somewhere.
+** TODO While screens should be supported, there should actually be a means of reading a file with all contents instead. The rationale is that computer screens offer so much more space today and using the small FORTH screens makes it kind of inflexible. Then a sub-system can be in a named file. Have a look in "Thinking Forth" which I think have some discussion about this to see the pros and cons.
+** TODO is Forth.Types.UndefinedValue really needed/used?

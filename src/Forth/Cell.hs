@@ -2,7 +2,7 @@
   This file is part of CalcForth.
   Copyright Håkan Thörngren 2011
 
-  The cell class.
+  The Cell class decides on constraints on a cell type.
 
 -}
 

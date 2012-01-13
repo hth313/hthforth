@@ -22,8 +22,8 @@ withConfiguration :: Cell cell => Configuration cell ->
                      ReaderT (Configuration cell) IO a -> IO a
 withConfiguration conf action = runReaderT action conf
 
--- Configuration of a target. Endianess and number of bytes per cell are needed
--- information. The internal representation of a
+-- | Configuration of a target. Endianess and number of bytes per cell are needed
+--   information.
 data Cell cell =>
     Configuration cell = Configuration { bytesPerCell :: cell,
                                          bytesPerInstruction :: cell,
@@ -34,6 +34,7 @@ data Cell cell =>
 
 data Endian = LittleEndian | BigEndian
 
+-- | Construct a new configuartion
 newConfiguration :: Cell cell =>
                     cell -> cell -> cell -> Endian -> Configuration cell
 newConfiguration cellSize xtSize charSize endian =
