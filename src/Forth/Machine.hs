@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-
   This file is part of CalcForth.
   Copyright Håkan Thörngren 2011
@@ -7,15 +8,15 @@
 -}
 
 module Forth.Machine (MachineM, ForthLambda, Machine(..), lookupWord,
-                      ForthWord(..), StateT(..), newKey, loadLiteralWordRef,
-                      createVariable, createConstant, perform, compileWord,
-                      wordFromName, initialState, evalStateT, configuration,
-                      loadScreens, load, execute, executeSlice, executeColonSlice,
-                      pushLiteral, popLiteral, keyName, openColonDef, closeColonDef,
-                      update, readMachine, addWord, cellSize, instructionSize,
-                      ensureStack, ensureReturnStack,
-                      isValue, isAddress, isAny, isExecutionToken) where
+                      ForthWord(..), StateT(..), addWord, modifyLastWord,
+                      wordFromName, initialState, evalStateT, find,
+                      loadScreens, ensureStack, ensureReturnStack,
+                      pushLiteral, popLiteral, keyName,
+                      isValue, isAddress, isAny, isExecutionToken,
+                      isBodyAddress) where
 
+import Control.Monad.State.Lazy
+import Data.ByteString.Char8 (ByteString)
 import Data.Int
 import Data.Bits
 import Data.Maybe
@@ -24,56 +25,91 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
-import Control.Monad.State.Lazy
-import Forth.Configuration
 import Forth.Cell
 import Forth.DataField
 import Forth.Block
 import Forth.Cell
+import Forth.Word
 import Forth.Types
 import Numeric
 import System.IO
 import Control.Exception
 
-type MachineM cell = StateT (Machine cell) (ConfigurationM cell)
+type MachineM cell i = StateT (Machine cell i) IO
 
-configuration :: Cell cell => MachineM cell (Configuration cell)
-configuration = lift ask
+-- The Forth state
+data Machine cell i = Machine { -- The Forth stacks
+                                stack, rstack :: [Lit cell],
+                                -- The dictionary defines the order in which
+                                -- words have been defined. Actual lookup is
+                                -- done using wordKeyMap.
+                                dictionary :: Dictionary,
+                                -- Word lookup maps
+                                wordKeyMap :: Map WordKey (ForthWord cell i),
+                                wordNameMap :: Map ByteString WordKey,
+                                -- The interpretive pointer
+                                ip :: Lit cell,
+                                -- Most recent word
+                                lastWord :: Maybe WordKey,
+                                -- All forth screens available
+                                screens :: IntMap ByteString,
+                                activeColonDef :: Maybe (ForthWord cell i),
+                                activeColonBody :: [ColonElement cell],
+                                --                              inputStream :: String,
+                                -- Unique identities for words
+                                keys :: [WordKey],
+                                variables :: Map WordKey (DataField cell),
+                                inputBuffer :: ByteString
+    }
 
-update :: Cell cell => (Machine cell -> Machine cell) -> ForthLambda cell
-update f = StateT (\s -> return ((), f s))
 
-readMachine f = StateT (\s -> return (f s, s))
+-- A Forth native lambda should obey this signature
+type ForthLambda cell i = MachineM cell i ()
 
-lookupWord key = StateT (\s -> return (Map.lookup key (wordKeyMap s), s))
+lookupWord key = gets $ \s -> Map.lookup key (wordKeyMap s)
 
 lookupWordFromName name = do
   Just [WordRef key] <- wordFromName name
   lookupWord key
 
-initialState parser =
-    Machine [] [] Map.empty Map.empty [] Nothing Map.empty parser
-            Nothing [] (map Key [1..])
+initialState :: Cell cell => cell -> Machine cell i
+initialState n =
+    Machine [] [] [] Map.empty Map.empty (Address DeadAdr) Nothing IntMap.empty
+            Nothing [] (map WordKey [1..]) Map.empty ""
 
-keyName key = StateT (\s ->
+keyName key = gets $ \s ->
     case Map.lookup key (wordKeyMap s) of
       Just word -> return (wordName word, s)
-      Nothing -> return (show key, s))
+      Nothing -> return (show key, s)
 
-newKey :: Cell cell => MachineM cell Key
+find word = gets $ \s ->
+    case Map.lookup word (wordNameMap s) of
+      Just k -> case Map.lookup k (wordKeyMap s) of
+                  Just fw -> fw
+
+
+{-
+newKey :: MachineM cell i WordKey
 newKey = StateT (\s ->
              let key : keys' = keys s
              in return (key, s { keys = keys' }))
+-}
 
 -- | Add a new Forth word
-addWord :: Cell cell => ForthWord cell -> ForthLambda cell
-addWord word = update (\s ->
-    let finalWord = word { body = fmap (compileStructure key) (body word) }
-        key = wordKey finalWord
+--addWord :: ForthWord cell -> ForthLambda cell
+addWord word = modify $ \s ->
+    let key : keys' = keys s
+        finalWord = word key
     in s { wordKeyMap = Map.insert key finalWord (wordKeyMap s),
            wordNameMap = Map.insert (wordName finalWord) key (wordNameMap s),
-           lastWord = Just key } )
+           lastWord = Just key,
+           dictionary = key : dictionary s }
 
+modifyLastWord f = modify $ \s ->
+    let key = head (dictionary s)
+    in s { wordKeyMap = Map.update f key (wordKeyMap s) }
+
+{-
 -- Compile structures like IF-ELSE-THEN into branch primitives
 compileStructure key colon =
     let numbered = zip [1..] colon
@@ -103,8 +139,9 @@ compileStructure key colon =
         (stack', colon') = foldl visit ([], IntMap.fromList numbered) numbered
         colonInt = IntMap.elems colon' -- TODO: replace with ColonSlice?
     in IntMap.elems colon'
-
-createVariable :: Cell cell => String -> ForthLambda cell
+-}
+{-
+createVariable :: String -> ForthLambda cell
 createVariable name = do
   sz <- cellSize
   key <- newKey
@@ -112,8 +149,9 @@ createVariable name = do
   addWord (ForthWord name False key (Just (allot sz)) Nothing Nothing
                      (Just (wordKey does)) Nothing)
   putDP (Address key 0)
-
-createConstant :: Cell cell => String -> ForthLambda cell
+-}
+{-
+createConstant :: String -> ForthLambda cell
 createConstant name = ensureStack "CONSTANT" [isAny] action where
     action = do
       sz <- cellSize
@@ -125,16 +163,19 @@ createConstant name = ensureStack "CONSTANT" [isAny] action where
       addWord (ForthWord name False key (Just field) Nothing Nothing
                          (Just (wordKey does)) Nothing)
       putDP (Address key 0)
+-}
 
 -- | Set dictionary pointer. This need to ensure that DP exists, which it does not
 --   initially.
+{-
 putDP lit = do
   dp <- wordFromName "DP"
   when (isJust dp) (pushLiteral lit >>  executeSlice [ "DP", "!" ])
+-}
 
 -- | Given the name of a word, look it up in the dictionary and return its
 --   compiled inner representation
-wordFromName :: Cell cell => String -> MachineM cell (Maybe [ColonElement cell])
+wordFromName :: Integral cell => String -> MachineM cell i (Maybe [ColonElement cell])
 wordFromName name = do
   StateT (\s ->
       case Map.lookup name (wordNameMap s) of
@@ -150,14 +191,17 @@ wordFromName name = do
                      [(n,"")] -> literal n
                      otherwise -> return (Nothing, s))
 
-loadLiteralWordRef :: Cell cell => MachineM cell (ColonElement cell)
+{-
+loadLiteralWordRef :: MachineM cell i (ColonElement cell)
 loadLiteralWordRef = do
   loadLit <- wordFromName "_LIT"
   case loadLit of
     Just [loadLit] -> return loadLit
+-}
 
+{-
 -- | Perform interpretation or compilation semantics for the given word.
-perform :: Cell cell => String -> MachineM cell Bool
+perform :: String -> MachineM cell Bool
 perform name = do
   -- check compilation or execution state
   stateWord <- lookupWordFromName "STATE"
@@ -182,7 +226,9 @@ perform name = do
               | stateVal == 0 = pushLiteral val
               | otherwise = compileWord lit
     Nothing -> return False
+-}
 
+{-
 openColonDef name = do
   key <- newKey
   StateT (\s ->
@@ -190,49 +236,59 @@ openColonDef name = do
                                                        Nothing Nothing Nothing),
                       activeColonBody = [] }))
   putDP (ColonAddress key 0)
+-}
 
-closeColonDef :: Cell cell => ForthLambda cell
+{-
+closeColonDef :: ForthLambda cell
 closeColonDef = do
     (def, body) <- StateT (\s -> return ((activeColonDef s, activeColonBody s),
                                          s { activeColonDef = Nothing } ))
     case def of
       Just def -> do
           addWord $ def { body = Just body }
+-}
 
-compileWord :: Cell cell => ColonElement cell -> ForthLambda cell
+{-
+compileWord :: ColonElement cell -> ForthLambda cell
 compileWord elt = StateT (\s ->
     return ((), s { activeColonBody = activeColonBody s ++ [elt] }))
+-}
 
-cellSize :: Cell cell => MachineM cell cell
-cellSize = accessConfigurationSize bytesPerCell
 
-instructionSize :: Cell cell => MachineM cell cell
-instructionSize = accessConfigurationSize bytesPerInstruction
+--cellSize :: Cell cell => MachineM cell i cell
+--cellSize = accessConfigurationSize bytesPerCell
 
-accessConfigurationSize accessor = do
-  configuration >>= return.accessor
+--instructionSize :: Cell cell => MachineM cell i cell
+--instructionSize = accessConfigurationSize bytesPerInstruction
+
+--accessConfigurationSize accessor = do
+--  configuration >>= return.accessor
 
 -- | Load an entire set of screens from a file
-loadScreens :: Cell cell => FilePath -> MachineM cell ()
+loadScreens :: FilePath -> MachineM cell i ()
 loadScreens filepath = do
     (blocks, shadows) <-
         liftIO $ readBlockFile "/Users/hth/projects/CalcForth/src/lib/core.fth"
     --liftIO $ putStrLn (show blocks)
-    update (\s -> s { screens = blocks })
+    modify $ \s -> s { screens = blocks }
 
 -- | Load a screen
-load :: Cell cell => Int -> MachineM cell (Either String ())
+{-
+load :: Int -> MachineM cell (Either String ())
 load n = do
-  (text, parser) <- readMachine (\s -> (Map.lookup n (screens s), forthParser s))
+  -- TODO: push input source on stack
+  buftext <- gets $ IntMap.lookup n . screens
   liftIO $ putStr $ (show n) ++ " " -- show loading
-  case text of
+  case buftext of
     Just text -> do
           result <- parser ("screen " ++ show n) text
           return result
     Nothing -> return $ Left ("Screen does not exist: " ++ show n)
+-}
 
 -- | Execute the given word
-execute :: Cell cell => Key -> MachineM cell ()
+{-
+execute :: WordKey -> MachineM cell ()
 execute key = do
 --  name <- keyName key
 --  liftIO $ putStrLn $ "Execute " ++ name
@@ -245,9 +301,11 @@ execute key = do
     Just (ForthWord _ _ _ _ (Just lambda) _ _ _) -> lambda >> next
     Just (ForthWord _ _ _ _ _ _ _ (Just colonSlice)) ->
         executeColonSlice colonSlice
+-}
 
 -- | Given a list of Forth words (as strings), compile it to a slice and execute it
-executeSlice :: Cell cell => [String] -> ForthLambda cell
+{-
+executeSlice :: [String] -> ForthLambda cell
 executeSlice list =
     let compile name = do
           word <- wordFromName name
@@ -257,13 +315,17 @@ executeSlice list =
     in do
       slice <- mapM compile list
       executeColonSlice (concat slice)
+-}
 
+{-
 executeColonSlice colonSlice = do
     update (\s -> s { ip = colonSlice, rstack = Continuation (ip s) : rstack s })
     next
+-}
 
+{-
 -- | Execute next word in colon definition
-next :: Cell cell => MachineM cell ()
+next :: MachineM cell ()
 next = do
 --  lst <- readMachine ip
 --  liftIO $ putStrLn (show lst)
@@ -278,57 +340,17 @@ next = do
 --                                return (next, s { stack = val : stack s, ip = ip' })
                    )
   action
+-}
 
 -- | Push a literal on stack
 pushLiteral lit =
-    update (\s -> s { stack = lit : stack s })
+    modify $ \s -> s { stack = lit : stack s }
 
 -- | Pop a literal from stack
-popLiteral :: Cell cell => MachineM cell (ForthValue cell)
+popLiteral :: MachineM cell i (Lit cell)
 popLiteral = StateT (\s ->
     let val : stack' = stack s
     in return (val, s { stack = stack' }))
-
--- The Forth state
-data Cell cell =>
-    Machine cell = Machine { -- The Forth stacks
-                             stack, rstack :: ForthValues cell,
-                             -- Word lookup maps
-                             wordKeyMap :: Map Key (ForthWord cell),
-                             wordNameMap :: Map String Key,
-                             -- The interpretive pointer
-                             ip :: ColonSlice cell,
-                             -- Most recent word
-                             lastWord :: Maybe Key,
-                             screens :: Map Int String,
-                             forthParser :: String -> String -> MachineM cell (Either String ()),
-                             activeColonDef :: Maybe (ForthWord cell),
-                             activeColonBody :: [ColonElement cell],
-                             --                              inputStream :: String,
-                             -- Unique identities for words
-                             keys :: [Key] }
-
--- A Forth word, contains the header and its associated body
-data Cell cell => ForthWord cell = ForthWord { wordName :: String,
-                                               immediate :: Bool,
-                                               wordKey :: Key,
-                                               -- For data words.
-                                               dataField :: Maybe (DataField cell),
-                                               -- Native Haskell implementation
-                                               lambda :: Maybe (ForthLambda cell),
-                                               -- Native target code
-                                               targetNative :: Maybe [Instruction],
-                                               -- Forth level run-time semantics for
-                                               -- this word. This will refer to a
-                                               -- nameless word that implements the
-                                               -- DOES> part. If invoked, the dataField
-                                               -- is first to be pused on the stack
-                                               codeField :: Maybe Key,
-                                               -- Colon definition for this word
-                                               body :: Maybe (ColonSlice cell) }
-
--- A Forth native lambda should obey this signature
-type ForthLambda cell = MachineM cell ()
 
 -- Temporary, replace with something that can actually represent a slice
 -- of assembler code.
@@ -340,29 +362,31 @@ data Instruction = String
 -}
 
 ensureStack, ensureReturnStack ::
-    Cell cell => String -> [ForthValue cell -> Bool] -> ForthLambda cell -> ForthLambda cell
+    Show cell => [Lit cell -> Bool] -> (Machine cell i -> Machine cell i) -> ForthLambda cell i
 ensureStack = ensure stack
 ensureReturnStack = ensure rstack
 
-ensure :: Cell cell => (Machine cell -> ForthValues cell) -> String ->
-          [ForthValue cell -> Bool] -> ForthLambda cell -> ForthLambda cell
-ensure stack name preds action = do
-  s <- readMachine stack
+ensure :: Show cell => (Machine cell i -> [Lit cell]) ->
+          [Lit cell -> Bool] ->
+          (Machine cell i -> Machine cell i)-> ForthLambda cell i
+ensure stack preds action = do
+  s <- gets stack
   if length preds > length s
-      then liftIO $ hPutStrLn stderr ("Empty stack for " ++ name)
+      then liftIO $ hPutStrLn stderr "empty stack"
       else
           let pairs = (zip preds s)
               vals = map (\(f,a) -> f a) pairs
           in if and vals
-                then action
-                else liftIO $ hPutStrLn stderr ("Bad stack argument for " ++ name ++
-                                                       ", stack is " ++ show (map snd pairs))
+                then modify action
+                else liftIO $ hPutStrLn stderr ("bad stack argument, stack is " ++
+                                                show (map snd pairs))
 
 isValue (Val _) = True
 isValue _ = False
-isAddress (Address _ _) = True
-isAddress (ColonAddress _ _) = True
+isAddress Address{} = True
 isAddress _ = False
+isBodyAddress (Address BodyAdr{}) = True
+isBodyAddress _ = False
 isAny = const True
 isExecutionToken (ExecutionToken _) = True
 isExecutionToken _ = False

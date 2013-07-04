@@ -12,19 +12,17 @@ import Data.Int
 import Forth.Block
 import Forth.Cell
 import Forth.Core
-import Forth.Configuration
 import Forth.Machine
-import Forth.Parser
 
-instance Cell Int32
+
+instance Cell Int32 where
+    bytesPerCell        _ = 4
+    bytesPerInstruction _ = 4
+    bytesPerChar        _ = 1
+    endianess           _ = LittleEndian
 
 main =
-    let load1 = do
-          nativeWords
-          loadScreens "/Users/hth/projects/CalcForth/src/lib/core.fth"
-          load 1
-        cellSize = 4 :: Int32
+    let cellSize = 4 :: Int32
         executionTokenSize = 2 :: Int32
         charSize = 1 :: Int32
-        conf = newConfiguration cellSize executionTokenSize charSize LittleEndian
-    in withConfiguration conf (evalStateT load1 (initialState parseForth))
+    in evalStateT (nativeWords 0 >> abort) (initialState cellSize)

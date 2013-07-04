@@ -6,8 +6,11 @@
 
 -}
 
-module Forth.Core (nativeWords) where
+module Forth.Core (nativeWords, abort) where
 
+import Control.Monad.State.Lazy
+import Data.ByteString.Char8 (ByteString)
+import qualified Data.ByteString.Char8 as C
 import Data.Word
 import Control.Monad
 import Control.Monad.Trans
@@ -16,75 +19,75 @@ import Forth.Cell
 import Forth.DataField
 import Forth.Machine
 import Forth.Types
---import Forth.Input
+import Forth.Word
 import qualified Data.Map as Map
 import Text.Parsec.Error
 import System.IO
 
-binary :: Cell cell => (ForthValue cell -> ForthValue cell -> ForthValue cell) -> String ->
-          ForthLambda cell
-binary op name = ensureStack name [isAny, isAny] action where
-    action = update (\s ->
-                 let tos : nos : rest = stack s
-                 in s { stack = op tos nos : rest })
+--binary :: (Value cell -> Value cell -> Value cell) -> String ->
+--          ForthLambda cell
+binary op = ensureStack [isAny, isAny] $ \s ->
+    let tos : nos : rest = stack s
+    in s { stack = op tos nos : rest }
 
-unary :: Cell cell => (ForthValue cell -> ForthValue cell) -> String -> ForthLambda cell
-unary op name = ensureStack name [isAny] action where
-    action = update (\s ->
-                 let tos : rest = stack s
-                 in s { stack = op tos : rest })
+--unary :: (Value cell -> Value cell) -> String -> ForthLambda cell
+unary op = ensureStack [isAny] $ \s ->
+    let tos : rest = stack s
+    in s { stack = op tos : rest }
 
-updateStack :: Cell cell => Int -> (ForthValues cell -> ForthValues cell) -> String ->
-               (ForthLambda cell)
-updateStack n f name = ensureStack name (replicate n isAny) action where
-    action = update (\s -> s { stack = f (stack s) })
+--updateStack :: Int -> ([Value cell] -> [Value cell]) -> String ->
+--               (ForthLambda cell)
+updateStack n f = ensureStack (replicate n isAny) $ \s ->
+    s { stack = f (stack s) }
 
-instance Cell cell => Num (ForthValue cell) where
+instance Integral cell => Num (Value cell) where
     (Val a) + (Val b) = Val (a + b)
-    (Address key off) + (Val b) = Address key (off + (fromIntegral b))
-    (Val b) + (Address key off) = Address key (off + (fromIntegral b))
-    (ColonAddress key off) + (Val b) = ColonAddress key (off + (fromIntegral b))
-    (Val b) + (ColonAddress key off) = ColonAddress key (off + (fromIntegral b))
-    a + b = Bottom $ show a ++ " " ++ show b ++ " +"
+    (Address (BodyAdr key a)) + (Val b)   = Address (BodyAdr key (a + (fromIntegral b)))
+    (Address (BufferAdr key a)) + (Val b) = Address (BufferAdr key (a + (fromIntegral b)))
+    (Val b) + (Address (BodyAdr key a))   = Address (BodyAdr key (a + (fromIntegral b)))
+    (Val b) + (Address (BufferAdr key a)) = Address (BufferAdr key (a + (fromIntegral b)))
+
+    a + b = Bot $ show a ++ " " ++ show b ++ " +"
     (Val a) - (Val b) = Val (a - b)
-    (Address key off) - (Val b) = Address key (off - (fromIntegral b))
-    a - b = Bottom $ show a ++ " " ++ show b ++ " -"
+    (Address (BodyAdr key a)) - (Val b)   = Address (BodyAdr key (a - (fromIntegral b)))
+    (Address (BufferAdr key a)) - (Val b) = Address (BufferAdr key (a - (fromIntegral b)))
+    a - b = Bot $ show a ++ " " ++ show b ++ " -"
     (Val a) * (Val b) = Val (a * b)
-    a * b = Bottom $ show a ++ " " ++ show b ++ " *"
+    a * b = Bot $ show a ++ " " ++ show b ++ " *"
     abs (Val a) = Val (abs a)
-    abs a = Bottom $ show a ++ " ABS"
+    abs a = Bot $ show a ++ " ABS"
     negate (Val a) = Val (negate a)
-    negate a = Bottom $ show a ++ " NEGATE"
+    negate a = Bot $ show a ++ " NEGATE"
     signum (Val a) = Val (signum a)
-    signum a = Bottom $ show a ++ " SIGNUM"
+    signum a = Bot $ show a ++ " SIGNUM"
     fromInteger n = Val (fromInteger n)
 
-instance Cell cell => Bits (ForthValue cell) where
+instance Cell cell => Bits (Value cell) where
     (Val a) .&. (Val b) = Val (a .&. b)
-    a .&. b = Bottom $ show a ++ " " ++ show b ++ " AND"
+    a .&. b = Bot $ show a ++ " " ++ show b ++ " AND"
     (Val a) .|. (Val b) = Val (a .|. b)
-    a .|. b = Bottom $ show a ++ " " ++ show b ++ " OR"
+    a .|. b = Bot $ show a ++ " " ++ show b ++ " OR"
     xor (Val a) (Val b) = Val (xor a b)
-    xor a b = Bottom $ show a ++ " " ++ show b ++ " XOR"
+    xor a b = Bot $ show a ++ " " ++ show b ++ " XOR"
     complement (Val a) = Val (complement a)
-    complement a = Bottom $ show a ++ " INVERT"
+    complement a = Bot $ show a ++ " INVERT"
     bitSize (Val a) = bitSize a
     isSigned (Val a) = isSigned a
     isSigned _ = False
 
-instance Cell cell => Ord (ForthValue cell) where
+instance Cell cell => Ord (Value cell) where
     compare (Val a) (Val b) = compare a b
 
-true, false :: Cell cell => ForthValue cell
+true, false :: Cell cell => Value cell
 true = Val (-1)
 false = Val 0
 
 -- | Define native and word header related words as lambdas
-nativeWords :: Cell cell => MachineM cell ()
-nativeWords = do
+nativeWords :: Cell cell => cell -> MachineM cell i ()
+nativeWords cell = do
   -- Data stack
   native "DROP"  (updateStack 1 tail)
-  native "DUP"   (updateStack 1 (\st -> head st : st))
+  native "DUP"   dup
   native "OVER"  (updateStack 2 (\st -> head (tail st) : st))
   native "SWAP"  (updateStack 2 (\(s1:s2:ss) -> s2:s1:ss))
   native "ROT"   (updateStack 3 (\(s1:s2:s3:ss) -> s3:s1:s2:ss))
@@ -106,104 +109,187 @@ nativeWords = do
   native "U<" (binary ult)
   native "2/" (unary (`shiftR` 1))
   -- Load and store
-  native "!" (store Cell)
-  native "C!" (store (\(Val n) -> Byte (fromIntegral n)))
+  native "!" store
+  native "C!" cstore
   native "@" (fetch cellValue)
   native "C@" (fetch charValue)
   -- Cell size and address related
   native "CHAR+" (unary (1+)) -- characters are just byt
   native "CHARS" (unary id)
-  native "CELL+" (unitPlus cellSize)
-  native "CELLS" (units cellSize)
-  native "INSTR+" (unitPlus instructionSize)
-  native "INSTRS" (units instructionSize)
+  native "CELL+" (unitPlus $ bytesPerCell cell)
+  native "CELLS" (units $ bytesPerCell cell)
+  native "INSTR+" (unitPlus $ bytesPerInstruction cell)
+  native "INSTRS" (units $ bytesPerInstruction cell)
+  native "ABORT" abort
+  native "QUIT" quit
+  createVariable ">IN"
   -- Lambda versions of compiler words
   native "IMMEDIATE" immediateWord
 --                      native "CREATE" create
 --                      native "POSTPONE" postpon
-  native "EXIT" exit
+--  native "EXIT" exit
 -- DOES> part of CONSTANT and VARIABLE
   native "_VAR" doesVariable
-  native "_CON" doesConstant
+--  native "_CON" doesConstant
   -- Compiler related
-  native "LITERAL" literal
+--  native "LITERAL" literal
 --  immediate
-  native "_LIT" lit
-  native ">BODY" toBody
+--  native "_LIT" lit
+--  native ">BODY" toBody
 --  native "COMPILE," compileComma
 --  native "," comma
   -- Block related
+{-
   native "(LOAD)" loadScreen
   native "THRU" thru
+-}
     where
-      native :: Cell cell => String -> (String -> ForthLambda cell) -> MachineM cell ()
-      native name fun = do
-            key <- newKey
-            addWord (ForthWord name False key Nothing (Just (fun name))
-                               Nothing Nothing Nothing)
+      native name fun = add name (Just fun)
+
+      createVariable name = do
+        add name Nothing
+        key <- gets $ head . dictionary
+        modifyLastWord $ \word ->
+            Just $ word { lambda = Just (pushVariableKey (wordKey word)) }
+        modify $ \s ->
+            s { variables = Map.insert key (DataField (bytesPerCell 0) True Map.empty)
+                              (variables s) }
+
+      add name mfun = addWord (Word name False mfun Nothing Nothing Nothing)
+
       unitPlus = unit (+)
       units = unit (*)
-      unit op sz name = sz >>= \n -> unary (Val n `op`) name
+      unit op sz = unary (op $ Val sz)
       truth True = true
       truth False = false
 --      immediate = immediateWord "IMMEDIATE"
 
-tor :: Cell cell => String -> ForthLambda cell
-tor name = ensureStack name [isAny] action where
-    action = update (\s -> s { rstack = head (stack s) : rstack s, stack = tail (stack s) })
+dup = updateStack 1 $ \st -> head st : st
 
-rto :: Cell cell => String -> ForthLambda cell
-rto name = ensureReturnStack name [isAny] action where
-    action = update (\s -> s { stack = head (rstack s) : stack s, rstack = tail (rstack s) })
+abort :: Cell cell => MachineM cell i ()
+abort = do
+  modify $ \s -> s { stack = [] }
+  quit
 
-rfetch :: Cell cell => String -> ForthLambda cell
-rfetch name = ensureReturnStack name [isAny] action where
-    action = update (\s -> s { stack = head (rstack s) : stack s })
+quit :: Cell cell => MachineM cell i ()
+quit = do
+  modify $ \s -> s { rstack = [] }
+  -- TODO: clear SOURCE-ID if present
+  -- TODO: user input device is source
+  -- TODO: interpretation state
+  forever $ do
+      cr
+      text <- readInputLine
+      modify $ \s -> s { inputBuffer = text }
+      pushLiteral $ Val 0
+      pushVariable ">IN"
+      store
+      interpret
+      liftIO $ putStr " ok"
 
-store :: Cell cell => (ForthValue cell -> DataObject cell) -> String -> MachineM cell ()
-store ctor name = ensureStack name [isAddress, isAny] action where
-    action = do
-      conf <- configuration
-      adr <- popLiteral
-      val <- popLiteral
-      case adr of
-        Address key offsetadr ->
-            update (\s ->
-                let (word, offset, field) = addressField adr s
-                    field' = storeData (ctor val) offset field conf
-                    write _ = Just $ word { dataField = Just field' }
-                in s { wordKeyMap = Map.update write key (wordKeyMap s) })
+cr :: MachineM cell i ()
+cr = liftIO $ putStrLn ""
+
+pushVariable :: Cell cell => String -> MachineM cell i ()
+pushVariable name = do
+    Just key <- gets $ Map.lookup name . wordNameMap
+    pushVariableKey key
+
+pushVariableKey :: Cell cell => WordKey -> MachineM cell i ()
+pushVariableKey key = modify $ \s ->
+    case Map.lookup key (variables s) of
+      Just df -> s { stack = Address (BodyAdr key 0) : stack s }
+
+pushLit lit = modify $ \s -> s { stack = lit : stack s }
+
+source :: Cell cell => MachineM cell i ()
+source = modify $ \s ->
+    s { stack = Val (fromIntegral $ C.length $ inputBuffer s) :
+                InputSource (inputBuffer s) : stack s }
+
+interpret :: MachineM cell i ()
+interpret = do
+  pushVariable ">IN"
+  dup
+  fetch
+  n <- gets (head . stack)
+  buf <- gets inputBuffer
+  let (word, rest) = break (' '==) $ C.dropWhile (' '==) $ C.drop n buf
+  modify $ \s -> s { stack = Val (C.length buf - C.length rest) : tail (stack s) }
+  store
+  unless (C.empty word) $ do
+      mres <- find word
+      case mres of
+        Just t@ExecutionToken{} -> do
+            pushLit t
+            execute
+        Nothing -> putStrLn word
+      interpret
+  return ()
+
+readInputLine :: Cell cell => MachineM cell i ByteString
+readInputLine = liftIO C.getLine
+
+tor :: Cell cell => MachineM cell i ()
+tor = ensureStack [isAny] $ \s ->
+    s { rstack = head (stack s) : rstack s, stack = tail (stack s) }
+
+rto :: Cell cell => MachineM cell i ()
+rto = ensureReturnStack [isAny] $ \s ->
+    s { stack = head (rstack s) : stack s, rstack = tail (rstack s) }
+
+rfetch :: Cell cell => MachineM cell i ()
+rfetch = ensureReturnStack [isAny] $ \s ->
+    s { stack = head (rstack s) : stack s }
+
+store, cstore :: Cell cell => MachineM cell i ()
+store = xstore Cell
+cstore = xstore cstoreFun
+cstoreFun (Val n) = Byte (fromIntegral n)
+
+--store :: Cell cell => (ForthValue cell -> DataObject cell) -> String -> MachineM cell ()
+xstore ctor = ensureStack [isBodyAddress, isAny] $ \s ->
+    let adr : val : stack' = stack s
+    in case adr of
+         Address (BodyAdr key offsetadr) ->
+             let (_, offset, field) = addressField adr s
+                 field' = storeData (ctor val) offset field
+              in s { variables = Map.insert key field' (variables s),
+                     stack = stack' }
+
+{-
         ColonAddress key offset ->
             -- Will write to last location. This is OK for literals which we will
             -- see this way. For back patching control words, we rely on that we
             -- insert special words and ise compileStructure to fix branching.
             -- Thus, we can ignore the offset as it is, we only write at the end.
             compileWord (Literal val)
+-}
 
-addressField :: Cell cell => ForthValue cell -> Machine cell ->
-                (ForthWord cell, cell, DataField cell)
-addressField (Address key offset) s =
-    case Map.lookup key (wordKeyMap s) of
-      Just word -> case dataField word of
-                     Just field -> (word, offset, field)
+--addressField :: Cell cell => ForthValue cell -> Machine cell ->
+--                (ForthWord cell, cell, DataField cell)
+addressField (Address (BodyAdr key offset)) s =
+    case Map.lookup key (variables s) of
+      Just field -> (key, offset, field)
 
-fetch :: Cell cell =>
-         (DataObject cell -> ForthValue cell) -> String -> MachineM cell ()
-fetch fval name = ensureStack name [isAddress] action where
-  action = update (\s -> case stack s of
-               adr@(Address key offsetadr) : rest ->
-                   let (word, offset, field) = addressField adr s
-                       val = fval $ fetchData offset field
-                   in s { stack = val : rest }
-               otherwise -> s  -- TODO: could use an error here
-         )
+--fetch :: Cell cell =>
+--         (DataObject cell -> ForthValue cell) -> String -> MachineM cell ()
+fetch fval = ensureStack [isAddress] $ \s ->
+    let adr : stack' = stack s
+    in case adr of
+         Address (BodyAdr key offsetadr) ->
+             let (word, offset, field) = addressField adr s
+                 val = fval $ fetchData offset field
+             in s { stack = val : stack' }
+         otherwise -> s  -- TODO: could use an error here
 
-cellValue :: Cell cell => DataObject cell -> ForthValue cell
+
+-- cellValue :: Cell cell => DataObject cell -> ForthValue cell
 cellValue (Cell (Val val)) = Val val
 cellValue (Byte val) = UndefinedValue
 cellValue Undefined = UndefinedValue
 
-charValue :: Cell cell => DataObject cell -> ForthValue cell
+-- charValue :: Cell cell => DataObject cell -> ForthValue cell
 charValue (Byte val) = Val (fromIntegral val)
 charValue (Cell val) = UndefinedValue
 charValue Undefined = UndefinedValue
@@ -219,19 +305,19 @@ create = do
              wordNameMap = Map.insert name key (wordNameMap s) })
 -}
 
-immediateWord :: Cell cell => String -> ForthLambda cell
-immediateWord name =
-  update (\s ->
-      case lastWord s of
-        Just key -> s { wordKeyMap = Map.update (\word -> Just $ word { immediate = True })
-                                     key (wordKeyMap s) }
-        Nothing -> s)
+immediateWord :: Cell cell => ForthLambda cell i
+immediateWord = modify $ \s ->
+    case lastWord s of
+      Just key -> s { wordKeyMap = Map.update (\word -> Just $ word { immediate = True })
+                                   key (wordKeyMap s) }
+      Nothing -> s
 
-exit :: Cell cell => String -> ForthLambda cell
-exit name  =
-  update (\s ->
-      let (Continuation slice : rstack') = rstack s
-      in s { rstack = rstack', ip = slice })
+-- exit :: Cell cell => String -> ForthLambda cell
+{-
+exit name  = modify $ \s ->
+    let (Continuation slice : rstack') = rstack s
+    in s { rstack = rstack', ip = slice }
+-}
 
 {-
 postpone = do
@@ -257,6 +343,7 @@ compile word =
                  Just key -> s { wordKeyMap = Map.update f key (wordKeyMap s) })
 -}
 
+{-
 loadScreen :: Cell cell => String -> ForthLambda cell
 loadScreen name = ensureStack name [isValue] action where
     action = do
@@ -270,10 +357,12 @@ loadScreen name = ensureStack name [isValue] action where
       case result of
         Left err -> liftIO $ hPutStrLn stderr err
         Right () -> return ()
+-}
 
 -- THRU, load a range of sceens. Implemented here since we do not have looping
 -- capabilitty at Forth level from start.
-thru :: Cell cell => String -> ForthLambda cell
+{-
+--thru :: Cell cell => String -> ForthLambda cell
 thru name = ensureStack name [isValue, isValue] action where
     action = do
       range <- StateT (\s -> case stack s of
@@ -284,8 +373,9 @@ thru name = ensureStack name [isValue, isValue] action where
             loadLit <- loadLiteralWordRef
             let makedef n = [loadLit, Literal (Val n), load]
             executeColonSlice (concatMap makedef range)
+-}
 
-ult :: Cell cell => ForthValue cell -> ForthValue cell -> ForthValue cell
+--ult :: Cell cell => ForthValue cell -> ForthValue cell -> ForthValue cell
 ult (Val n1) (Val n2) =
     let u1, u2 :: Word64
         u1 = fromIntegral n1
@@ -293,86 +383,92 @@ ult (Val n1) (Val n2) =
     in if u1 < u2 then true else false
 
 -- Signed multiply to double cell
-mstar :: Cell cell => String -> ForthLambda cell
-mstar name = ensureStack name [isValue, isValue] action where
-    action = update (\s -> case stack s of
-                             Val n1 : Val n2 : stack' ->
-                                 let v1, v2 :: Integer
-                                     v1 = fromIntegral n1
-                                     v2 = fromIntegral n2
-                                     prod = v1 * v2
-                                     lo = fromIntegral prod
-                                     hi = fromIntegral $ prod `shiftR` (bitSize n1)
-                                 in s { stack = Val hi : Val lo : stack' })
+mstar :: Cell cell => ForthLambda cell i
+mstar = ensureStack [isValue, isValue] $ \s ->
+    case stack s of
+      Val n1 : Val n2 : stack' ->
+          let v1, v2 :: Integer
+              v1 = fromIntegral n1
+              v2 = fromIntegral n2
+              prod = v1 * v2
+              lo = fromIntegral prod
+              hi = fromIntegral $ prod `shiftR` (bitSize n1)
+          in s { stack = Val hi : Val lo : stack' }
 
 uext :: Cell cell => cell -> Integer
 uext n = mask .&. (fromIntegral n) where
     mask = (1 `shiftL` bitSize n) - 1
 
 -- Unsigned multiply to double cell
-umstar :: Cell cell => String -> ForthLambda cell
-umstar name = ensureStack name [isValue, isValue] action where
-    action = update (\s -> case stack s of
-                             Val n1 : Val n2 : stack' ->
-                                 let v1 = uext n1
-                                     v2 = uext n2
-                                     prod = v1 * v2
-                                     lo = fromIntegral prod
-                                     hi = fromIntegral $ prod `shiftR` (bitSize n1)
-                                 in s { stack = Val hi : Val lo : stack' })
+umstar :: (Bits cell, Cell cell, Num cell) => ForthLambda cell i
+umstar = ensureStack [isValue, isValue] $ \s ->
+    case stack s of
+      Val n1 : Val n2 : stack' ->
+          let v1 = uext n1
+              v2 = uext n2
+              prod = v1 * v2
+              lo = fromIntegral prod
+              hi = fromIntegral $ prod `shiftR` (bitSize n1)
+          in s { stack = Val hi : Val lo : stack' }
 
 -- Unsigned double cell to cell divide and remainder
-ummod :: Cell cell => String -> ForthLambda cell
-ummod name = ensureStack name [isValue, isValue, isValue] action where
-    action = update (\s -> case stack s of
-                             Val n3 : Val n2 : Val n1 : stack' ->
-                                 let ud = uext n2 `shiftL` bitSize n1
-                                     u = uext n3
-                                     (quot, rem) = ud `quotRem` u
-                                 in s { stack = Val (fromIntegral quot) :
-                                                Val (fromIntegral rem) : stack'})
+ummod :: Cell cell => ForthLambda cell i
+ummod = ensureStack [isValue, isValue, isValue] $ \s ->
+    case stack s of
+      Val n3 : Val n2 : Val n1 : stack' ->
+          let ud = uext n2 `shiftL` bitSize n1
+              u = uext n3
+              (quot, rem) = ud `quotRem` u
+          in s { stack = Val (fromIntegral quot) : Val (fromIntegral rem) : stack'}
 
-doesVariable :: Cell cell => String -> ForthLambda cell
-doesVariable name = return ()
+doesVariable :: Cell cell => ForthLambda cell i
+doesVariable = return ()
 
-doesConstant :: Cell cell => String -> ForthLambda cell
+--doesConstant :: Cell cell => String -> ForthLambda cell
+{-
 doesConstant name = ensureStack name [isAddress] action where
     action = fetch cellValue name
+-}
 
 -- | Words that need to exist, but do not have any defined behavior in the Haskell
 --   emulated Forth as it is implemented in a different way. It will need a target
 --   version though.
-doNotCall :: Cell cell => String -> ForthLambda cell
+-- doNotCall :: Cell cell => String -> ForthLambda cell
 doNotCall name =
     liftIO $ hPutStrLn stderr (show name ++ " not to be executed (intended for target)")
 
 -- | Pick up next item in the colon definition which should be a literal and push
 --   it on stack.
-lit :: Cell cell => String -> ForthLambda cell
-lit name = update (\s ->
+-- lit :: Cell cell => String -> ForthLambda cell
+{-
+lit name = modify $ \s ->
                case ip s of
                  [] -> s  -- TODO why is this needed?
-                 Literal val : ip' -> s { ip = ip', stack = val : stack s })
+                 Literal val : ip' -> s { ip = ip', stack = val : stack s }
+-}
 
 -- | Compile a literal.
+{-
 literal name = ensureStack name [isAny] action where
     action = do
       loadLit <- loadLiteralWordRef
       compileWord loadLit
       lit <- popLiteral
       compileWord (Literal lit)
+-}
 
 --    let Literal val : ip' = ip s
 --    in s { ip = ip', stack = val : stack s })
 
-toBody :: Cell cell => String -> ForthLambda cell
-toBody name = ensureStack name [isExecutionToken] action where
-    action = update (\s ->
-                let ExecutionToken key : stack' = stack s
-                in case Map.lookup key (wordKeyMap s) of
-                     Just word ->
-                         case dataField word of
-                           Just field -> s { stack = Address key 0 : stack' })
+{-
+toBody :: Cell cell => ForthLambda cell i
+toBody = ensureStack [isExecutionToken] $ \s ->
+    let ExecutionToken key : stack' = stack s
+    in case Map.lookup key (wordKeyMap s) of
+         Just word ->
+             case dataField word of
+               Just field -> s { stack = Address (BodyAdr key 0) : stack' }
+-}
 
 {-
 compileComma :: Cell cell => String -> ForthLambda cell

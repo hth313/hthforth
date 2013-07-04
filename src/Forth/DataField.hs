@@ -12,7 +12,6 @@ import Data.Word
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Forth.Cell
-import Forth.Configuration
 import Forth.Types
 
 -- | Allocate a data field of the given size
@@ -22,10 +21,10 @@ allot n = DataField n True Map.empty
 -- | Store a given value.
 --   When writing a cell, kill any bytes it overlaps.
 --   When writing a byte, kill any cell that overlaps it.
-storeData :: Cell cell => DataObject cell -> cell -> DataField cell -> Configuration cell -> DataField cell
-storeData Undefined _ field conf = field { objects = Map.empty }  -- remove all
-storeData obj offset field conf =
-    let n = bytesPerCell conf
+storeData :: Cell cell => DataObject cell -> cell -> DataField cell -> DataField cell
+storeData Undefined _ field = field { objects = Map.empty }  -- remove all
+storeData obj offset field =
+    let n = bytesPerCell offset
         limitedOffsets = take (fromIntegral (n - 1)) offsets
         (eraser, offsets) =
             case obj of

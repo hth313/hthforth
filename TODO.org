@@ -10,6 +10,7 @@
 *** TODO need to update BLK with the block being loaded (load in Forth.Machine)
 *** TODO FH is a colon word, so now EXECUTE need to be able to execute such\
 ** TODO consider moving away from the Parsec parser. The benefit would be that we gain access to the input stream which several words want (see what words relate to this, hint >IN).
+Idea: input is represented by InputSource which holds a ByteString, which is the block contents (or input buffer text). An address (BufferAdr) can point inside it as well. This is paired with a capacity which is an ordinary Val.
 ** DONE Constant does not have a proper runtime behavior, it acts as a variable, need to be fixed
 ** TODO figure out how to deal with compile-time and run-tume behavior (CREATE DOES>), figured out but need to be implement in the compiler
 ** TODO consider small constants as words, 0 1 2 4 -1
