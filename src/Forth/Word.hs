@@ -6,8 +6,11 @@
 
 -}
 
-module Forth.Word (ForthWord(..), IP(..), Body(..), emptyIP) where
+module Forth.Word (ForthWord(..), IP(..), Body(..), LinkField, emptyIP) where
 
+import Data.Char
+import Data.Vector.Storable.ByteString.Char8 (ByteString)
+import qualified Data.Vector.Storable.ByteString.Char8 as B
 import Data.Vector (Vector)
 import qualified Data.Vector as V
 import Forth.Types
@@ -16,7 +19,7 @@ import {-# SOURCE #-} Forth.Machine
 
 -- | A Forth word
 data ForthWord cell = ForthWord {
-      name :: String,
+      name :: ByteString,
       immediate :: Bool,
       link :: LinkField cell,
       wid :: WordId,
@@ -28,7 +31,7 @@ instance Eq (ForthWord cell) where
     a == b = wid a == wid b
 
 instance Show (ForthWord cell) where
-    show = name
+    show = B.unpack . name
 
 data Body cell = Native | Colon (ColonBody cell)
 type LinkField cell = Maybe (ForthWord cell)
