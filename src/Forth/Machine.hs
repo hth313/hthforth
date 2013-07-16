@@ -8,7 +8,7 @@
 -}
 
 module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop,
-                      ForthWord(..), StateT(..), emptyStack,
+                      ForthWord(..), StateT(..), emptyStack, abortWith,
                       initialState, evalStateT, addNative,
                       wordBuffer) where
 
@@ -77,7 +77,8 @@ pop = StateT $ \s ->
           t:ts -> return (t, s { stack = ts })
           [] -> emptyStack
 
-emptyStack = throw $ ForthException "empty stack"
+emptyStack = abortWith "empty stack"
+abortWith = throw . ForthException
 
 -- | Push a value on data stack
 push x = modify $ \s -> s { stack = x : stack s }
