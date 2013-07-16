@@ -48,21 +48,26 @@ binary op = modify $ \s ->
       s0 : s1 : ss -> s { stack = s0 `op` s1 : ss  }
       otherwise -> emptyStack
 
+find :: Cell cell => ForthLambda cell
 find = do
 --  push $ Val ' '
   word
 
 -- | Copy word from given address with delimiter to a special transient area.
---   ( adr c -- )
--- TODO: return name outside, then drop from stack?
+--   ( char "<chars>ccc<chars>" -- c-addr )
+word :: Cell cell => ForthLambda cell
 word = modify $ \s ->
   case stack s of
-    Val c : Address (Just (Addr wid off)) : ss
+    Address (Just (Addr wid off)) : Val val : ss
         | Just (DataField field) <- IntMap.lookup wid (variables s) ->
             let name = B.takeWhile (c /=) $ B.dropWhile (c ==) $ B.drop off field
+                counted = B.cons (fromIntegral $ B.length name) name
                 result = Address (Just $ Addr wordBuffer 0)
+                c = fromIntegral val
             in s { stack = result : ss,
-                   variables = IntMap.insert wordBuffer (DataField name) (variables s) }
+                   variables = IntMap.insert wordBuffer (DataField counted) (variables s) }
+    otherwise -> abortWith "WORD failed"
+
 {-
 find = StateT $ \s ->
   case stack s of
