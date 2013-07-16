@@ -39,7 +39,7 @@ type MachineM cell = StateT (Machine cell) IO
 -- The Forth state
 data Machine cell = Machine { -- The Forth stacks
                               stack, rstack :: [Lit cell],
-                              dictionaryHead :: Maybe (ForthWord cell),
+                              dictionaryHead :: LinkField cell,
                               ip :: IP cell,
                               -- Sequence of identies to allocate from
                               keys :: [WordId],
@@ -97,7 +97,7 @@ initialState n =
     Machine [] [] Nothing emptyIP [firstId..] IntMap.empty B.empty
 
 -- | Add a native word to the vocabulary.
-addNative :: String -> ForthLambda cell -> MachineM cell ()
+addNative :: ByteString -> ForthLambda cell -> MachineM cell ()
 addNative name action = modify $ \s ->
     let k:ks = keys s
         word = ForthWord name False (dictionaryHead s) k (const action) Native
