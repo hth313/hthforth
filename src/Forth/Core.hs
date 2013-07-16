@@ -6,11 +6,11 @@
 
 -}
 
-module Forth.Core (nativeWords, abort) where
+module Forth.Core (addNatives) where
 
 import Control.Monad.State.Lazy
-import Data.ByteString.Char8 (ByteString)
-import qualified Data.ByteString.Char8 as C
+import Data.Vector.Storable.ByteString (ByteString)
+import qualified Data.Vector.Storable.ByteString as B
 import Data.Word
 import Control.Monad
 import Control.Monad.Trans
@@ -21,68 +21,58 @@ import Forth.Machine
 import Forth.Types
 import Forth.Word
 import qualified Data.Map as Map
+import qualified Data.IntMap as IntMap
 import Text.Parsec.Error
 import System.IO
 
---binary :: (Value cell -> Value cell -> Value cell) -> String ->
---          ForthLambda cell
-binary op = ensureStack [isAny, isAny] $ \s ->
-    let tos : nos : rest = stack s
-    in s { stack = op tos nos : rest }
 
---unary :: (Value cell -> Value cell) -> String -> ForthLambda cell
-unary op = ensureStack [isAny] $ \s ->
-    let tos : rest = stack s
-    in s { stack = op tos : rest }
+-- | Populate the vocabulary with a basic set of Haskell native words.
+addNatives :: Cell cell => MachineM cell ()
+addNatives = do
+  addNative "+"   $ binary (+)
+  addNative "-"   $ binary (-)
+  addNative "*"   $ binary (*)
+  addNative "/"   $ binary divide
+  addNative "AND" $ binary (.&.)
+  addNative "OR"  $ binary (.|.)
+  addNative "XOR" $ binary xor
+  addNative "WORD" word
+--  addNative "FIND" find
+      where
+        divide (Val a) (Val b) = Val (a `div` b)
+        divide a b = Bot $ show a ++ " / " ++ show b
 
---updateStack :: Int -> ([Value cell] -> [Value cell]) -> String ->
---               (ForthLambda cell)
-updateStack n f = ensureStack (replicate n isAny) $ \s ->
-    s { stack = f (stack s) }
+-- | Perform a binary operation
+binary op = modify $ \s ->
+    case stack s of
+      s0 : s1 : ss -> s { stack = s0 `op` s1 : ss  }
+      otherwise -> emptyStack
 
-instance Integral cell => Num (Value cell) where
-    (Val a) + (Val b) = Val (a + b)
-    (Address (BodyAdr key a)) + (Val b)   = Address (BodyAdr key (a + (fromIntegral b)))
-    (Address (BufferAdr key a)) + (Val b) = Address (BufferAdr key (a + (fromIntegral b)))
-    (Val b) + (Address (BodyAdr key a))   = Address (BodyAdr key (a + (fromIntegral b)))
-    (Val b) + (Address (BufferAdr key a)) = Address (BufferAdr key (a + (fromIntegral b)))
+find = do
+--  push $ Val ' '
+  word
 
-    a + b = Bot $ show a ++ " " ++ show b ++ " +"
-    (Val a) - (Val b) = Val (a - b)
-    (Address (BodyAdr key a)) - (Val b)   = Address (BodyAdr key (a - (fromIntegral b)))
-    (Address (BufferAdr key a)) - (Val b) = Address (BufferAdr key (a - (fromIntegral b)))
-    a - b = Bot $ show a ++ " " ++ show b ++ " -"
-    (Val a) * (Val b) = Val (a * b)
-    a * b = Bot $ show a ++ " " ++ show b ++ " *"
-    abs (Val a) = Val (abs a)
-    abs a = Bot $ show a ++ " ABS"
-    negate (Val a) = Val (negate a)
-    negate a = Bot $ show a ++ " NEGATE"
-    signum (Val a) = Val (signum a)
-    signum a = Bot $ show a ++ " SIGNUM"
-    fromInteger n = Val (fromInteger n)
+-- | Copy word from given address with delimiter to a special transient area.
+--   ( adr c -- )
+-- TODO: return name outside, then drop from stack?
+word = modify $ \s ->
+  case stack s of
+    Val c : Address (Just (Addr wid off)) : ss
+        | Just (DataField field) <- IntMap.lookup wid (variables s) ->
+            let name = B.takeWhile (c /=) $ B.dropWhile (c ==) $ B.drop off field
+                result = Address (Just $ Addr wordBuffer 0)
+            in s { stack = result : ss,
+                   variables = IntMap.insert wordBuffer (DataField name) (variables s) }
+{-
+find = StateT $ \s ->
+  case stack s of
+    Address (Just adr) -> word ' ' adr
+        where findName = "+"
+-}
 
-instance Cell cell => Bits (Value cell) where
-    (Val a) .&. (Val b) = Val (a .&. b)
-    a .&. b = Bot $ show a ++ " " ++ show b ++ " AND"
-    (Val a) .|. (Val b) = Val (a .|. b)
-    a .|. b = Bot $ show a ++ " " ++ show b ++ " OR"
-    xor (Val a) (Val b) = Val (xor a b)
-    xor a b = Bot $ show a ++ " " ++ show b ++ " XOR"
-    complement (Val a) = Val (complement a)
-    complement a = Bot $ show a ++ " INVERT"
-    bitSize (Val a) = bitSize a
-    isSigned (Val a) = isSigned a
-    isSigned _ = False
-
-instance Cell cell => Ord (Value cell) where
-    compare (Val a) (Val b) = compare a b
-
-true, false :: Cell cell => Value cell
-true = Val (-1)
-false = Val 0
 
 -- | Define native and word header related words as lambdas
+{-
 nativeWords :: Cell cell => cell -> MachineM cell i ()
 nativeWords cell = do
   -- Data stack
@@ -163,7 +153,9 @@ nativeWords cell = do
       truth True = true
       truth False = false
 --      immediate = immediateWord "IMMEDIATE"
+-}
 
+{-
 dup = updateStack 1 $ \st -> head st : st
 
 abort :: Cell cell => MachineM cell i ()
@@ -195,7 +187,7 @@ pushVariable name = do
     Just key <- gets $ Map.lookup name . wordNameMap
     pushVariableKey key
 
-pushVariableKey :: Cell cell => WordKey -> MachineM cell i ()
+pushVariableKey :: Cell cell => WordId -> MachineM cell i ()
 pushVariableKey key = modify $ \s ->
     case Map.lookup key (variables s) of
       Just df -> s { stack = Address (BodyAdr key 0) : stack s }
@@ -256,7 +248,7 @@ xstore ctor = ensureStack [isBodyAddress, isAny] $ \s ->
                  field' = storeData (ctor val) offset field
               in s { variables = Map.insert key field' (variables s),
                      stack = stack' }
-
+-}
 {-
         ColonAddress key offset ->
             -- Will write to last location. This is OK for literals which we will
@@ -268,31 +260,38 @@ xstore ctor = ensureStack [isBodyAddress, isAny] $ \s ->
 
 --addressField :: Cell cell => ForthValue cell -> Machine cell ->
 --                (ForthWord cell, cell, DataField cell)
-addressField (Address (BodyAdr key offset)) s =
-    case Map.lookup key (variables s) of
+{-
+addressField (Address (Just (BodyAdr (WordId key) offset))) s =
+    case IntMap.lookup key (variables s) of
       Just field -> (key, offset, field)
+-}
 
 --fetch :: Cell cell =>
 --         (DataObject cell -> ForthValue cell) -> String -> MachineM cell ()
+{-
 fetch fval = ensureStack [isAddress] $ \s ->
     let adr : stack' = stack s
     in case adr of
-         Address (BodyAdr key offsetadr) ->
+         Address (Just (BodyAdr key offsetadr)) ->
              let (word, offset, field) = addressField adr s
                  val = fval $ fetchData offset field
              in s { stack = val : stack' }
          otherwise -> s  -- TODO: could use an error here
-
+-}
 
 -- cellValue :: Cell cell => DataObject cell -> ForthValue cell
+{-
 cellValue (Cell (Val val)) = Val val
 cellValue (Byte val) = UndefinedValue
 cellValue Undefined = UndefinedValue
+-}
 
 -- charValue :: Cell cell => DataObject cell -> ForthValue cell
+{-
 charValue (Byte val) = Val (fromIntegral val)
 charValue (Cell val) = UndefinedValue
 charValue Undefined = UndefinedValue
+-}
 
 {-
 create = do
@@ -305,12 +304,14 @@ create = do
              wordNameMap = Map.insert name key (wordNameMap s) })
 -}
 
+{-
 immediateWord :: Cell cell => ForthLambda cell i
 immediateWord = modify $ \s ->
     case lastWord s of
       Just key -> s { wordKeyMap = Map.update (\word -> Just $ word { immediate = True })
                                    key (wordKeyMap s) }
       Nothing -> s
+-}
 
 -- exit :: Cell cell => String -> ForthLambda cell
 {-
@@ -376,14 +377,17 @@ thru name = ensureStack name [isValue, isValue] action where
 -}
 
 --ult :: Cell cell => ForthValue cell -> ForthValue cell -> ForthValue cell
+{-
 ult (Val n1) (Val n2) =
     let u1, u2 :: Word64
         u1 = fromIntegral n1
         u2 = fromIntegral n2
     in if u1 < u2 then true else false
+-}
 
 -- Signed multiply to double cell
-mstar :: Cell cell => ForthLambda cell i
+{-
+mstar :: Cell cell => ForthLambda cell
 mstar = ensureStack [isValue, isValue] $ \s ->
     case stack s of
       Val n1 : Val n2 : stack' ->
@@ -394,13 +398,17 @@ mstar = ensureStack [isValue, isValue] $ \s ->
               lo = fromIntegral prod
               hi = fromIntegral $ prod `shiftR` (bitSize n1)
           in s { stack = Val hi : Val lo : stack' }
+-}
 
+{-
 uext :: Cell cell => cell -> Integer
 uext n = mask .&. (fromIntegral n) where
     mask = (1 `shiftL` bitSize n) - 1
+-}
 
 -- Unsigned multiply to double cell
-umstar :: (Bits cell, Cell cell, Num cell) => ForthLambda cell i
+{-
+umstar :: (Bits cell, Cell cell, Num cell) => ForthLambda cell
 umstar = ensureStack [isValue, isValue] $ \s ->
     case stack s of
       Val n1 : Val n2 : stack' ->
@@ -410,9 +418,11 @@ umstar = ensureStack [isValue, isValue] $ \s ->
               lo = fromIntegral prod
               hi = fromIntegral $ prod `shiftR` (bitSize n1)
           in s { stack = Val hi : Val lo : stack' }
+-}
 
 -- Unsigned double cell to cell divide and remainder
-ummod :: Cell cell => ForthLambda cell i
+{-
+ummod :: Cell cell => ForthLambda cell
 ummod = ensureStack [isValue, isValue, isValue] $ \s ->
     case stack s of
       Val n3 : Val n2 : Val n1 : stack' ->
@@ -420,9 +430,12 @@ ummod = ensureStack [isValue, isValue, isValue] $ \s ->
               u = uext n3
               (quot, rem) = ud `quotRem` u
           in s { stack = Val (fromIntegral quot) : Val (fromIntegral rem) : stack'}
+-}
 
-doesVariable :: Cell cell => ForthLambda cell i
+{-
+doesVariable :: Cell cell => ForthLambda cell
 doesVariable = return ()
+-}
 
 --doesConstant :: Cell cell => String -> ForthLambda cell
 {-

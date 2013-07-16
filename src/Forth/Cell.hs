@@ -2,18 +2,19 @@
   This file is part of CalcForth.
   Copyright Håkan Thörngren 2011
 
-  A Forth machine word value is an instance of the Cell class.
+  Type class for primary unit of information.
 
 -}
 
-module Forth.Cell (Cell(..), Endian(..)) where
+module Forth.Cell (Cell(..)) where
 
 import Data.Bits
 import Data.Word
+import Util.Endian
 
--- Cell class
---class  (Eq cell, Show cell, Bits cell, Ord cell, Num cell, Integral cell) => (Cell cell)
-class (Bits cell, Integral cell) => Cell cell where
+
+-- | Cell class
+class (Bits cell, Integral cell, Num cell) => Cell cell where
     bytesPerCell :: cell -> cell           -- ^ native value size
     bytesPerInstruction :: cell -> cell    -- ^ execution token size
     bytesPerChar :: cell -> cell           -- ^ character size
@@ -30,5 +31,3 @@ shifts x = case endianess x of
              LittleEndian -> bits
              BigEndian -> reverse bits
     where bits = take (fromIntegral (bytesPerCell x)) [0,8..]
-
-data Endian = LittleEndian | BigEndian

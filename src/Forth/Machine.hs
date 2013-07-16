@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable, OverloadedStrings #-}
 {-
   This file is part of CalcForth.
   Copyright Håkan Thörngren 2011
@@ -7,19 +7,19 @@
 
 -}
 
-module Forth.Machine (MachineM, ForthLambda, Machine(..), lookupWord,
-                      ForthWord(..), StateT(..), addWord, modifyLastWord,
-                      wordFromName, initialState, evalStateT, find,
-                      loadScreens, ensureStack, ensureReturnStack,
-                      pushLiteral, popLiteral, keyName,
-                      isValue, isAddress, isAny, isExecutionToken,
-                      isBodyAddress) where
+module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop,
+                      ForthWord(..), StateT(..), emptyStack,
+                      initialState, evalStateT, addNative,
+                      wordBuffer) where
 
+import Control.Exception
 import Control.Monad.State.Lazy
-import Data.ByteString.Char8 (ByteString)
+import Data.Vector.Storable.ByteString (ByteString)
+import qualified Data.Vector.Storable.ByteString as B
 import Data.Int
 import Data.Bits
 import Data.Maybe
+import Data.Typeable
 import Data.Word
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -27,7 +27,6 @@ import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Forth.Cell
 import Forth.DataField
-import Forth.Block
 import Forth.Cell
 import Forth.Word
 import Forth.Types
@@ -35,48 +34,80 @@ import Numeric
 import System.IO
 import Control.Exception
 
-type MachineM cell i = StateT (Machine cell i) IO
+type MachineM cell = StateT (Machine cell) IO
 
 -- The Forth state
-data Machine cell i = Machine { -- The Forth stacks
-                                stack, rstack :: [Lit cell],
-                                -- The dictionary defines the order in which
-                                -- words have been defined. Actual lookup is
-                                -- done using wordKeyMap.
-                                dictionary :: Dictionary,
-                                -- Word lookup maps
-                                wordKeyMap :: Map WordKey (ForthWord cell i),
-                                wordNameMap :: Map ByteString WordKey,
-                                -- The interpretive pointer
-                                ip :: Lit cell,
-                                -- Most recent word
-                                lastWord :: Maybe WordKey,
-                                -- All forth screens available
-                                screens :: IntMap ByteString,
-                                activeColonDef :: Maybe (ForthWord cell i),
-                                activeColonBody :: [ColonElement cell],
-                                --                              inputStream :: String,
-                                -- Unique identities for words
-                                keys :: [WordKey],
-                                variables :: Map WordKey (DataField cell),
-                                inputBuffer :: ByteString
+data Machine cell = Machine { -- The Forth stacks
+                              stack, rstack :: [Lit cell],
+                              dictionaryHead :: Maybe (ForthWord cell),
+                              ip :: IP cell,
+                              -- Sequence of identies to allocate from
+                              keys :: [WordId],
+                              -- Data fields for words that need it. This need
+                              -- to be modifiable as we mimic data ram. We
+                              -- rely on that the underlaying identity of
+                              -- a WordId is an Int here.
+                              variables :: IntMap DataField,
+                              inputBuffer :: ByteString
     }
 
-
 -- A Forth native lambda should obey this signature
-type ForthLambda cell i = MachineM cell i ()
+type ForthLambda cell = MachineM cell ()
 
+data ForthException = ForthException String deriving Typeable
+
+instance Exception ForthException
+instance Show ForthException where
+    show (ForthException text) = text
+
+-- | Internal words that does not need to be redefinable can share
+--   this identity.
+pseudoId = 0
+
+-- | WordId used for special purposes
+wordBuffer = 1 :: Int
+
+-- The first dynamic word identity
+firstId = 2
+
+-- | Pop from data stack
+pop :: MachineM cell (Lit cell)
+pop = StateT $ \s ->
+        case stack s of
+          t:ts -> return (t, s { stack = ts })
+          [] -> emptyStack
+
+emptyStack = throw $ ForthException "empty stack"
+
+-- | Push a value on data stack
+push x = modify $ \s -> s { stack = x : stack s }
+
+{-
 lookupWord key = gets $ \s -> Map.lookup key (wordKeyMap s)
 
 lookupWordFromName name = do
   Just [WordRef key] <- wordFromName name
   lookupWord key
+-}
 
-initialState :: Cell cell => cell -> Machine cell i
+-- | Create an initial empty Forth machine state
+initialState :: cell -> Machine cell
 initialState n =
-    Machine [] [] [] Map.empty Map.empty (Address DeadAdr) Nothing IntMap.empty
-            Nothing [] (map WordKey [1..]) Map.empty ""
+    Machine [] [] Nothing emptyIP [firstId..] IntMap.empty B.empty
 
+-- | Add a native word to the vocabulary.
+addNative :: String -> ForthLambda cell -> MachineM cell ()
+addNative name action = modify $ \s ->
+    let k:ks = keys s
+        word = ForthWord name False (dictionaryHead s) k (const action) Native
+    in s { keys = ks,
+           dictionaryHead = Just word }
+
+doColon word = modify $ \s ->
+    let Colon cb = body word
+    in s { rstack = Loc (ip s) : rstack s, ip = IP cb 0 }
+
+{-
 keyName key = gets $ \s ->
     case Map.lookup key (wordKeyMap s) of
       Just word -> return (wordName word, s)
@@ -86,7 +117,7 @@ find word = gets $ \s ->
     case Map.lookup word (wordNameMap s) of
       Just k -> case Map.lookup k (wordKeyMap s) of
                   Just fw -> fw
-
+-}
 
 {-
 newKey :: MachineM cell i WordKey
@@ -95,6 +126,7 @@ newKey = StateT (\s ->
              in return (key, s { keys = keys' }))
 -}
 
+{-
 -- | Add a new Forth word
 --addWord :: ForthWord cell -> ForthLambda cell
 addWord word = modify $ \s ->
@@ -108,7 +140,7 @@ addWord word = modify $ \s ->
 modifyLastWord f = modify $ \s ->
     let key = head (dictionary s)
     in s { wordKeyMap = Map.update f key (wordKeyMap s) }
-
+-}
 {-
 -- Compile structures like IF-ELSE-THEN into branch primitives
 compileStructure key colon =
@@ -173,6 +205,7 @@ putDP lit = do
   when (isJust dp) (pushLiteral lit >>  executeSlice [ "DP", "!" ])
 -}
 
+{-
 -- | Given the name of a word, look it up in the dictionary and return its
 --   compiled inner representation
 wordFromName :: Integral cell => String -> MachineM cell i (Maybe [ColonElement cell])
@@ -190,6 +223,7 @@ wordFromName name = do
                    case readSigned readDec name of
                      [(n,"")] -> literal n
                      otherwise -> return (Nothing, s))
+-}
 
 {-
 loadLiteralWordRef :: MachineM cell i (ColonElement cell)
@@ -264,6 +298,7 @@ compileWord elt = StateT (\s ->
 --accessConfigurationSize accessor = do
 --  configuration >>= return.accessor
 
+{-
 -- | Load an entire set of screens from a file
 loadScreens :: FilePath -> MachineM cell i ()
 loadScreens filepath = do
@@ -271,6 +306,7 @@ loadScreens filepath = do
         liftIO $ readBlockFile "/Users/hth/projects/CalcForth/src/lib/core.fth"
     --liftIO $ putStrLn (show blocks)
     modify $ \s -> s { screens = blocks }
+-}
 
 -- | Load a screen
 {-
@@ -342,33 +378,36 @@ next = do
   action
 -}
 
+{-
 -- | Push a literal on stack
 pushLiteral lit =
     modify $ \s -> s { stack = lit : stack s }
 
 -- | Pop a literal from stack
-popLiteral :: MachineM cell i (Lit cell)
+popLiteral :: MachineM s cell (Lit s cell)
 popLiteral = StateT (\s ->
     let val : stack' = stack s
     in return (val, s { stack = stack' }))
+-}
 
 -- Temporary, replace with something that can actually represent a slice
 -- of assembler code.
-data Instruction = String
+--data Instruction = String
 
 {-
   Words related to make sure that the stack contains enough things and kind of
   things a word might expect.
 -}
 
-ensureStack, ensureReturnStack ::
-    Show cell => [Lit cell -> Bool] -> (Machine cell i -> Machine cell i) -> ForthLambda cell i
+{-
+ensureStack, ensureReturnStack :: Show cell =>
+    [Lit s cell -> Bool] -> (Machine s cell -> Machine s cell) -> ForthLambda s cell
 ensureStack = ensure stack
 ensureReturnStack = ensure rstack
 
-ensure :: Show cell => (Machine cell i -> [Lit cell]) ->
-          [Lit cell -> Bool] ->
-          (Machine cell i -> Machine cell i)-> ForthLambda cell i
+ensure :: Show cell => (Machine s cell -> [Lit s cell]) ->
+          [Lit s cell -> Bool] ->
+          (Machine s cell -> Machine s cell)-> ForthLambda s cell
 ensure stack preds action = do
   s <- gets stack
   if length preds > length s
@@ -380,13 +419,4 @@ ensure stack preds action = do
                 then modify action
                 else liftIO $ hPutStrLn stderr ("bad stack argument, stack is " ++
                                                 show (map snd pairs))
-
-isValue (Val _) = True
-isValue _ = False
-isAddress Address{} = True
-isAddress _ = False
-isBodyAddress (Address BodyAdr{}) = True
-isBodyAddress _ = False
-isAny = const True
-isExecutionToken (ExecutionToken _) = True
-isExecutionToken _ = False
+-}

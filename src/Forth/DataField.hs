@@ -6,18 +6,24 @@
 
 -}
 
-module Forth.DataField (DataField(..), storeData, fetchData, allot) where
+module Forth.DataField (DataField(..), allot) where
 
 import Data.Word
 import Data.Map (Map)
 import qualified Data.Map as Map
+import qualified Data.Vector.Storable.ByteString as B
 import Forth.Cell
 import Forth.Types
 
 -- | Allocate a data field of the given size
+allot :: Cell cell => cell -> DataField
+allot n = DataField $ B.pack $ replicate (fromIntegral n) 0
+{-
 allot :: Cell cell => cell -> DataField cell
 allot n = DataField n True Map.empty
+-}
 
+{-
 -- | Store a given value.
 --   When writing a cell, kill any bytes it overlaps.
 --   When writing a byte, kill any cell that overlaps it.
@@ -41,3 +47,4 @@ fetchData offset field =
     case Map.lookup offset (objects field) of
       Nothing -> Undefined
       Just val -> val
+-}

@@ -9,7 +9,6 @@
 module Main (main) where
 
 import Data.Int
-import Forth.Block
 import Forth.Cell
 import Forth.Core
 import Forth.Machine
@@ -25,4 +24,4 @@ main =
     let cellSize = 4 :: Int32
         executionTokenSize = 2 :: Int32
         charSize = 1 :: Int32
-    in evalStateT (nativeWords 0 >> abort) (initialState cellSize)
+    in evalStateT (addNative >> abort) (initialState cellSize)
