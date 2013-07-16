@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-
   This file is part of CalcForth.
   Copyright Håkan Thörngren 2011
@@ -37,7 +38,7 @@ addNatives = do
   addNative "OR"  $ binary (.|.)
   addNative "XOR" $ binary xor
   addNative "WORD" word
---  addNative "FIND" find
+  addNative "FIND" find
       where
         divide (Val a) (Val b) = Val (a `div` b)
         divide a b = Bot $ show a ++ " / " ++ show b
@@ -48,10 +49,23 @@ binary op = modify $ \s ->
       s0 : s1 : ss -> s { stack = s0 `op` s1 : ss  }
       otherwise -> emptyStack
 
+-- | Find the name (counted string) in the dictionary
+--   ( c-addr -- c-addr 0 | xt 1 | xt -1 )
 find :: Cell cell => ForthLambda cell
-find = do
---  push $ Val ' '
-  word
+find = modify $ \s ->
+    case stack s of
+      Address (Just (Addr wid off)) : rest
+          | Just (DataField field) <- IntMap.lookup wid (variables s) ->
+              let findname = B.take count $ B.drop (off + 1) field
+                  count = fromIntegral $ B.index field off
+                  locate (Just word) | name word == findname = Just word
+                                     | otherwise = locate $ link word
+                  locate Nothing = Nothing
+              in case locate (dictionaryHead s) of
+                   Just word
+                       | immediate word -> s { stack = Val 1 : ExecutionToken word : rest }
+                       | otherwise -> s { stack = Val (-1) : ExecutionToken word : rest }
+                   Nothing -> s { stack = Val 0 : stack s }
 
 -- | Copy word from given address with delimiter to a special transient area.
 --   ( char "<chars>ccc<chars>" -- c-addr )
