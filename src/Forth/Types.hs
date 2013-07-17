@@ -22,7 +22,7 @@ import Forth.Cell
 -- | Literals are values that can be stored inside a cell.
 data Lit cell = Address (Maybe Addr) |
                 Val cell |
-                ExecutionToken (ForthWord cell) |
+                XT (ForthWord cell) |
                 Loc (IP cell) |
 --                InputSource ByteString |
                 Bot String |
@@ -103,5 +103,5 @@ isValue _ = False
 isAddress Address{} = True
 isAddress _ = False
 isAny = const True
-isExecutionToken (ExecutionToken _) = True
+isExecutionToken XT{} = True
 isExecutionToken _ = False

@@ -63,8 +63,8 @@ find = modify $ \s ->
                   locate Nothing = Nothing
               in case locate (dictionaryHead s) of
                    Just word
-                       | immediate word -> s { stack = Val 1 : ExecutionToken word : rest }
-                       | otherwise -> s { stack = Val (-1) : ExecutionToken word : rest }
+                       | immediate word -> s { stack = Val 1 : XT word : rest }
+                       | otherwise -> s { stack = Val (-1) : XT word : rest }
                    Nothing -> s { stack = Val 0 : stack s }
 
 -- | Copy word from given address with delimiter to a special transient area.
