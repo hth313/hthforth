@@ -12,12 +12,14 @@ import Data.Word
 import Data.Map (Map)
 import qualified Data.Map as Map
 import qualified Data.Vector.Storable.ByteString as B
-import Forth.Cell
+import Forth.Address
 import Forth.Types
+import Forth.WordId
+import Util.Memory
 
 -- | Allocate a data field of the given size
-allot :: Cell cell => cell -> DataField
-allot n = DataField $ B.pack $ replicate (fromIntegral n) 0
+-- allot :: cell -> DataField
+allot wid n = DataField $ newMemory (Addr wid 0) n
 {-
 allot :: Cell cell => cell -> DataField cell
 allot n = DataField n True Map.empty

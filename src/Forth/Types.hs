@@ -7,17 +7,19 @@
 
 -}
 
-module Forth.Types (DataField(..), Lit(..), WordId(..), Addr(..),
+module Forth.Types (DataField(..), Lit(..),
                     true, false,
                     isValue, isAddress, isAny, isExecutionToken) where
 
 import Data.Bits
 import Data.Map (Map)
 import Data.Word
+import Forth.Cell
 import qualified Data.Vector as V
 import Data.Vector.Storable.ByteString (ByteString)
+import Forth.Address
 import {-# SOURCE #-} Forth.Word
-import Forth.Cell
+import Util.Memory
 
 -- | Literals are values that can be stored inside a cell.
 data Lit cell = Address (Maybe Addr) |
@@ -29,17 +31,6 @@ data Lit cell = Address (Maybe Addr) |
                 UndefinedValue
                 deriving (Eq, Show)
 
--- | Unique identifier for words.
-type WordId = Int
-
--- | All address refer to a data field of some word. In some cases we
---   are pointing to an input buffer, but in those cases we use a special
---   word to hold the buffer, so we still can use the same means.
-data Addr = Addr WordId Int deriving Eq
-
-instance Show Addr where
-    show (Addr word off) = "#(" ++ show word ++ "," ++ show off ++ ")"
-
 {-
 showAddress kind key offset = "<" ++ show key ++ "::" ++ kind ++ " " ++ show offset ++ ">"
 -}
@@ -49,7 +40,7 @@ showAddress kind key offset = "<" ++ show key ++ "::" ++ kind ++ " " ++ show off
 --data DataObject cell = Cell (Lit cell) | Byte Word8 | Undefined
 
 -- A data field is the body of a data word
-newtype DataField = DataField ByteString
+newtype DataField = DataField (Memory Addr)
 
 {-
 data DataField cell = DataField { dataSize :: cell,

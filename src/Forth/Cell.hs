@@ -14,20 +14,4 @@ import Util.Endian
 
 
 -- | Cell class
-class (Bits cell, Integral cell, Num cell) => Cell cell where
-    bytesPerCell :: cell -> cell           -- ^ native value size
-    bytesPerInstruction :: cell -> cell    -- ^ execution token size
-    bytesPerChar :: cell -> cell           -- ^ character size
-    endianess :: cell -> Endian
-
-    toBytes :: cell -> [Word8]
-    toBytes val =  map (\x -> fromIntegral $ shiftR val x) (shifts val)
-
-    toValue :: cell -> [Word8] -> cell
-    toValue x bytes = sum $ map (uncurry shiftL) (zip (map fromIntegral bytes) (shifts x))
-
-
-shifts x = case endianess x of
-             LittleEndian -> bits
-             BigEndian -> reverse bits
-    where bits = take (fromIntegral (bytesPerCell x)) [0,8..]
+class (Bits cell, Integral cell, Num cell) => Cell cell

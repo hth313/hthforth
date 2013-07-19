@@ -16,11 +16,13 @@ import Data.Word
 import Control.Monad
 import Control.Monad.Trans
 import Data.Bits
+import Forth.Address
 import Forth.Cell
 import Forth.DataField
 import Forth.Machine
 import Forth.Types
 import Forth.Word
+import Util.Memory
 import qualified Data.Map as Map
 import qualified Data.IntMap as IntMap
 import Text.Parsec.Error
@@ -55,9 +57,9 @@ find :: Cell cell => ForthLambda cell
 find = modify $ \s ->
     case stack s of
       Address (Just (Addr wid off)) : rest
-          | Just (DataField field) <- IntMap.lookup wid (variables s) ->
-              let findname = B.take count $ B.drop (off + 1) field
-                  count = fromIntegral $ B.index field off
+          | Just (DataField mem) <- IntMap.lookup wid (variables s) ->
+              let findname = B.take count $ B.drop (off + 1) (chunk mem)
+                  count = fromIntegral $ B.index (chunk mem) off
                   locate (Just word) | name word == findname = Just word
                                      | otherwise = locate $ link word
                   locate Nothing = Nothing
@@ -73,9 +75,9 @@ word :: Cell cell => ForthLambda cell
 word = modify $ \s ->
   case stack s of
     Address (Just (Addr wid off)) : Val val : ss
-        | Just (DataField field) <- IntMap.lookup wid (variables s) ->
-            let name = B.takeWhile (c /=) $ B.dropWhile (c ==) $ B.drop off field
-                counted = B.cons (fromIntegral $ B.length name) name
+        | Just (DataField mem) <- IntMap.lookup wid (variables s) ->
+            let name = B.takeWhile (c /=) $ B.dropWhile (c ==) $ B.drop off (chunk mem)
+                counted = mem { chunk = B.cons (fromIntegral $ B.length name) name }
                 result = Address (Just $ Addr wordBuffer 0)
                 c = fromIntegral val
             in s { stack = result : ss,

@@ -25,10 +25,9 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
-import Forth.Cell
 import Forth.DataField
-import Forth.Cell
 import Forth.Word
+import Forth.WordId
 import Forth.Types
 import Numeric
 import System.IO

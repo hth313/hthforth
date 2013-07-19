@@ -13,6 +13,7 @@ import Data.Vector.Storable.ByteString.Char8 (ByteString)
 import qualified Data.Vector.Storable.ByteString.Char8 as B
 import Data.Vector (Vector)
 import qualified Data.Vector as V
+import Forth.WordId
 import Forth.Types
 import {-# SOURCE #-} Forth.Machine
 
