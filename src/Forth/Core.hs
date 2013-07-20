@@ -57,9 +57,9 @@ find :: Cell cell => ForthLambda cell
 find = modify $ \s ->
     case stack s of
       Address (Just (Addr wid off)) : rest
-          | Just (DataField mem) <- IntMap.lookup wid (variables s) ->
-              let findname = B.take count $ B.drop (off + 1) (chunk mem)
-                  count = fromIntegral $ B.index (chunk mem) off
+          | Just (BufferField cmem) <- IntMap.lookup wid (variables s) ->
+              let findname = B.take count $ B.drop (off + 1) (chunk cmem)
+                  count = fromIntegral $ B.index (chunk cmem) off
                   locate (Just word) | name word == findname = Just word
                                      | otherwise = locate $ link word
                   locate Nothing = Nothing
@@ -75,13 +75,13 @@ word :: Cell cell => ForthLambda cell
 word = modify $ \s ->
   case stack s of
     Address (Just (Addr wid off)) : Val val : ss
-        | Just (DataField mem) <- IntMap.lookup wid (variables s) ->
-            let name = B.takeWhile (c /=) $ B.dropWhile (c ==) $ B.drop off (chunk mem)
-                counted = mem { chunk = B.cons (fromIntegral $ B.length name) name }
+        | Just (BufferField cmem) <- IntMap.lookup wid (variables s) ->
+            let name = B.takeWhile (c /=) $ B.dropWhile (c ==) $ B.drop off (chunk cmem)
+                counted = cmem { chunk = B.cons (fromIntegral $ B.length name) name }
                 result = Address (Just $ Addr wordBuffer 0)
                 c = fromIntegral val
             in s { stack = result : ss,
-                   variables = IntMap.insert wordBuffer (DataField counted) (variables s) }
+                   variables = IntMap.insert wordBuffer (BufferField counted) (variables s) }
     otherwise -> abortWith "WORD failed"
 
 {-

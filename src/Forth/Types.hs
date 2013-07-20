@@ -7,7 +7,7 @@
 
 -}
 
-module Forth.Types (DataField(..), Lit(..),
+module Forth.Types (Lit(..),
                     true, false,
                     isValue, isAddress, isAny, isExecutionToken) where
 
@@ -19,7 +19,6 @@ import qualified Data.Vector as V
 import Data.Vector.Storable.ByteString (ByteString)
 import Forth.Address
 import {-# SOURCE #-} Forth.Word
-import Util.Memory
 
 -- | Literals are values that can be stored inside a cell.
 data Lit cell = Address (Maybe Addr) |
@@ -38,15 +37,6 @@ showAddress kind key offset = "<" ++ show key ++ "::" ++ kind ++ " " ++ show off
 -- DataObject is what is written to memory, it will either be a cell or char value.
 -- Thus, it introduces a wrapper for these alternatives.
 --data DataObject cell = Cell (Lit cell) | Byte Word8 | Undefined
-
--- A data field is the body of a data word
-newtype DataField = DataField (Memory Addr)
-
-{-
-data DataField cell = DataField { dataSize :: cell,
-                                  writable :: Bool,
-                                  objects :: Map cell (DataObject cell) }
--}
 
 -- | Make 'Lit cell' part of Num class. This allows us to use functions such as (+)
 --   and many others direct on literals.

@@ -46,7 +46,7 @@ data Machine cell = Machine { -- The Forth stacks
                               -- to be modifiable as we mimic data ram. We
                               -- rely on that the underlaying identity of
                               -- a WordId is an Int here.
-                              variables :: IntMap DataField,
+                              variables :: IntMap (DataField cell),
                               inputBuffer :: ByteString
     }
 
