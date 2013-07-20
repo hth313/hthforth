@@ -27,7 +27,7 @@ data StorageUnit cell = Part Int (Lit cell) | Byte Word8
 newCellMemory :: Target cell -> Int -> CellMemory cell
 newCellMemory target size = CellMemory IntMap.empty size target
 
-readCell :: Addr -> CellMemory cell -> Lit cell
+readCell :: Addr -> CellMemory cell -> Maybe (Lit cell)
 readCell (Addr _ i) mem =
     case IntMap.lookup i (contents mem) of
-      Just (Part _ cell) -> cell
+      Just (Part _ cell) -> Just cell
