@@ -9,8 +9,9 @@
 
 module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop,
                       ForthWord(..), StateT(..), emptyStack, abortWith,
-                      initialState, evalStateT, addNative, addFixed,
-                      wordBufferId, inputBufferId,
+                      initialState, evalStateT, execute,
+                      addNative, addFixed, addVar,
+                      wordBufferId, inputBufferId, stateId,
                       wordLookup,
                       doColon, doVar) where
 
@@ -29,6 +30,7 @@ import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Forth.Address
 import Forth.DataField
+import Forth.Target
 import Forth.Word
 import Forth.WordId
 import Forth.Types
@@ -43,6 +45,7 @@ data Machine cell = Machine { -- The Forth stacks
                               stack, rstack :: [Lit cell],
                               dictionaryHead :: LinkField cell,
                               ip :: IP cell,
+                              target :: Target cell,
                               -- Sequence of identies to allocate from
                               keys :: [WordId],
                               -- Data fields for words that need it. This need
@@ -69,9 +72,10 @@ pseudoId = 0
 -- | WordId used for special purposes
 wordBufferId = 1 :: Int     -- ^ Transient area for WORD
 inputBufferId = 2 :: Int    -- ^ Input buffer
+stateId = 3 :: Int          -- ^ Compile state
 
 -- The first dynamic word identity
-firstId = 3
+firstId = 4
 
 -- | Lookup a word from its identity number
 wordLookup n = do
@@ -80,6 +84,13 @@ wordLookup n = do
     Just w -> call w
 
 call word = doer word word
+
+-- | Top level item on stack should be an execution token that is invoked.
+execute = do
+  word <- pop
+  case word of
+    XT word -> call word
+    otherwise -> abortWith "EXECUTE expects an execution token"
 
 -- | Pop from data stack
 pop :: MachineM cell (Lit cell)
@@ -103,9 +114,9 @@ lookupWordFromName name = do
 -}
 
 -- | Create an initial empty Forth machine state
-initialState :: cell -> Machine cell
-initialState n =
-    Machine [] [] Nothing emptyIP [firstId..] IntMap.empty IntMap.empty
+initialState :: Target cell -> Machine cell
+initialState target =
+    Machine [] [] Nothing emptyIP target [firstId..] IntMap.empty IntMap.empty
 
 -- | Add a native word to the vocabulary.
 addNative :: ByteString -> ForthLambda cell -> MachineM cell ()
@@ -114,6 +125,15 @@ addNative name action = modify $ \s ->
         word = ForthWord name False (dictionaryHead s) k (const action) Native
     in s { keys = ks,
            dictionaryHead = Just word }
+
+addVar name wid mval = do
+  addFixed name False wid doVar
+  case mval of
+    Nothing -> return ()
+    Just val -> do
+        t <- gets target
+        let field = newDataField t wid (bytesPerCell t)
+        modify $ \s -> s { variables = IntMap.insert wid field  (variables s) }
 
 -- | Add a word with a fixed identity.
 addFixed name imm wid does = modify $ \s ->

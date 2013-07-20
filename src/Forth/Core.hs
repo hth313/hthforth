@@ -9,7 +9,7 @@
 
 module Forth.Core (addNatives) where
 
-import Control.Monad.State.Lazy
+import Control.Monad.State.Lazy hiding (state)
 import Data.Vector.Storable.ByteString (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
 import Data.Char
@@ -19,6 +19,7 @@ import Control.Monad.Trans
 import Data.Bits
 import Forth.Address
 import Forth.Cell
+import Forth.CellMemory
 import Forth.DataField
 import Forth.Machine
 import Forth.Types
@@ -42,10 +43,13 @@ addNatives = do
   addNative "XOR" $ binary xor
   addNative "WORD" word
   addNative "FIND" find
-  addFixed "-INPUT-BUFFER" False inputBufferId doVar
+  addNative "-INTERPRET" interpret
+  addVar   "-INPUT-BUFFER" inputBufferId Nothing
+  addVar   "STATE" stateId (Just $ Val 0)
       where
         divide (Val a) (Val b) = Val (a `div` b)
         divide a b = Bot $ show a ++ " / " ++ show b
+
 
 -- | Perform a binary operation
 binary op = modify $ \s ->
@@ -53,8 +57,22 @@ binary op = modify $ \s ->
       s0 : s1 : ss -> s { stack = s0 `op` s1 : ss  }
       otherwise -> emptyStack
 
+
 inputBuffer :: Cell cell => ForthLambda cell
 inputBuffer = wordLookup inputBufferId
+
+
+state :: Cell cell => ForthLambda cell
+state = wordLookup stateId
+
+
+fetch :: Cell cell => ForthLambda cell
+fetch = modify $ \s ->
+    case stack s of
+      Address (Just adr@(Addr wid _)) : rest
+          | Just (DataField cm) <- IntMap.lookup wid (variables s),
+            Just x <- readCell adr cm ->
+                s { stack = x : rest }
 
 -- | Find the name (counted string) in the dictionary
 --   ( c-addr -- c-addr 0 | xt 1 | xt -1 )
@@ -74,6 +92,7 @@ find = modify $ \s ->
                        | otherwise -> s { stack = Val (-1) : XT word : rest }
                    Nothing -> s { stack = Val 0 : stack s }
 
+
 -- | Copy word from given address with delimiter to a special transient area.
 --   ( char "<chars>ccc<chars>" -- c-addr )
 word :: Cell cell => ForthLambda cell
@@ -90,6 +109,21 @@ word = modify $ \s ->
     otherwise -> abortWith "WORD failed"
 
 
+-- | Processes input text stored in the input buffer.
+interpret :: Cell cell => ForthLambda cell
+interpret = state >> fetch >> pop >>= interpretLoop where
+    interpretLoop stateFlag = interpret1 where
+        compiling = stateFlag /= Val 0
+        interpret1 = do
+          push (Val $ fromIntegral $ ord ' ') >> inputBuffer >> word >> find
+          val <- pop
+          case val of
+            Val 0 -> parseNumber                     -- not found
+            Val 1 -> execute >> interpret1           -- immediate word
+            _ | compiling -> abortWith "compile word not implemented" -- normal word found
+              | otherwise -> execute >> interpret1
+
+    parseNumber = push $ Val 0   -- TBD
 
 -- | Define native and word header related words as lambdas
 {-
