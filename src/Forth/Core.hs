@@ -12,6 +12,7 @@ module Forth.Core (addNatives) where
 import Control.Monad.State.Lazy
 import Data.Vector.Storable.ByteString (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
+import Data.Char
 import Data.Word
 import Control.Monad
 import Control.Monad.Trans
@@ -41,6 +42,7 @@ addNatives = do
   addNative "XOR" $ binary xor
   addNative "WORD" word
   addNative "FIND" find
+  addFixed "-INPUT-BUFFER" False inputBufferId doVar
       where
         divide (Val a) (Val b) = Val (a `div` b)
         divide a b = Bot $ show a ++ " / " ++ show b
@@ -50,6 +52,9 @@ binary op = modify $ \s ->
     case stack s of
       s0 : s1 : ss -> s { stack = s0 `op` s1 : ss  }
       otherwise -> emptyStack
+
+inputBuffer :: Cell cell => ForthLambda cell
+inputBuffer = wordLookup inputBufferId
 
 -- | Find the name (counted string) in the dictionary
 --   ( c-addr -- c-addr 0 | xt 1 | xt -1 )
@@ -78,18 +83,12 @@ word = modify $ \s ->
         | Just (BufferField cmem) <- IntMap.lookup wid (variables s) ->
             let name = B.takeWhile (c /=) $ B.dropWhile (c ==) $ B.drop off (chunk cmem)
                 counted = cmem { chunk = B.cons (fromIntegral $ B.length name) name }
-                result = Address (Just $ Addr wordBuffer 0)
+                result = Address (Just $ Addr wordBufferId 0)
                 c = fromIntegral val
             in s { stack = result : ss,
-                   variables = IntMap.insert wordBuffer (BufferField counted) (variables s) }
+                   variables = IntMap.insert wordBufferId (BufferField counted) (variables s) }
     otherwise -> abortWith "WORD failed"
 
-{-
-find = StateT $ \s ->
-  case stack s of
-    Address (Just adr) -> word ' ' adr
-        where findName = "+"
--}
 
 
 -- | Define native and word header related words as lambdas

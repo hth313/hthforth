@@ -9,8 +9,10 @@
 
 module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop,
                       ForthWord(..), StateT(..), emptyStack, abortWith,
-                      initialState, evalStateT, addNative,
-                      wordBuffer) where
+                      initialState, evalStateT, addNative, addFixed,
+                      wordBufferId, inputBufferId,
+                      wordLookup,
+                      doColon, doVar) where
 
 import Control.Exception
 import Control.Monad.State.Lazy
@@ -25,6 +27,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
+import Forth.Address
 import Forth.DataField
 import Forth.Word
 import Forth.WordId
@@ -47,7 +50,7 @@ data Machine cell = Machine { -- The Forth stacks
                               -- rely on that the underlaying identity of
                               -- a WordId is an Int here.
                               variables :: IntMap (DataField cell),
-                              inputBuffer :: ByteString
+                              wordMap :: IntMap (ForthWord cell)
     }
 
 -- A Forth native lambda should obey this signature
@@ -64,10 +67,19 @@ instance Show ForthException where
 pseudoId = 0
 
 -- | WordId used for special purposes
-wordBuffer = 1 :: Int
+wordBufferId = 1 :: Int     -- ^ Transient area for WORD
+inputBufferId = 2 :: Int    -- ^ Input buffer
 
 -- The first dynamic word identity
-firstId = 2
+firstId = 3
+
+-- | Lookup a word from its identity number
+wordLookup n = do
+  w <- gets $ \s -> IntMap.lookup n (wordMap s)
+  case w of
+    Just w -> call w
+
+call word = doer word word
 
 -- | Pop from data stack
 pop :: MachineM cell (Lit cell)
@@ -93,7 +105,7 @@ lookupWordFromName name = do
 -- | Create an initial empty Forth machine state
 initialState :: cell -> Machine cell
 initialState n =
-    Machine [] [] Nothing emptyIP [firstId..] IntMap.empty B.empty
+    Machine [] [] Nothing emptyIP [firstId..] IntMap.empty IntMap.empty
 
 -- | Add a native word to the vocabulary.
 addNative :: ByteString -> ForthLambda cell -> MachineM cell ()
@@ -103,9 +115,19 @@ addNative name action = modify $ \s ->
     in s { keys = ks,
            dictionaryHead = Just word }
 
+-- | Add a word with a fixed identity.
+addFixed name imm wid does = modify $ \s ->
+    let word = ForthWord name imm (dictionaryHead s) wid does Native
+    in s { dictionaryHead = Just word,
+           wordMap = IntMap.insert wid word (wordMap s) }
+
+
 doColon word = modify $ \s ->
     let Colon cb = body word
     in s { rstack = Loc (ip s) : rstack s, ip = IP cb 0 }
+
+-- | Push the address of a variable (its data field) on stack
+doVar word = push $ Address (Just (Addr (wid word) 0))
 
 {-
 keyName key = gets $ \s ->
