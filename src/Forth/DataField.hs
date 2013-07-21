@@ -6,7 +6,8 @@
 
 -}
 
-module Forth.DataField (DataField(..), newDataField, newBuffer) where
+module Forth.DataField (DataField(..), newDataField, newBuffer,
+                        textBuffer) where
 
 import Data.Word
 import Data.Map (Map)
@@ -27,5 +28,8 @@ data DataField cell = DataField (CellMemory cell) | BufferField (Memory Addr)
 newDataField target wid n = DataField $ newCellMemory target n
 
 -- | Allocate a new buffer datafield.  This is not suitable for storing
---   arbitrary cell values, but is suitable and efficient for char buffers.
-newBuffer target wid n = BufferField $ newMemory (Addr wid n) n
+--   arbitrary cell values, but is suitable and efficient for text buffers.
+newBuffer wid n = BufferField $ newMemory (Addr wid 0) n
+
+-- | Allocate a new text buffer with given contents.
+textBuffer wid text = BufferField $ bufferMemory (Addr wid 0) text
