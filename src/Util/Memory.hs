@@ -1,4 +1,4 @@
-module Util.Memory (Memory(..), newMemory) where
+module Util.Memory (Memory(..), newMemory, bufferMemory) where
 
 import Data.Word
 import Data.Vector.Storable.ByteString (ByteString)
@@ -20,6 +20,9 @@ data Memory a = Memory {
 newMemory start size =
     Memory False start (addAddress start (size - 1)) LittleEndian
            (B.pack $ replicate size 0)
+
+bufferMemory start buf =
+    Memory False start (addAddress start (B.length buf - 1)) LittleEndian buf
 
 read8 :: Address a => a -> Memory a -> Word8
 read8 adr mem = B.index (chunk mem) (offsetOf adr $ baseAddress mem)
