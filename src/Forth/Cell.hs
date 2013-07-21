@@ -9,9 +9,12 @@
 module Forth.Cell (Cell(..)) where
 
 import Data.Bits
-import Data.Word
+import Data.Int
 import Util.Endian
 
 
 -- | Cell class
 class (Bits cell, Integral cell, Num cell) => Cell cell
+
+instance Cell Int16
+instance Cell Int32
