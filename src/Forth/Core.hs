@@ -12,6 +12,7 @@ module Forth.Core (addNatives) where
 import Control.Monad.State.Lazy hiding (state)
 import Data.Vector.Storable.ByteString (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
+import qualified Data.Vector.Storable.ByteString.Char8 as C
 import Data.Char
 import Data.Word
 import Control.Monad
@@ -29,6 +30,7 @@ import qualified Data.Map as Map
 import qualified Data.IntMap as IntMap
 import Text.Parsec.Error
 import System.IO
+import Numeric
 
 
 -- | Populate the vocabulary with a basic set of Haskell native words.
@@ -89,20 +91,17 @@ store = modify $ \s ->
 -- | Find the name (counted string) in the dictionary
 --   ( c-addr -- c-addr 0 | xt 1 | xt -1 )
 find :: Cell cell => ForthLambda cell
-find = modify $ \s ->
-    case stack s of
-      Address (Just (Addr wid off)) : rest
-          | Just (BufferField cmem) <- IntMap.lookup wid (variables s) ->
-              let findname = B.take count $ B.drop (off + 1) (chunk cmem)
-                  count = fromIntegral $ B.index (chunk cmem) off
-                  locate (Just word) | name word == findname = Just word
-                                     | otherwise = locate $ link word
-                  locate Nothing = Nothing
-              in case locate (dictionaryHead s) of
-                   Just word
-                       | immediate word -> s { stack = Val 1 : XT word : rest }
-                       | otherwise -> s { stack = Val (-1) : XT word : rest }
-                   Nothing -> s { stack = Val 0 : stack s }
+find = do
+  findname <- caddrText =<< pop
+  modify $ \s ->
+      let locate (Just word) | name word == findname = Just word
+                             | otherwise = locate $ link word
+          locate Nothing = Nothing
+      in case locate (dictionaryHead s) of
+           Just word
+               | immediate word -> s { stack = Val 1 : XT word : (stack s) }
+               | otherwise -> s { stack = Val (-1) : XT word : (stack s) }
+           Nothing -> s { stack = Val 0 : stack s }
 
 
 -- | Copy word from given address with delimiter to a special transient area.
@@ -135,8 +134,17 @@ interpret = state >> fetch >> pop >>= interpretLoop where
             _ | compiling -> abortWith "compile word not implemented" -- normal word found
               | otherwise -> execute >> interpret1
 
-    parseNumber = push $ Val 0   -- TBD
+    parseNumber = parse =<< caddrText =<< pop where
+        parse bs = case readDec (C.unpack bs) of
+                     [(x,"")] -> push $ Val x
 
+
+-- | Given a caddr (counted string pointed out by an address), extract the
+--   actual text as an individual ByteString
+caddrText (Address (Just (Addr wid off))) = gets $ \s ->
+    let Just (BufferField cmem) = IntMap.lookup wid (variables s)
+        count = fromIntegral $ B.index (chunk cmem) off
+    in B.take count $ B.drop (off + 1) (chunk cmem)
 
 quit :: Cell cell => ForthLambda cell
 quit = do
