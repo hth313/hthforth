@@ -44,8 +44,10 @@ addNatives = do
   addNative "WORD" word
   addNative "FIND" find
   addNative "-INTERPRET" interpret
-  addVar   "-INPUT-BUFFER" inputBufferId Nothing
-  addVar   "STATE" stateId (Just $ Val 0)
+  addVar    "-INPUT-BUFFER" inputBufferId Nothing
+  addVar    "STATE" stateId (Just $ Val 0)
+  addVar    "SOURCE-ID" sourceId (Just $ Val 0)
+  addVar    ">IN" toInId  (Just $ Val 0)
       where
         divide (Val a) (Val b) = Val (a `div` b)
         divide a b = Bot $ show a ++ " / " ++ show b
@@ -58,9 +60,10 @@ binary op = modify $ \s ->
       otherwise -> emptyStack
 
 
-inputBuffer :: Cell cell => ForthLambda cell
+inputBuffer, toIn, sourceID :: Cell cell => ForthLambda cell
 inputBuffer = wordLookup inputBufferId
-
+toIn = wordLookup toInId
+sourceID = wordLookup sourceId
 
 state :: Cell cell => ForthLambda cell
 state = wordLookup stateId
@@ -73,6 +76,15 @@ fetch = modify $ \s ->
           | Just (DataField cm) <- IntMap.lookup wid (variables s),
             Just x <- readCell adr cm ->
                 s { stack = x : rest }
+
+store :: Cell cell => ForthLambda cell
+store = modify $ \s ->
+    case stack s of
+      Address (Just adr@(Addr wid i)) : val : rest
+          | Just (DataField cm) <- IntMap.lookup wid (variables s) ->
+              s { variables = IntMap.insert wid (DataField $ writeCell val adr cm)
+                              (variables s) }
+
 
 -- | Find the name (counted string) in the dictionary
 --   ( c-addr -- c-addr 0 | xt 1 | xt -1 )
@@ -124,6 +136,24 @@ interpret = state >> fetch >> pop >>= interpretLoop where
               | otherwise -> execute >> interpret1
 
     parseNumber = push $ Val 0   -- TBD
+
+
+quit :: Cell cell => ForthLambda cell
+quit = do
+  modify $ \s -> s { rstack = [] }
+  push (Val 0) >> sourceID >> store
+  mainLoop
+
+
+mainLoop :: Cell cell => ForthLambda cell
+mainLoop = do
+  putField inputBufferId =<< liftM (textBuffer inputBufferId)
+                           (liftIO $ B.hGetLine stdin)
+  push (Val 0) >> toIn >> store
+  interpret
+  liftIO $ putStrLn "ok"
+  mainLoop
+
 
 -- | Define native and word header related words as lambdas
 {-

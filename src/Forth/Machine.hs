@@ -10,8 +10,8 @@
 module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop,
                       ForthWord(..), StateT(..), emptyStack, abortWith,
                       initialState, evalStateT, execute,
-                      addNative, addFixed, addVar,
-                      wordBufferId, inputBufferId, stateId,
+                      addNative, addFixed, addVar, putField,
+                      wordBufferId, inputBufferId, stateId, sourceId, toInId,
                       wordLookup,
                       doColon, doVar) where
 
@@ -73,6 +73,8 @@ pseudoId = 0
 wordBufferId = 1 :: Int     -- ^ Transient area for WORD
 inputBufferId = 2 :: Int    -- ^ Input buffer
 stateId = 3 :: Int          -- ^ Compile state
+sourceId = 4 :: Int         -- ^ SOURCE-ID
+toInId = 5 :: Int           -- ^ >IN
 
 -- The first dynamic word identity
 firstId = 4
@@ -133,7 +135,10 @@ addVar name wid mval = do
     Just val -> do
         t <- gets target
         let field = newDataField t wid (bytesPerCell t)
-        modify $ \s -> s { variables = IntMap.insert wid field  (variables s) }
+        putField wid field
+
+-- | Insert the field contents of given word
+putField wid field = modify $ \s -> s { variables = IntMap.insert wid field  (variables s) }
 
 -- | Add a word with a fixed identity.
 addFixed name imm wid does = modify $ \s ->

@@ -5,7 +5,7 @@
 
 -}
 
-module Forth.CellMemory (CellMemory, newCellMemory, readCell) where
+module Forth.CellMemory (CellMemory, newCellMemory, readCell, writeCell) where
 
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
@@ -31,3 +31,7 @@ readCell :: Addr -> CellMemory cell -> Maybe (Lit cell)
 readCell (Addr _ i) mem =
     case IntMap.lookup i (contents mem) of
       Just (Part _ cell) -> Just cell
+
+writeCell :: Lit cell -> Addr -> CellMemory cell -> CellMemory cell
+writeCell val (Addr _ i) mem =
+    mem { contents = IntMap.insert i (Part 0 val) (contents mem) }
