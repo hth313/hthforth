@@ -12,16 +12,9 @@ import Data.Int
 import Forth.Cell
 import Forth.Core
 import Forth.Machine
-
-
-instance Cell Int32 where
-    bytesPerCell        _ = 4
-    bytesPerInstruction _ = 4
-    bytesPerChar        _ = 1
-    endianess           _ = LittleEndian
+import Forth.Target
+import Util.Endian
 
 main =
-    let cellSize = 4 :: Int32
-        executionTokenSize = 2 :: Int32
-        charSize = 1 :: Int32
-    in evalStateT (addNative >> abort) (initialState cellSize)
+    let target = Target 4 4 1 LittleEndian :: Target Int32
+    in evalStateT (addNatives >> quit) (initialState target)

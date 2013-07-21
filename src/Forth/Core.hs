@@ -7,7 +7,7 @@
 
 -}
 
-module Forth.Core (addNatives) where
+module Forth.Core (addNatives, quit) where
 
 import Control.Monad.State.Lazy hiding (state)
 import Data.Vector.Storable.ByteString (ByteString)
@@ -28,7 +28,6 @@ import Forth.Word
 import Util.Memory
 import qualified Data.Map as Map
 import qualified Data.IntMap as IntMap
-import Text.Parsec.Error
 import System.IO
 import Numeric
 
