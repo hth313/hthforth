@@ -29,6 +29,7 @@ import qualified Data.Map as Map
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Forth.Address
+import Forth.CellMemory
 import Forth.DataField
 import Forth.Target
 import Forth.Word
@@ -134,8 +135,8 @@ addVar name wid mval = do
     Nothing -> return ()
     Just val -> do
         t <- gets target
-        let field = newDataField t wid (bytesPerCell t)
-        putField wid field
+        let field@(DataField cm) = newDataField t wid (bytesPerCell t)
+        putField wid (DataField $ writeCell val (Addr wid 0) cm)
 
 -- | Insert the field contents of given word
 putField wid field = modify $ \s -> s { variables = IntMap.insert wid field  (variables s) }
