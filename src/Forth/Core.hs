@@ -134,8 +134,10 @@ interpret = state >> fetch >> pop >>= interpretLoop where
               | otherwise -> execute >> interpret1
 
     parseNumber = parse =<< caddrText =<< pop where
-        parse bs = case readDec (C.unpack bs) of
+        parse bs = case readDec text of
                      [(x,"")] -> push $ Val x
+                     otherwise -> abortWith $ text ++ " ?"
+            where text = C.unpack bs
 
 
 -- | Given a caddr (counted string pointed out by an address), extract the
