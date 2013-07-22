@@ -167,7 +167,10 @@ interpret = state >> fetch >> pop >>= interpretLoop where
     interpretLoop stateFlag = interpret1 where
         compiling = stateFlag /= Val 0
         interpret1 = do
-          push (Val $ fromIntegral $ ord ' ') >> inputBuffer >> word >> find
+          push (Val $ fromIntegral $ ord ' ')
+          inputBuffer >> toIn >> fetch >> plus >> word
+          dup >> cfetch >> toIn >> plusStore
+          find
           val <- pop
           case val of
             Val 0 -> parseNumber                     -- not found
