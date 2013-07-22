@@ -61,13 +61,11 @@ binary op = modify $ \s ->
       otherwise -> emptyStack
 
 
-inputBuffer, toIn, sourceID :: Cell cell => ForthLambda cell
-inputBuffer = wordLookup inputBufferId
-toIn = wordLookup toInId
-sourceID = wordLookup sourceId
-
-state :: Cell cell => ForthLambda cell
-state = wordLookup stateId
+inputBuffer, toIn, sourceID, state :: Cell cell => ForthLambda cell
+inputBuffer = wordIdExecute inputBufferId
+toIn = wordIdExecute toInId
+sourceID = wordIdExecute sourceId
+state = wordIdExecute stateId
 
 
 fetch :: Cell cell => ForthLambda cell

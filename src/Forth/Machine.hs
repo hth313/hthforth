@@ -12,7 +12,7 @@ module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop,
                       initialState, evalStateT, execute,
                       addNative, addFixed, addVar, putField,
                       wordBufferId, inputBufferId, stateId, sourceId, toInId,
-                      wordLookup,
+                      wordIdExecute, wordLookup,
                       doColon, doVar) where
 
 import Control.Exception
@@ -78,13 +78,16 @@ sourceId = 4 :: Int         -- ^ SOURCE-ID
 toInId = 5 :: Int           -- ^ >IN
 
 -- The first dynamic word identity
-firstId = 4
+firstId = 6
 
 -- | Lookup a word from its identity number
-wordLookup n = do
-  w <- gets $ \s -> IntMap.lookup n (wordMap s)
+wordIdExecute wid = do
+  w <- wordLookup wid
   case w of
     Just w -> call w
+
+wordLookup :: WordId -> MachineM cell (Maybe (ForthWord cell))
+wordLookup wid = gets $ \s -> IntMap.lookup wid (wordMap s)
 
 call word = doer word word
 
