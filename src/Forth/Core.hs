@@ -82,14 +82,16 @@ store = modify $ \s ->
       Address (Just adr@(Addr wid i)) : val : rest
           | Just (DataField cm) <- IntMap.lookup wid (variables s) ->
               s { variables = IntMap.insert wid (DataField $ writeCell val adr cm)
-                              (variables s) }
+                              (variables s),
+                  stack = rest }
 
 
 -- | Find the name (counted string) in the dictionary
 --   ( c-addr -- c-addr 0 | xt 1 | xt -1 )
 find :: Cell cell => ForthLambda cell
 find = do
-  findname <- caddrText =<< pop
+  caddr <- pop
+  findname <- caddrText caddr
   modify $ \s ->
       let locate (Just word) | name word == findname = Just word
                              | otherwise = locate $ link word
