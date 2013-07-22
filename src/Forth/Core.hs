@@ -139,9 +139,16 @@ interpret = state >> fetch >> pop >>= interpretLoop where
 -- | Given a caddr (counted string pointed out by an address), extract the
 --   actual text as an individual ByteString
 caddrText (Address (Just (Addr wid off))) = gets $ \s ->
-    let Just (BufferField cmem) = IntMap.lookup wid (variables s)
-        count = fromIntegral $ B.index (chunk cmem) off
-    in B.take count $ B.drop (off + 1) (chunk cmem)
+    case IntMap.lookup wid (variables s) of
+      Just (BufferField cmem) ->
+          let count = fromIntegral $ B.index (chunk cmem) off
+          in B.take count $ B.drop (off + 1) (chunk cmem)
+      otherwise ->
+          case IntMap.lookup wid (wordMap s) of
+            Just word -> abortWith $ "expected address pointing to char buffer for " ++
+                           (C.unpack $ name word)
+            otherwise -> abortWith "expected address pointing to char buffer"
+caddrText _ = abortWith "expected address"
 
 quit :: Cell cell => ForthLambda cell
 quit = do
