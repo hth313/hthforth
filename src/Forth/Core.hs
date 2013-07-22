@@ -35,15 +35,23 @@ import Numeric
 -- | Populate the vocabulary with a basic set of Haskell native words.
 addNatives :: Cell cell => MachineM cell ()
 addNatives = do
-  addNative "+"   $ binary (+)
+  addNative "+"     plus
   addNative "-"   $ binary (-)
   addNative "*"   $ binary (*)
   addNative "/"   $ binary divide
   addNative "AND" $ binary (.&.)
   addNative "OR"  $ binary (.|.)
   addNative "XOR" $ binary xor
-  addNative "WORD" word
-  addNative "FIND" find
+  addNative "DUP"   dup
+  addNative "ROT"   rot
+  addNative "OVER"  over
+  addNative "SWAP"  swap
+  addNative "!"     store
+  addNative "+!"    plusStore
+  addNative "@"     fetch
+  addNative "C@"    cfetch
+  addNative "WORD"  word
+  addNative "FIND"  find
   addNative "-INTERPRET" interpret
   addVar    "-INPUT-BUFFER" inputBufferId Nothing
   addVar    "STATE" stateId (Just $ Val 0)
@@ -52,6 +60,31 @@ addNatives = do
       where
         divide (Val a) (Val b) = Val (a `div` b)
         divide a b = Bot $ show a ++ " / " ++ show b
+
+plus, dup, swap, over, rot, plusStore :: Cell cell => ForthLambda cell
+plus = binary (+)
+
+dup = modify $ \s ->
+    case stack s of
+      s0 : ss -> s { stack = s0 : s0 : ss }
+      otherwise -> emptyStack
+
+swap = modify $ \s ->
+    case stack s of
+      s0 : s1 : ss -> s { stack = s1 : s0 : ss }
+      otherwise -> emptyStack
+
+over = modify $ \s ->
+    case stack s of
+      s0 : s1 : ss -> s { stack = s1 : s0 : s1 : ss }
+      otherwise -> emptyStack
+
+rot = modify $ \s ->
+    case stack s of
+      s0 : s1 : s2 : ss -> s { stack = s2 : s0 : s1 : ss }
+      otherwise -> emptyStack
+
+plusStore = dup >> fetch >> rot >> plus >> swap >> store
 
 
 -- | Perform a binary operation
@@ -75,6 +108,15 @@ fetch = modify $ \s ->
           | Just (DataField cm) <- IntMap.lookup wid (variables s),
             Just x <- readCell adr cm ->
                 s { stack = x : rest }
+
+cfetch :: Cell cell => ForthLambda cell
+cfetch = modify $ \s ->
+    case stack s of
+      Address (Just adr@(Addr wid i)) : rest
+          | Just (BufferField bm) <- IntMap.lookup wid (variables s) ->
+              let c = Val $ fromIntegral $ B.index (chunk bm) i
+              in s { stack = c : rest }
+
 
 store :: Cell cell => ForthLambda cell
 store = modify $ \s ->
