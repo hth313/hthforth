@@ -133,7 +133,7 @@ store = modify $ \s ->
 find :: Cell cell => ForthLambda cell
 find = do
   caddr <- pop
-  findname <- caddrText caddr
+  findname <- countedText caddr
   modify $ \s ->
       let locate (Just word) | name word == findname = Just word
                              | otherwise = locate $ link word
@@ -178,16 +178,15 @@ interpret = state >> fetch >> pop >>= interpretLoop where
             _ | compiling -> abortWith "compile word not implemented" -- normal word found
               | otherwise -> execute >> interpret1
 
-    parseNumber = parse =<< caddrText =<< pop where
+    parseNumber = parse =<< countedText =<< pop where
         parse bs = case readDec text of
                      [(x,"")] -> push $ Val x
                      otherwise -> abortWith $ text ++ " ?"
             where text = C.unpack bs
 
 
--- | Given a caddr (counted string pointed out by an address), extract the
---   actual text as an individual ByteString
-caddrText (Address (Just (Addr wid off))) = gets $ \s ->
+-- | Given a counted string, extract the actual text as an individual ByteString.
+countedText (Address (Just (Addr wid off))) = gets $ \s ->
     case IntMap.lookup wid (variables s) of
       Just (BufferField cmem) ->
           let count = fromIntegral $ B.index (chunk cmem) off
@@ -197,7 +196,7 @@ caddrText (Address (Just (Addr wid off))) = gets $ \s ->
             Just word -> abortWith $ "expected address pointing to char buffer for " ++
                            (C.unpack $ name word)
             otherwise -> abortWith "expected address pointing to char buffer"
-caddrText _ = abortWith "expected address"
+countedText _ = abortWith "expected address"
 
 quit :: Cell cell => ForthLambda cell
 quit = do
