@@ -30,6 +30,7 @@ import qualified Data.Map as Map
 import qualified Data.IntMap as IntMap
 import System.IO
 import Numeric
+import Prelude hiding (drop)
 
 
 -- | Populate the vocabulary with a basic set of Haskell native words.
@@ -44,6 +45,7 @@ addNatives = do
   addNative "XOR" $ binary xor
   addNative "DUP"   dup
   addNative "ROT"   rot
+  addNative "DROP"  drop
   addNative "OVER"  over
   addNative "SWAP"  swap
   addNative "!"     store
@@ -61,12 +63,17 @@ addNatives = do
         divide (Val a) (Val b) = Val (a `div` b)
         divide a b = Bot $ show a ++ " / " ++ show b
 
-plus, dup, swap, over, rot, plusStore :: Cell cell => ForthLambda cell
+plus, dup, drop, swap, over, rot, plusStore :: Cell cell => ForthLambda cell
 plus = binary (+)
 
 dup = modify $ \s ->
     case stack s of
       s0 : ss -> s { stack = s0 : s0 : ss }
+      otherwise -> emptyStack
+
+drop = modify $ \s ->
+    case stack s of
+      s0 : ss -> s { stack = ss }
       otherwise -> emptyStack
 
 swap = modify $ \s ->
