@@ -100,7 +100,7 @@ find = do
            Just word
                | immediate word -> s { stack = Val 1 : XT word : (stack s) }
                | otherwise -> s { stack = Val (-1) : XT word : (stack s) }
-           Nothing -> s { stack = Val 0 : stack s }
+           Nothing -> s { stack = Val 0 : caddr : stack s }
 
 
 -- | Copy word from given address with delimiter to a special transient area.
