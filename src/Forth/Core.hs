@@ -176,14 +176,17 @@ interpret = state >> fetch >> pop >>= interpretLoop where
         interpret1 = do
           push (Val $ fromIntegral $ ord ' ')
           inputBuffer >> toIn >> fetch >> plus >> word
-          dup >> cfetch >> toIn >> plusStore
-          find
-          val <- pop
-          case val of
-            Val 0 -> parseNumber                     -- not found
-            Val 1 -> execute >> interpret1           -- immediate word
-            _ | compiling -> abortWith "compile word not implemented" -- normal word found
-              | otherwise -> execute >> interpret1
+          dup >> cfetch
+          eol <- gets $ \s -> head (stack s) == Val 0
+          if eol then drop >> drop else do
+              toIn >> plusStore
+              find
+              val <- pop
+              case val of
+                Val 0 -> parseNumber >> interpret1       -- not found
+                Val 1 -> execute >> interpret1           -- immediate word
+                _ | compiling -> abortWith "compile word not implemented" -- normal word found
+                  | otherwise -> execute >> interpret1
 
     parseNumber = parse =<< countedText =<< pop where
         parse bs = case readDec text of
