@@ -155,17 +155,29 @@ find = do
 -- | Copy word from given address with delimiter to a special transient area.
 --   ( char "<chars>ccc<chars>" -- c-addr )
 word :: Cell cell => ForthLambda cell
-word = modify $ \s ->
-  case stack s of
-    Address (Just (Addr wid off)) : Val val : ss
-        | Just (BufferField cmem) <- IntMap.lookup wid (variables s) ->
-            let name = B.takeWhile (c /=) $ B.dropWhile (c ==) $ B.drop off (chunk cmem)
-                counted = cmem { chunk = B.cons (fromIntegral $ B.length name) name }
-                result = Address (Just $ Addr wordBufferId 0)
-                c = fromIntegral val
-            in s { stack = result : ss,
-                   variables = IntMap.insert wordBufferId (BufferField counted) (variables s) }
-    otherwise -> abortWith "WORD failed"
+word = do
+  modify $ \s ->
+    case stack s of
+      Address (Just (Addr wid off)) : Val val : ss
+          | Just (BufferField cmem) <- IntMap.lookup wid (variables s) ->
+              let start = B.drop off (chunk cmem)
+                  (skipCount, nameStart) = skipSpaces start
+                  skipSpaces bs
+                      | B.null bs = (0, bs)
+                      | otherwise = skipSpaces1 0 bs where
+                      skipSpaces1 n bs
+                          | B.head bs == c = skipSpaces1 (n + 1) (B.tail bs)
+                          | otherwise = (n, bs)
+                  name = B.takeWhile (c /=) nameStart
+                  nameLength = B.length name
+                  counted = cmem { chunk = B.cons (fromIntegral nameLength) name }
+                  result = Address (Just $ Addr wordBufferId 0)
+                  c = fromIntegral val
+                  inAdjust = skipCount + fromIntegral nameLength
+              in s { stack = Val inAdjust : result : ss,
+                     variables = IntMap.insert wordBufferId (BufferField counted) (variables s) }
+      otherwise -> abortWith "WORD failed"
+  toIn >> plusStore
 
 
 -- | Processes input text stored in the input buffer.
@@ -177,9 +189,8 @@ interpret = state >> fetch >> pop >>= interpretLoop where
           push (Val $ fromIntegral $ ord ' ')
           inputBuffer >> toIn >> fetch >> plus >> word
           dup >> cfetch
-          eol <- gets $ \s -> head (stack s) == Val 0
-          if eol then drop >> drop else do
-              toIn >> plusStore
+          eol <- liftM (Val 0 ==) pop
+          if eol then drop else do
               find
               val <- pop
               case val of
