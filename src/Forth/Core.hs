@@ -52,7 +52,8 @@ addNatives = do
   addNative "+!"    plusStore
   addNative "@"     fetch
   addNative "C@"    cfetch
-  addNative "WORD"  word
+  addNative "PARSE-NAME" parseName
+  addNative "-WORD" xword
   addNative "FIND"  find
   addNative "-INTERPRET" interpret
   addVar    "-INPUT-BUFFER" inputBufferId Nothing
@@ -152,13 +153,15 @@ find = do
            Nothing -> s { stack = Val 0 : caddr : stack s }
 
 
--- | Copy word from given address with delimiter to a special transient area.
---   ( char "<chars>ccc<chars>" -- c-addr )
-word :: Cell cell => ForthLambda cell
-word = do
+-- | Parse a name in the input stream. Returns address (within input stream)
+--   to start of parsed word and length of word. Uses and updates >IN.
+--   ( char "<spaces>ccc<space>" -- c-addr u )
+parseName :: Cell cell => ForthLambda cell
+parseName = do
+  inputBuffer >> toIn >> fetch >> plus  -- build start address
   modify $ \s ->
     case stack s of
-      Address (Just (Addr wid off)) : Val val : ss
+       Address (Just (Addr wid off)) : ss
           | Just (BufferField cmem) <- IntMap.lookup wid (variables s) ->
               let start = B.drop off (chunk cmem)
                   (skipCount, nameStart) = skipSpaces start
@@ -166,18 +169,33 @@ word = do
                       | B.null bs = (0, bs)
                       | otherwise = skipSpaces1 0 bs where
                       skipSpaces1 n bs
-                          | B.head bs == c = skipSpaces1 (n + 1) (B.tail bs)
+                          | C.head bs == ' ' = skipSpaces1 (n + 1) (B.tail bs)
                           | otherwise = (n, bs)
-                  name = B.takeWhile (c /=) nameStart
+                  name = C.takeWhile (' ' /=) nameStart
                   nameLength = B.length name
+                  inAdjust = skipCount + nameLength
+                  result = Address $ Just (Addr wid (skipCount + off))
+              in s { stack = Val (fromIntegral inAdjust) :
+                             Val (fromIntegral nameLength) : result : ss }
+       otherwise -> abortWith "PARSE-NAME failed"
+  toIn >> plusStore
+
+-- | Copy word from given address with delimiter to a special transient area.
+--   ( char "<chars>ccc<char>" -- c-addr )
+xword :: Cell cell => ForthLambda cell
+xword = do
+  parseName
+  modify $ \s ->
+    case stack s of
+      Val len : Address (Just (Addr wid off)) : ss
+          | Just (BufferField cmem) <- IntMap.lookup wid (variables s) ->
+              let nameLength = fromIntegral len
+                  name = B.take nameLength $ B.drop off (chunk cmem)
                   counted = cmem { chunk = B.cons (fromIntegral nameLength) name }
                   result = Address (Just $ Addr wordBufferId 0)
-                  c = fromIntegral val
-                  inAdjust = skipCount + fromIntegral nameLength
-              in s { stack = Val inAdjust : result : ss,
+              in s { stack = result : ss,
                      variables = IntMap.insert wordBufferId (BufferField counted) (variables s) }
       otherwise -> abortWith "WORD failed"
-  toIn >> plusStore
 
 
 -- | Processes input text stored in the input buffer.
@@ -186,8 +204,7 @@ interpret = state >> fetch >> pop >>= interpretLoop where
     interpretLoop stateFlag = interpret1 where
         compiling = stateFlag /= Val 0
         interpret1 = do
-          push (Val $ fromIntegral $ ord ' ')
-          inputBuffer >> toIn >> fetch >> plus >> word
+          xword
           dup >> cfetch
           eol <- liftM (Val 0 ==) pop
           if eol then drop else do
