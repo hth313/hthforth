@@ -18,5 +18,5 @@ import Util.Endian
 main =
     let target = Target 4 4 1 LittleEndian :: Target Int32
     in do
-      putStrLn "Planet Pluto Forth"
+      putStrLn "The Planet Pluto Forth, version 1.1.1"
       evalStateT (addNatives >> quit) (initialState target)
