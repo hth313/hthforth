@@ -52,8 +52,6 @@ addNatives = do
   addNative "+!"    plusStore
   addNative "@"     fetch
   addNative "C@"    cfetch
-  addNative "PARSE-NAME" parseName
-  addNative "-WORD" xword
   addNative "FIND"  find
   addNative "-INTERPRET" interpret
   addVar    "-INPUT-BUFFER" inputBufferId Nothing
@@ -179,6 +177,7 @@ parseName = do
                              Val (fromIntegral nameLength) : result : ss }
        otherwise -> abortWith "PARSE-NAME failed"
   toIn >> plusStore
+
 
 -- | Copy word from given address with delimiter to a special transient area.
 --   ( char "<chars>ccc<char>" -- c-addr )
