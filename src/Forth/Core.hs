@@ -52,17 +52,24 @@ addNatives = do
   addNative "+!"    plusStore
   addNative "@"     fetch
   addNative "C@"    cfetch
+  addNative "R>"    rto
+  addNative "R@"    rfetch
+  addNative ">R"    tor
   addNative "FIND"  find
   addNative "-INTERPRET" interpret
-  addVar    "-INPUT-BUFFER" inputBufferId Nothing
+  addVar    "-TIB" inputBufferId Nothing
+  addVar    "-INPUT-BUFFER" inputBufferPtrId (Just $ Val 0)
+  addVar    "-#TIB" inputBufferLengthId (Just $ Val 0)
   addVar    "STATE" stateId (Just $ Val 0)
   addVar    "SOURCE-ID" sourceId (Just $ Val 0)
   addVar    ">IN" toInId  (Just $ Val 0)
+  addNative "EVALUATE" evaluate
       where
         divide (Val a) (Val b) = Val (a `div` b)
         divide a b = Bot $ show a ++ " / " ++ show b
 
-plus, dup, drop, swap, over, rot, plusStore :: Cell cell => ForthLambda cell
+plus, dup, drop, swap, over, rot, plusStore,
+      tor, rto, rfetch :: Cell cell => ForthLambda cell
 plus = binary (+)
 
 dup = modify $ \s ->
@@ -92,6 +99,20 @@ rot = modify $ \s ->
 
 plusStore = dup >> fetch >> rot >> plus >> swap >> store
 
+tor = modify $ \s ->
+    case stack s of
+      s0 : ss -> s { stack = ss, rstack = s0 : rstack s }
+      otherwise -> emptyStack
+
+rto = modify $ \s ->
+    case rstack s of
+      r0 : rs -> s { stack = r0 : stack s, rstack = rs }
+      otherwise -> emptyStack
+
+rfetch = modify $ \s ->
+    case rstack s of
+      r0 : rs -> s { stack = r0 : stack s }
+      otherwise -> emptyStack
 
 -- | Perform a binary operation
 binary op = modify $ \s ->
@@ -100,8 +121,11 @@ binary op = modify $ \s ->
       otherwise -> emptyStack
 
 
-inputBuffer, toIn, sourceID, state :: Cell cell => ForthLambda cell
+inputBuffer, inputBufferPtr, inputBufferLength, toIn,
+    sourceID, state :: Cell cell => ForthLambda cell
 inputBuffer = wordIdExecute inputBufferId
+inputBufferPtr = wordIdExecute inputBufferPtrId
+inputBufferLength = wordIdExecute inputBufferLengthId
 toIn = wordIdExecute toInId
 sourceID = wordIdExecute sourceId
 state = wordIdExecute stateId
@@ -156,7 +180,7 @@ find = do
 --   ( char "<spaces>ccc<space>" -- c-addr u )
 parseName :: Cell cell => ForthLambda cell
 parseName = do
-  inputBuffer >> toIn >> fetch >> plus  -- build start address
+  inputBufferPtr >> fetch >> toIn >> fetch >> plus  -- build start address
   modify $ \s ->
     case stack s of
        Address (Just (Addr wid off)) : ss
@@ -235,6 +259,7 @@ countedText (Address (Just (Addr wid off))) = gets $ \s ->
             otherwise -> abortWith "expected address pointing to char buffer"
 countedText _ = abortWith "expected address"
 
+
 quit :: Cell cell => ForthLambda cell
 quit = do
   modify $ \s -> s { rstack = [] }
@@ -247,6 +272,20 @@ mainLoop = do
   putField inputBufferId =<< liftM (textBuffer inputBufferId)
                            (liftIO $ B.hGetLine stdin)
   push (Val 0) >> toIn >> store
+  push (Address (Just (Addr inputBufferId 0))) >> inputBufferPtr >> store
   interpret
   liftIO $ putStrLn "ok"
   mainLoop
+
+
+evaluate :: Cell cell => ForthLambda cell
+evaluate = do
+  inputBufferPtr >> fetch >> tor        -- save input specification
+  inputBufferLength >> fetch >> tor
+  push (Val $ -1) >> sourceID >> store  -- set SOURCE-ID to -1
+  inputBufferLength >> store            -- set new SOURCE specification
+  inputBufferPtr >> store
+  push 0 >> toIn >> store               -- clear >IN
+  interpret
+  rto >> toIn >> store                  -- restore input specification
+  rto >> inputBufferPtr >> store

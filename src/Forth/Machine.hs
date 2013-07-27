@@ -11,7 +11,9 @@ module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop,
                       ForthWord(..), StateT(..), emptyStack, abortWith,
                       initialState, evalStateT, execute,
                       addNative, addFixed, addVar, putField,
-                      wordBufferId, inputBufferId, stateId, sourceId, toInId,
+                      wordBufferId,
+                      inputBufferId, inputBufferPtrId, inputBufferLengthId,
+                      stateId, sourceId, toInId,
                       wordIdExecute, wordLookup,
                       doColon, doVar) where
 
@@ -72,13 +74,15 @@ pseudoId = 0
 
 -- | WordId used for special purposes
 wordBufferId = 1 :: Int     -- ^ Transient area for WORD
-inputBufferId = 2 :: Int    -- ^ Input buffer
-stateId = 3 :: Int          -- ^ Compile state
-sourceId = 4 :: Int         -- ^ SOURCE-ID
-toInId = 5 :: Int           -- ^ >IN
+inputBufferId = 2 :: Int    -- ^ Input buffer (console)
+inputBufferPtrId = 3 :: Int  -- ^ Variable that point out current input buffer
+inputBufferLengthId = 4 :: Int    -- ^ Input buffer length
+stateId = 5 :: Int          -- ^ Compile state
+sourceId = 6 :: Int         -- ^ SOURCE-ID
+toInId = 7 :: Int           -- ^ >IN
 
 -- The first dynamic word identity
-firstId = 6
+firstId = 8
 
 -- | Lookup a word from its identity number
 wordIdExecute wid = do
