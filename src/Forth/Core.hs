@@ -56,10 +56,9 @@ addNatives = do
   addNative "R@"    rfetch
   addNative ">R"    tor
   addNative "FIND"  find
-  addNative "-INTERPRET" interpret
-  addVar    "-TIB" inputBufferId Nothing
-  addVar    "-INPUT-BUFFER" inputBufferPtrId (Just $ Val 0)
-  addVar    "-#TIB" inputBufferLengthId (Just $ Val 0)
+  addVar    B.empty inputBufferId Nothing
+  addVar    B.empty inputBufferPtrId (Just $ Val 0)
+  addVar    B.empty inputBufferLengthId (Just $ Val 0)
   addVar    "STATE" stateId (Just $ Val 0)
   addVar    "SOURCE-ID" sourceId (Just $ Val 0)
   addVar    ">IN" toInId  (Just $ Val 0)
