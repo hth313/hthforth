@@ -1,7 +1,43 @@
-\ Forth core
+\ Forth core words
 
-VARIABLE STATE  ( compilation state variable )
-0 STATE !       ( interpreting by default )
+\ Copy string to HERE, max 31 characters
+: >HERE  ( caddr u -- ccaddr )
+    31 OVER U< ?ABORT
+    HERE >R R@ 2DUP C!
+    1+ SWAP MOVE R> ;
+
+: PARSE-POS  ( -- caddr )
+    SOURCE DROP >IN @ + ;
+
+\ Parse ccc delimited by delimiter char.
+\ Parse is part of the core words here as it is used as a building
+\ block for WORD.
+: PARSE  ( char "ccc<char>" -- c-addr u )
+    0 SWAP  ( 0 counter if needed )
+    SOURCE + PARSE-POS
+    DO
+      I @ OVER =
+        IF DROP   I SOURCE DROP -   SWAP LEAVE THEN
+    LOOP
+    DROP ( delimiter )
+    PARSE-POS SWAP DUP >IN +! ;
+
+
+\ Skip delimiter characters from the input stream.
+: SKIP ( char "<chars>" -- )
+    SOURCE + PARSE-POS
+    DO
+      I @ OVER = 0= IF LEAVE THEN
+      >IN 1+!
+    LOOP
+    DROP ( delimiter )
+    ;
+
+
+: WORD ( char "<chars>name<char> -- counted-c-addr )
+    DUP SKIP PARSE >HERE ;
+
+
 
 VARIABLE BLK
 : FH
