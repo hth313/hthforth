@@ -8,6 +8,7 @@
 -}
 
 module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop, pushAdr,
+                      ForthException(..),
                       ForthWord(..), StateT(..), emptyStack, abortWith,
                       initialState, evalStateT, execute,
                       addNative, addFixed, addVar, putField,
