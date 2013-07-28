@@ -7,7 +7,7 @@
 
 -}
 
-module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop,
+module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop, pushAdr,
                       ForthWord(..), StateT(..), emptyStack, abortWith,
                       initialState, evalStateT, execute,
                       addNative, addFixed, addVar, putField,
@@ -114,6 +114,11 @@ abortWith = throw . ForthException
 
 -- | Push a value on data stack
 push x = modify $ \s -> s { stack = x : stack s }
+
+
+-- | Push the field address of a word on stack
+pushAdr wid = push $ Address (Just (Addr wid 0))
+
 
 {-
 lookupWord key = gets $ \s -> Map.lookup key (wordKeyMap s)

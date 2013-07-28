@@ -271,7 +271,7 @@ mainLoop = do
   putField inputBufferId =<< liftM (textBuffer inputBufferId)
                            (liftIO $ B.hGetLine stdin)
   push (Val 0) >> toIn >> store
-  push (Address (Just (Addr inputBufferId 0))) >> inputBufferPtr >> store
+  pushAdr inputBufferId >> inputBufferPtr >> store
   interpret
   liftIO $ putStrLn "ok"
   mainLoop
