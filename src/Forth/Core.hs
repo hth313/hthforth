@@ -269,7 +269,7 @@ quit = do
 mainLoop :: Cell cell => ForthLambda cell
 mainLoop = do
   putField inputBufferId =<< liftM (textBuffer inputBufferId)
-                           (liftIO $ B.hGetLine stdin)
+                                   (liftIO $ B.hGetLine stdin)
   push (Val 0) >> toIn >> store
   pushAdr inputBufferId >> inputBufferPtr >> store
   interpret
