@@ -32,11 +32,13 @@ import qualified Data.IntMap as IntMap
 import System.IO
 import Numeric
 import Prelude hiding (drop)
+import System.Exit
 
 
 -- | Populate the vocabulary with a basic set of Haskell native words.
 addNatives :: Cell cell => MachineM cell ()
 addNatives = do
+  addNative "BYE" (liftIO $ exitSuccess)
   addNative "+"     plus
   addNative "-"   $ binary (-)
   addNative "*"   $ binary (*)
