@@ -1,5 +1,5 @@
 {-
-  This file is part of CalcForth.
+  This file is part of Planet Pluto Forth.
   Copyright Håkan Thörngren 2013
 
   Configure to be used on an Arm device.
