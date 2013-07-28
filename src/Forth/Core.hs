@@ -176,7 +176,7 @@ find = do
 
 -- | Parse a name in the input stream. Returns address (within input stream)
 --   to start of parsed word and length of word. Uses and updates >IN.
---   ( char "<spaces>ccc<space>" -- c-addr u )
+--   ( "<spaces>ccc<space>" -- c-addr u )
 parseName :: Cell cell => ForthLambda cell
 parseName = do
   inputBufferPtr >> fetch >> toIn >> fetch >> plus  -- build start address
@@ -203,7 +203,7 @@ parseName = do
 
 
 -- | Copy word from given address with delimiter to a special transient area.
---   ( char "<chars>ccc<char>" -- c-addr )
+--   ( "<chars>ccc<char>" -- c-addr )
 xword :: Cell cell => ForthLambda cell
 xword = do
   parseName
