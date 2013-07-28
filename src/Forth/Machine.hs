@@ -22,6 +22,7 @@ import Control.Exception
 import Control.Monad.State.Lazy
 import Data.Vector.Storable.ByteString (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
+import qualified Data.Vector.Storable.ByteString.Char8 as C
 import Data.Int
 import Data.Bits
 import Data.Maybe
@@ -172,16 +173,23 @@ doVar word = push $ Address (Just (Addr (wid word) 0))
 
 
 -- | Create a temporary word with given buffer contents. Perform action by
---   passing a reference to the buffer to it.
+--   passing a reference to the buffer to it, one line at a time.
 withTempBuffer action contents = do
   handle <- getHandle
-  pushAdr handle
-  push $ Val (fromIntegral $ B.length contents)
-  action
+  forM_ (C.lines contents) (doAction handle)
+  modify $ \s -> s { variables = IntMap.delete handle (variables s) }
   releaseHandle handle
       where
         getHandle = StateT $ \s ->
              if null (oldHandles s)
              then return (head (keys s), s { keys = tail (keys s) })
              else return (head (oldHandles s), s { oldHandles = tail (oldHandles s) })
+
         releaseHandle handle = modify $ \s -> s { oldHandles = handle : oldHandles s }
+
+        doAction handle line = do
+          modify $ \s ->
+              s { variables = IntMap.insert handle (textBuffer handle line) (variables s) }
+          pushAdr handle
+          push $ Val (fromIntegral $ B.length line)
+          action
