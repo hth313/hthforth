@@ -157,6 +157,9 @@ store = modify $ \s ->
               s { variables = IntMap.insert wid (DataField $ writeCell val adr cm)
                               (variables s),
                   stack = rest }
+      [] -> emptyStack
+      [x] -> abortWith $ "no value to store to " ++ show x
+      x:_ -> abortWith $ "cannot store to " ++ show x
 
 
 -- | Find the name (counted string) in the dictionary
