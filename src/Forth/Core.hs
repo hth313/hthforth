@@ -178,11 +178,12 @@ find = do
 
 -- | Parse a name in the input stream. Returns address (within input stream)
 --   to start of parsed word and length of word. Uses and updates >IN.
---   ( "<spaces>ccc<space>" -- c-addr u )
-parseName :: Cell cell => ForthLambda cell
+--   This is initially the foundation for parsing Forth.
+--   ( "<spaces>ccc<space>" -- )
+parseName :: Cell cell => MachineM cell ByteString
 parseName = do
   inputBufferPtr >> fetch >> toIn >> fetch >> plus  -- build start address
-  modify $ \s ->
+  name <- StateT $ \s ->
     case stack s of
        Address (Just (Addr wid off)) : ss
           | Just (BufferField cmem) <- IntMap.lookup wid (variables s) ->
@@ -198,28 +199,22 @@ parseName = do
                   nameLength = B.length name
                   inAdjust = skipCount + nameLength
                   result = Address $ Just (Addr wid (skipCount + off))
-              in s { stack = Val (fromIntegral inAdjust) :
-                             Val (fromIntegral nameLength) : result : ss }
-       otherwise -> abortWith "PARSE-NAME failed"
+              in return (name, s { stack = Val (fromIntegral inAdjust) : ss })
+       otherwise -> abortWith "parseName failed"
   toIn >> plusStore
+  return name
 
 
 -- | Copy word from given address with delimiter to a special transient area.
 --   ( "<chars>ccc<char>" -- c-addr )
 xword :: Cell cell => ForthLambda cell
 xword = do
-  parseName
+  name <- parseName
   modify $ \s ->
-    case stack s of
-      Val len : Address (Just (Addr wid off)) : ss
-          | Just (BufferField cmem) <- IntMap.lookup wid (variables s) ->
-              let nameLength = fromIntegral len
-                  name = B.take nameLength $ B.drop off (chunk cmem)
-                  counted = cmem { chunk = B.cons (fromIntegral nameLength) name }
-                  result = Address (Just $ Addr wordBufferId 0)
-              in s { stack = result : ss,
-                     variables = IntMap.insert wordBufferId (BufferField counted) (variables s) }
-      otherwise -> abortWith "WORD failed"
+      let countedField = textBuffer wordBufferId (B.cons (fromIntegral $ B.length name) name)
+          result = Address (Just $ Addr wordBufferId 0)
+      in s { stack = result : stack s,
+             variables = IntMap.insert wordBufferId countedField (variables s) }
 
 
 -- | Processes input text stored in the input buffer.
@@ -299,13 +294,4 @@ loadSource  filename = withTempBuffer evaluate =<< (liftIO $ readSourceFile file
 
 -- | Load next word in input stream as a source file.
 xloadSource :: Cell cell => ForthLambda cell
-xloadSource = do
-  parseName
-  filename <- StateT $ \s ->
-      case stack s of
-        Val len : Address (Just (Addr wid off)) : ss
-          | Just (BufferField cmem) <- IntMap.lookup wid (variables s) ->
-              let nameLength = fromIntegral len
-                  name = B.take nameLength $ B.drop off (chunk cmem)
-              in return (C.unpack name, s { stack = ss })
-  loadSource filename
+xloadSource = loadSource =<< liftM C.unpack parseName
