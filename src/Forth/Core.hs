@@ -65,6 +65,7 @@ addNatives = do
   addVar    ">IN" toInId  (Just $ Val 0)
   addNative "EVALUATE" evaluate
   addNative "LOAD-SOURCE" xloadSource
+  addNative "\\" backslash
       where
         divide (Val a) (Val b) = Val (a `div` b)
         divide a b = Bot $ show a ++ " / " ++ show b
@@ -298,3 +299,8 @@ loadSource  filename = withTempBuffer evaluate =<< (liftIO $ readSourceFile file
 -- | Load next word in input stream as a source file.
 xloadSource :: Cell cell => ForthLambda cell
 xloadSource = loadSource =<< liftM C.unpack parseName
+
+
+-- | Rest of line is comment
+backslash :: Cell cell => ForthLambda cell
+backslash = inputBufferLength >> fetch >> toIn >> store
