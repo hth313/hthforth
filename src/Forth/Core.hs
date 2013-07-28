@@ -23,6 +23,7 @@ import Forth.Cell
 import Forth.CellMemory
 import Forth.DataField
 import Forth.Machine
+import Forth.StreamFile
 import Forth.Types
 import Forth.Word
 import Util.Memory
@@ -63,6 +64,7 @@ addNatives = do
   addVar    "SOURCE-ID" sourceId (Just $ Val 0)
   addVar    ">IN" toInId  (Just $ Val 0)
   addNative "EVALUATE" evaluate
+  addNative "LOAD-SOURCE" xloadSource
       where
         divide (Val a) (Val b) = Val (a `div` b)
         divide a b = Bot $ show a ++ " / " ++ show b
@@ -288,3 +290,22 @@ evaluate = do
   interpret
   rto >> toIn >> store                  -- restore input specification
   rto >> inputBufferPtr >> store
+
+
+-- | Load a source file using the Forth interpreter
+loadSource :: Cell cell => FilePath -> ForthLambda cell
+loadSource  filename = withTempBuffer evaluate =<< (liftIO $ readSourceFile filename)
+
+
+-- | Load next word in input stream as a source file.
+xloadSource :: Cell cell => ForthLambda cell
+xloadSource = do
+  parseName
+  filename <- StateT $ \s ->
+      case stack s of
+        Val len : Address (Just (Addr wid off)) : ss
+          | Just (BufferField cmem) <- IntMap.lookup wid (variables s) ->
+              let nameLength = fromIntegral len
+                  name = B.take nameLength $ B.drop off (chunk cmem)
+              in return (C.unpack name, s { stack = ss })
+  loadSource filename

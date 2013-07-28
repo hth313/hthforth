@@ -15,7 +15,8 @@ module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop, pushAdr,
                       inputBufferId, inputBufferPtrId, inputBufferLengthId,
                       stateId, sourceId, toInId,
                       wordIdExecute, wordLookup,
-                      doColon, doVar) where
+                      doColon, doVar,
+                      withTempBuffer) where
 
 import Control.Exception
 import Control.Monad.State.Lazy
@@ -56,7 +57,8 @@ data Machine cell = Machine { -- The Forth stacks
                               -- rely on that the underlaying identity of
                               -- a WordId is an Int here.
                               variables :: IntMap (DataField cell),
-                              wordMap :: IntMap (ForthWord cell)
+                              wordMap :: IntMap (ForthWord cell),
+                              oldHandles :: [WordId]
     }
 
 -- A Forth native lambda should obey this signature
@@ -131,7 +133,7 @@ lookupWordFromName name = do
 -- | Create an initial empty Forth machine state
 initialState :: Target cell -> Machine cell
 initialState target =
-    Machine [] [] Nothing emptyIP target [firstId..] IntMap.empty IntMap.empty
+    Machine [] [] Nothing emptyIP target [firstId..] IntMap.empty IntMap.empty []
 
 -- | Add a native word to the vocabulary.
 addNative :: ByteString -> ForthLambda cell -> MachineM cell ()
@@ -164,5 +166,22 @@ doColon word = modify $ \s ->
     let Colon cb = body word
     in s { rstack = Loc (ip s) : rstack s, ip = IP cb 0 }
 
+
 -- | Push the address of a variable (its data field) on stack
 doVar word = push $ Address (Just (Addr (wid word) 0))
+
+
+-- | Create a temporary word with given buffer contents. Perform action by
+--   passing a reference to the buffer to it.
+withTempBuffer action contents = do
+  handle <- getHandle
+  pushAdr handle
+  push $ Val (fromIntegral $ B.length contents)
+  action
+  releaseHandle handle
+      where
+        getHandle = StateT $ \s ->
+             if null (oldHandles s)
+             then return (head (keys s), s { keys = tail (keys s) })
+             else return (head (oldHandles s), s { oldHandles = tail (oldHandles s) })
+        releaseHandle handle = modify $ \s -> s { oldHandles = handle : oldHandles s }
