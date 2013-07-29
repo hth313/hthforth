@@ -9,8 +9,8 @@
 
 module Forth.Block (readBlockFile) where
 
-import Data.ByteString.Char8 (ByteString)
-import qualified Data.ByteString.Char8 as C
+import Data.Vector.Storable.ByteString.Char8 (ByteString)
+import qualified Data.Vector.Storable.ByteString.Char8ByteString.Char8 as C
 import Data.Char
 import Data.List
 import System.IO
