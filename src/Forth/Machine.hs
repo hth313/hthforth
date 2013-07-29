@@ -11,6 +11,7 @@ module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop, pushAdr,
                       ForthException(..),
                       ForthWord(..), StateT(..), emptyStack, abortWith,
                       initialState, evalStateT, execute,
+                      create, makeImmediate, smudge,
                       addNative, addFixed, addVar, putField,
                       wordBufferId,
                       inputBufferId, inputBufferPtrId, inputBufferLengthId,
@@ -19,6 +20,7 @@ module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop, pushAdr,
                       doColon, doVar,
                       withTempBuffer) where
 
+import Control.Applicative
 import Control.Exception
 import Control.Monad.State.Lazy
 import Data.Vector.Storable.ByteString (ByteString)
@@ -50,6 +52,7 @@ type MachineM cell = StateT (Machine cell) IO
 data Machine cell = Machine { -- The Forth stacks
                               stack, rstack :: [Lit cell],
                               dictionaryHead :: LinkField cell,
+                              defining :: LinkField cell,  -- ^ word being defined
                               ip :: IP cell,
                               target :: Target cell,
                               -- Sequence of identies to allocate from
@@ -124,29 +127,42 @@ push x = modify $ \s -> s { stack = x : stack s }
 pushAdr wid = push $ Address (Just (Addr wid 0))
 
 
-{-
-lookupWord key = gets $ \s -> Map.lookup key (wordKeyMap s)
-
-lookupWordFromName name = do
-  Just [WordRef key] <- wordFromName name
-  lookupWord key
--}
-
 -- | Create an initial empty Forth machine state
 initialState :: Target cell -> Machine cell
 initialState target =
-    Machine [] [] Nothing emptyIP target [firstId..] IntMap.empty IntMap.empty []
+    Machine [] [] Nothing Nothing emptyIP target [firstId..] IntMap.empty IntMap.empty []
+
+
+create :: ByteString -> (ForthWord cell -> ForthLambda cell) -> MachineM cell ()
+create name does = modify $ \s ->
+    let k:ks = keys s
+        word = ForthWord name False (dictionaryHead s) k does Native
+    in s { keys = ks,
+           defining = Just word }
+
+
+-- | Make word being defined visible in the dictionary
+smudge :: ForthLambda cell
+smudge = modify $ \s ->
+    if isJust (defining s)
+    then s { dictionaryHead = defining s,
+             defining = Nothing }
+    else s
+
+
+makeImmediate :: ForthLambda cell
+makeImmediate = modify $ \s -> s { dictionaryHead = imm <$> dictionaryHead s }
+    where imm word = word { immediate = True }
+
 
 -- | Add a native word to the vocabulary.
 addNative :: ByteString -> ForthLambda cell -> MachineM cell ()
-addNative name action = modify $ \s ->
-    let k:ks = keys s
-        word = ForthWord name False (dictionaryHead s) k (const action) Native
-    in s { keys = ks,
-           dictionaryHead = Just word }
+addNative name action = create name (const action) >> smudge
+
 
 addVar name wid mval = do
   addFixed name False wid doVar
+  smudge
   case mval of
     Nothing -> return ()
     Just val -> do
@@ -154,8 +170,10 @@ addVar name wid mval = do
         let field@(DataField cm) = newDataField t wid (bytesPerCell t)
         putField wid (DataField $ writeCell val (Addr wid 0) cm)
 
+
 -- | Insert the field contents of given word
 putField wid field = modify $ \s -> s { variables = IntMap.insert wid field  (variables s) }
+
 
 -- | Add a word with a fixed identity.
 addFixed name imm wid does = modify $ \s ->

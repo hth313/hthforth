@@ -68,6 +68,13 @@ addNatives = do
   addNative "EVALUATE" evaluate
   addNative "LOAD-SOURCE" xloadSource
   addNative "\\" backslash
+  addNative "SMUDGE" smudge
+  addNative "CREATE" ((\name -> create name doVar) =<< parseName)
+  addNative ":" colon
+  addNative ";" semicolon
+  addNative "IMMEDIATE" makeImmediate
+  addNative "TRUE"  (push $ Val (-1))
+  addNative "FALSE" (push $ Val 0)
       where
         divide (Val a) (Val b) = Val (a `div` b)
         divide a b = Bot $ show a ++ " / " ++ show b
@@ -182,9 +189,9 @@ find = do
            Nothing -> s { stack = Val 0 : caddr : stack s }
 
 
--- | Parse a name in the input stream. Returns address (within input stream)
---   to start of parsed word and length of word. Uses and updates >IN.
---   This is initially the foundation for parsing Forth.
+-- | Parse a name in the input stream. Returns the parsed name (does not
+--   put on stack). Uses and updates >IN.
+--   This is initially the foundation for parsing Forth words.
 --   ( "<spaces>ccc<space>" -- )
 parseName :: Cell cell => MachineM cell ByteString
 parseName = do
@@ -306,3 +313,16 @@ xloadSource = loadSource =<< liftM C.unpack parseName
 -- | Rest of line is comment
 backslash :: Cell cell => ForthLambda cell
 backslash = inputBufferLength >> fetch >> toIn >> store
+
+
+colon :: Cell cell => ForthLambda cell
+colon = do
+  (\name -> create name doColon) =<< parseName
+  push (Val $ (-1)) >> state >> store
+
+
+semicolon :: Cell cell => ForthLambda cell
+semicolon = do
+  smudge
+  push (Val $ 0) >> state >> store
+
