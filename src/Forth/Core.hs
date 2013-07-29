@@ -225,10 +225,10 @@ xword = do
 
 -- | Processes input text stored in the input buffer.
 interpret :: Cell cell => ForthLambda cell
-interpret = state >> fetch >> pop >>= interpretLoop where
-    interpretLoop stateFlag = interpret1 where
-        compiling = stateFlag /= Val 0
-        interpret1 = do
+interpret = state >> fetch >> pop >>= interpret1 where
+    interpret1 stateFlag =
+        let compiling = stateFlag /= Val 0
+        in do
           xword
           dup >> cfetch
           eol <- liftM (Val 0 ==) pop
@@ -236,10 +236,10 @@ interpret = state >> fetch >> pop >>= interpretLoop where
               find
               val <- pop
               case val of
-                Val 0 -> parseNumber >> interpret1       -- not found
-                Val 1 -> execute >> interpret1           -- immediate word
+                Val 0 -> parseNumber >> interpret       -- not found
+                Val 1 -> execute >> interpret           -- immediate word
                 _ | compiling -> abortWith "compile word not implemented" -- normal word found
-                  | otherwise -> execute >> interpret1
+                  | otherwise -> execute >> interpret
 
     parseNumber = parse =<< countedText =<< pop where
         parse bs = case readDec text of
