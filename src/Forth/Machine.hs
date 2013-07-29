@@ -26,13 +26,9 @@ import Control.Monad.State.Lazy
 import Data.Vector.Storable.ByteString (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
 import qualified Data.Vector.Storable.ByteString.Char8 as C
-import Data.Int
-import Data.Bits
 import Data.Maybe
 import Data.Typeable
 import Data.Word
-import Data.Map (Map)
-import qualified Data.Map as Map
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Forth.Address
@@ -42,9 +38,6 @@ import Forth.Target
 import Forth.Word
 import Forth.WordId
 import Forth.Types
-import Numeric
-import System.IO
-import Control.Exception
 
 type MachineM cell = StateT (Machine cell) IO
 

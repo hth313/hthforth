@@ -13,10 +13,6 @@ import Control.Monad.State.Lazy hiding (state)
 import Data.Vector.Storable.ByteString (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
 import qualified Data.Vector.Storable.ByteString.Char8 as C
-import Data.Char
-import Data.Word
-import Control.Monad
-import Control.Monad.Trans
 import Data.Bits
 import Forth.Address
 import Forth.Cell
@@ -27,7 +23,6 @@ import Forth.StreamFile
 import Forth.Types
 import Forth.Word
 import Util.Memory
-import qualified Data.Map as Map
 import qualified Data.IntMap as IntMap
 import System.IO
 import Numeric

@@ -11,7 +11,6 @@ module Main (main) where
 
 import Control.Monad.Trans
 import Data.Int
-import Forth.Cell
 import Forth.Core
 import Forth.Machine
 import Forth.Target

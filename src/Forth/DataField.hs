@@ -9,14 +9,8 @@
 module Forth.DataField (DataField(..), newDataField, newBuffer,
                         textBuffer) where
 
-import Data.Word
-import Data.Map (Map)
-import qualified Data.Map as Map
-import qualified Data.Vector.Storable.ByteString as B
 import Forth.Address
 import Forth.CellMemory
-import Forth.Types
-import Forth.WordId
 import Util.Memory
 
 -- | A data field is the body of a data word. It can either be
