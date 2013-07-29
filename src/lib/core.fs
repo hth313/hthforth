@@ -1,5 +1,13 @@
 \ Forth core words
 
+\ Compile state
+: [  FALSE STATE ! ; IMMEDIATE
+: ]  TRUE STATE ! ;
+
+\ Colon definitions
+: :  CREATE ] ;
+: ;  POSTPONE EXIT SMUDGE [ ; IMMEDIATE
+
 \ Copy string to HERE, max 31 characters
 : >HERE  ( caddr u -- ccaddr )
     31 OVER U< ?ABORT
