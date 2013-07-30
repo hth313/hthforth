@@ -25,18 +25,9 @@ data Lit cell = Address (Maybe Addr) |
                 Val cell |
                 XT (ForthWord cell) |
                 Loc (IP cell) |
---                InputSource ByteString |
-                Bot String |
-                UndefinedValue
+                Bot String
                 deriving (Eq, Show)
 
-{-
-showAddress kind key offset = "<" ++ show key ++ "::" ++ kind ++ " " ++ show offset ++ ">"
--}
-
--- DataObject is what is written to memory, it will either be a cell or char value.
--- Thus, it introduces a wrapper for these alternatives.
---data DataObject cell = Cell (Lit cell) | Byte Word8 | Undefined
 
 -- | Make 'Lit cell' part of Num class. This allows us to use functions such as (+)
 --   and many others direct on literals.
