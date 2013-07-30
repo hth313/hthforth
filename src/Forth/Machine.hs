@@ -18,11 +18,13 @@ module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop, pushAdr,
                       stateId, sourceId, toInId,
                       wordIdExecute, wordLookup,
                       doColon, doVar,
-                      withTempBuffer) where
+                      withTempBuffer,
+                      compile) where
 
 import Control.Applicative
 import Control.Exception
 import Control.Monad.State.Lazy
+import qualified Data.Vector as V
 import Data.Vector.Storable.ByteString (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
 import qualified Data.Vector.Storable.ByteString.Char8 as C
@@ -129,7 +131,7 @@ initialState target =
 create :: ByteString -> (ForthWord cell -> ForthLambda cell) -> MachineM cell ()
 create name does = modify $ \s ->
     let k:ks = keys s
-        word = ForthWord name False (dictionaryHead s) k does Native
+        word = ForthWord name False (dictionaryHead s) k does (Colon V.empty)
     in s { keys = ks,
            defining = Just word }
 
@@ -205,3 +207,11 @@ withTempBuffer action contents = do
           pushAdr handle
           push $ Val (fromIntegral $ B.length line)
           action
+
+
+-- | Compile a literal into a colon body of the word being defined.
+compile lit = modify $ \s ->
+    case defining s of
+      Just word | Colon cb <- body word ->
+          s { defining = Just word { body = Colon (V.snoc cb lit)  } }
+      otherwise -> abortWith "unable to compile literal value"

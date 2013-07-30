@@ -240,7 +240,7 @@ interpret = state >> fetch >> pop >>= interpret1 where
               case val of
                 Val 0 -> parseNumber >> interpret       -- not found
                 Val 1 -> execute >> interpret           -- immediate word
-                _ | compiling -> abortWith "compile word not implemented" -- normal word found
+                _ | compiling -> pop >>= compile >> interpret -- normal word found
                   | otherwise -> execute >> interpret
 
     parseNumber = parse =<< countedText =<< pop where
