@@ -36,7 +36,7 @@ instance Show (ForthWord cell) where
 
 data Body cell = Native | Colon (ColonBody cell)
 type LinkField cell = Maybe (ForthWord cell)
-type ColonBody cell = Vector (ForthWord cell)
+type ColonBody cell = Vector (Lit cell)
 
 -- | Interpretive pointer
 data IP cell = IP (ColonBody cell) Int deriving (Eq, Show)

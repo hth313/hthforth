@@ -20,7 +20,8 @@ import Data.Vector.Storable.ByteString (ByteString)
 import Forth.Address
 import {-# SOURCE #-} Forth.Word
 
--- | Literals are values that can be stored inside a cell.
+-- | Literals are values that can be stored inside a cell. This is also what goes
+--   into a colon definition.
 data Lit cell = Address (Maybe Addr) |
                 Val cell |
                 XT (ForthWord cell) |

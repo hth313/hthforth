@@ -9,5 +9,5 @@ instance Show (ForthWord cell)
 name :: ForthWord cell -> ByteString
 
 data IP cell
-instance Eq (IP cell)
-instance Show (IP cell)
+instance (Eq cell) => Eq (IP cell)
+instance (Show cell) => Show (IP cell)
