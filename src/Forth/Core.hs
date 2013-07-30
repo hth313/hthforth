@@ -66,7 +66,7 @@ addNatives = do
   addNative "SMUDGE" smudge
   addNative "CREATE" ((\name -> create name doVar) =<< parseName)
   addNative ":" colon
-  addNative ";" semicolon
+  addNative ";" semicolon >> makeImmediate
   addNative "IMMEDIATE" makeImmediate
   addNative "TRUE"  (push $ Val (-1))
   addNative "FALSE" (push $ Val 0)
