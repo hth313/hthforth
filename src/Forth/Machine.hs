@@ -137,10 +137,10 @@ create name does = modify $ \s ->
 -- | Make word being defined visible in the dictionary
 smudge :: ForthLambda cell
 smudge = modify $ \s ->
-    if isJust (defining s)
-    then s { dictionaryHead = defining s,
-             defining = Nothing }
-    else s
+    case defining s of
+      Just word -> s { dictionaryHead = Just word,
+                       defining = Nothing }
+      otherwise -> s
 
 
 makeImmediate :: ForthLambda cell
