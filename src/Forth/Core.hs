@@ -68,6 +68,7 @@ addNatives = do
   addNative ":" colon
   addNative ";" semicolon >> makeImmediate
   addNative "IMMEDIATE" makeImmediate
+  addNativeFixed exitId "EXIT" colonExit
   addNative "TRUE"  (push $ Val (-1))
   addNative "FALSE" (push $ Val 0)
       where
@@ -318,6 +319,15 @@ colon = do
 
 semicolon :: Cell cell => ForthLambda cell
 semicolon = do
+  Just exit <- wordLookup exitId
+  compile $ XT exit
   smudge
   push (Val $ 0) >> state >> store
+
+
+colonExit :: Cell cell => ForthLambda cell
+colonExit = modify $ \s ->
+    case rstack s of
+      Loc ip : rs -> s { ip = ip, rstack = rs }
+      otherwise -> abortWith "EXIT - misaligned return stack at"
 

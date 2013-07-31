@@ -12,10 +12,10 @@ module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop, pushAdr,
                       ForthWord(..), StateT(..), emptyStack, abortWith,
                       initialState, evalStateT, execute,
                       create, makeImmediate, smudge,
-                      addNative, addFixed, addVar, putField,
+                      addNative, addNativeFixed, addFixed, addVar, putField,
                       wordBufferId,
                       inputBufferId, inputBufferPtrId, inputBufferLengthId,
-                      stateId, sourceId, toInId,
+                      stateId, sourceId, toInId, exitId,
                       wordIdExecute, wordLookup,
                       doColon, doVar,
                       withTempBuffer,
@@ -82,9 +82,10 @@ inputBufferLengthId = 4 :: Int    -- ^ Input buffer length
 stateId = 5 :: Int          -- ^ Compile state
 sourceId = 6 :: Int         -- ^ SOURCE-ID
 toInId = 7 :: Int           -- ^ >IN
+exitId = 8 :: Int
 
 -- The first dynamic word identity
-firstId = 8
+firstId = 9
 
 -- | Lookup a word from its identity number
 wordIdExecute wid = do
@@ -152,6 +153,17 @@ makeImmediate = modify $ \s -> s { dictionaryHead = imm <$> dictionaryHead s }
 -- | Add a native word to the vocabulary.
 addNative :: ByteString -> ForthLambda cell -> MachineM cell ()
 addNative name action = create name (const action) >> smudge
+
+
+addNativeFixed :: WordId -> ByteString -> ForthLambda cell -> MachineM cell ()
+addNativeFixed fixedId name action = do
+  addNative name action
+  modify $ \s ->
+      let Just word = dictionaryHead s
+          newWord = word { wid = fixedId }
+      in s { keys = wid word : keys s,
+             dictionaryHead = Just newWord,
+             wordMap = IntMap.insert fixedId newWord $ IntMap.delete (wid word) (wordMap s) }
 
 
 addVar name wid mval = do
