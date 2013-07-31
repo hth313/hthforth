@@ -25,7 +25,7 @@ import {-# SOURCE #-} Forth.Word
 data Lit cell = Address (Maybe Addr) |
                 Val cell |
                 XT (ForthWord cell) |
-                Loc (IP cell) |
+                Loc (Maybe (IP cell)) |
                 Bot String
                 deriving (Eq, Show)
 

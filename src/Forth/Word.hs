@@ -6,7 +6,7 @@
 
 -}
 
-module Forth.Word (ForthWord(..), IP(..), Body(..), LinkField, emptyIP) where
+module Forth.Word (ForthWord(..), IP(..), Body(..), LinkField) where
 
 import Data.Char
 import Data.Vector.Storable.ByteString.Char8 (ByteString)
@@ -40,6 +40,3 @@ type ColonBody cell = Vector (Lit cell)
 
 -- | Interpretive pointer
 data IP cell = IP (ColonBody cell) Int deriving (Eq, Show)
-
--- | An interpretive pointer that points to nothing
-emptyIP = IP V.empty 0

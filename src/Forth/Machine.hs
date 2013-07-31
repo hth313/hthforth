@@ -48,7 +48,7 @@ data Machine cell = Machine { -- The Forth stacks
                               stack, rstack :: [Lit cell],
                               dictionaryHead :: LinkField cell,
                               defining :: LinkField cell,  -- ^ word being defined
-                              ip :: IP cell,
+                              ip :: Maybe (IP cell),
                               target :: Target cell,
                               -- Sequence of identies to allocate from
                               keys :: [WordId],
@@ -98,11 +98,10 @@ wordLookup wid = gets $ \s -> IntMap.lookup wid (wordMap s)
 call word = doer word word
 
 -- | Top level item on stack should be an execution token that is invoked.
-execute = do
-  word <- pop
-  case word of
-    XT word -> call word
-    otherwise -> abortWith "EXECUTE expects an execution token"
+execute = pop >>= executeXT
+
+executeXT (XT word) = call word
+executeXT _ = abortWith "EXECUTE expects an execution token"
 
 -- | Pop from data stack
 pop :: MachineM cell (Lit cell)
@@ -125,7 +124,7 @@ pushAdr wid = push $ Address (Just (Addr wid 0))
 -- | Create an initial empty Forth machine state
 initialState :: Target cell -> Machine cell
 initialState target =
-    Machine [] [] Nothing Nothing emptyIP target [firstId..] IntMap.empty IntMap.empty []
+    Machine [] [] Nothing Nothing Nothing target [firstId..] IntMap.empty IntMap.empty []
 
 
 create :: ByteString -> (ForthWord cell -> ForthLambda cell) -> MachineM cell ()
@@ -177,13 +176,29 @@ addFixed name imm wid does = modify $ \s ->
            wordMap = IntMap.insert wid word (wordMap s) }
 
 
-doColon word = modify $ \s ->
-    let Colon cb = body word
-    in s { rstack = Loc (ip s) : rstack s, ip = IP cb 0 }
-
-
 -- | Push the address of a variable (its data field) on stack
 doVar word = push $ Address (Just (Addr (wid word) 0))
+
+
+doColon word = do
+  oip <- StateT $ \s ->
+            let Colon cb = body word
+            in return (ip s, s { rstack = Loc (ip s) : rstack s, ip = Just (IP cb 0) })
+  when (isNothing oip) nextInterpreter
+
+
+nextInterpreter = do
+  x <- next
+  case x of
+    Nothing -> return ()
+    Just xt -> executeXT xt >> nextInterpreter
+
+
+-- | Read cell pointed out by interpretive pointer, advance pointer
+next = StateT $ \s ->
+    case ip s of
+      Just (IP cb i) -> return (Just ((V.!) cb i), s { ip = Just (IP cb (i + 1)) })
+      Nothing -> return (Nothing, s { ip = Nothing })
 
 
 -- | Create a temporary word with given buffer contents. Perform action by
