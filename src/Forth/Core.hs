@@ -55,8 +55,8 @@ addNatives = do
   addNative ">R"    tor
   addNative "FIND"  find
   addVar    B.empty inputBufferId Nothing
-  addVar    B.empty inputBufferPtrId (Just $ Val 0)
-  addVar    B.empty inputBufferLengthId (Just $ Val 0)
+  addVar    "INPUT-LINE" inputBufferPtrId (Just $ Val 0)
+  addVar    "#INPUT-LINE" inputBufferLengthId (Just $ Val 0)
   addVar    "STATE" stateId (Just $ Val 0)
   addVar    "SOURCE-ID" sourceId (Just $ Val 0)
   addVar    ">IN" toInId  (Just $ Val 0)
