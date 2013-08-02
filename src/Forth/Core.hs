@@ -62,7 +62,7 @@ addNatives = do
   addVar    ">IN" toInId  (Just $ Val 0)
   addNative "EVALUATE" evaluate
   addNative "LOAD-SOURCE" xloadSource
-  addNative "\\" backslash
+  addNative "\\" backslash >> makeImmediate
   addNative "SMUDGE" smudge
   addNative "CREATE" ((\name -> create name doVar) =<< parseName)
   addNative ":" colon
