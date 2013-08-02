@@ -24,7 +24,7 @@ import System.IO
 main =
     let target = Target 4 4 1 LittleEndian :: Target Int32
     in do
-      putStrLn "The Planet Pluto Forth, version 1.1.1"
+      putStrLn "The Planet Pluto Forth cross compiler, version 1.1.1"
       putStrLn "A Forth-2012 System Subset - under development"
       evalStateT (addNatives >> topLevel) (initialState target)
 
