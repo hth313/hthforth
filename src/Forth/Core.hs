@@ -202,9 +202,9 @@ parseName = do
                       | B.null bs = (0, bs)
                       | otherwise = skipSpaces1 0 bs where
                       skipSpaces1 n bs
-                          | C.head bs == ' ' = skipSpaces1 (n + 1) (B.tail bs)
+                          | C.head bs <= ' ' = skipSpaces1 (n + 1) (B.tail bs)
                           | otherwise = (n, bs)
-                  name = C.takeWhile (' ' /=) nameStart
+                  name = C.takeWhile (> ' ') nameStart
                   nameLength = B.length name
                   inAdjust = skipCount + nameLength
                   result = Address $ Just (Addr wid (skipCount + off))
