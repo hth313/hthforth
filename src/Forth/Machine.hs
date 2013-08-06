@@ -214,26 +214,21 @@ next = StateT $ \s ->
 
 
 -- | Create a temporary word with given buffer contents. Perform action by
---   passing a reference to the buffer to it, one line at a time.
+--   passing a reference to the buffer to it.
 withTempBuffer action contents = do
   handle <- getHandle
-  forM_ (C.lines contents) (doAction handle)
-  modify $ \s -> s { variables = IntMap.delete handle (variables s) }
-  releaseHandle handle
+  modify $ \s ->
+      s { variables = IntMap.insert handle (textBuffer handle contents) (variables s) }
+  pushAdr handle
+  push $ Val (fromIntegral $ C.length contents)
+  action
+  modify $ \s -> s { variables = IntMap.delete handle (variables s),
+                                 oldHandles = handle : oldHandles s }
       where
         getHandle = StateT $ \s ->
              if null (oldHandles s)
              then return (head (keys s), s { keys = tail (keys s) })
              else return (head (oldHandles s), s { oldHandles = tail (oldHandles s) })
-
-        releaseHandle handle = modify $ \s -> s { oldHandles = handle : oldHandles s }
-
-        doAction handle line = do
-          modify $ \s ->
-              s { variables = IntMap.insert handle (textBuffer handle line) (variables s) }
-          pushAdr handle
-          push $ Val (fromIntegral $ B.length line)
-          action
 
 
 -- | Compile a literal into a colon body of the word being defined.
