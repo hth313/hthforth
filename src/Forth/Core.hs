@@ -9,6 +9,7 @@
 
 module Forth.Core (addNatives, quit) where
 
+import Control.Applicative
 import Control.Monad.State.Lazy hiding (state)
 import Data.Vector.Storable.ByteString (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
@@ -191,7 +192,7 @@ find = do
 --   ( "<spaces>ccc<space>" -- )
 parseName :: Cell cell => MachineM cell ByteString
 parseName = do
-  inputBufferPtr >> fetch >> toIn >> fetch >> plus  -- build start address
+  parseStart
   name <- StateT $ \s ->
     case stack s of
        Address (Just (Addr wid off)) : ss
@@ -309,8 +310,23 @@ xloadSource = loadSource =<< liftM C.unpack parseName
 
 -- | Rest of line is comment
 backslash :: Cell cell => ForthLambda cell
-backslash = inputBufferLength >> fetch >> toIn >> store
+backslash = do
+  parseStart
+  mo <- StateT $ \s ->
+      case stack s of
+        Address (Just (Addr wid off)) : ss
+          | Just (BufferField cmem) <- IntMap.lookup wid (variables s) ->
+              let start = B.drop off (chunk cmem)
+              in return ((off + 1 +) <$> C.findIndex ('\n'==) start, s { stack = ss } )
+  case mo of
+    Nothing -> inputBufferLength >> fetch
+    Just n -> push $ Val (fromIntegral n)
+  toIn >> store
 
+
+-- Push start address of parse area on stack, basically 'SOURCE +'
+parseStart :: Cell cell => ForthLambda cell
+parseStart = inputBufferPtr >> fetch >> toIn >> fetch >> plus
 
 colon :: Cell cell => ForthLambda cell
 colon = do
