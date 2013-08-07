@@ -4,9 +4,56 @@
 : [  FALSE STATE ! ; IMMEDIATE
 : ]  TRUE STATE ! ;
 
-\ Colon definitions
-: :  CREATE ] ;
-: ;  POSTPONE EXIT SMUDGE [ ; IMMEDIATE
+: SOURCE  INPUT-LINE @ #INPUT-LINE @ ;
+
+: PARSE-POS  \ ( -- caddr )
+    SOURCE DROP >IN @ + ;
+
+32 CONSTANT BL
+
+\ Parse delimiter test. BL delimiters will match all character values
+\ up to BL. Other delimiters are precise.
+\ This is a tab inefficient as we test the delimiter for each chararcter
+\ we inspect (currying and higher order functions would be nice).
+\ On the other hand, parsing is not what we do most, and especially
+\ not what will be time or power critical.
+: BL-TEST  \ ( char delimiter -- flag )
+    DUP BL = IF 1+ < ELSE = THEN ;
+
+\ Parse ccc delimited by delimiter char.
+\ Parse is part of the core words here as it is used as a building
+\ block for WORD.
+: PARSE  \ ( char "ccc<char>" -- c-addr u )                     ( core ext )
+    0 SWAP    \ 0 counter if needed
+    SOURCE + PARSE-POS
+    DO
+      I @ OVER BL-TEST
+        IF DROP   I SOURCE DROP -   SWAP LEAVE THEN
+    LOOP
+    DROP  \ delimiter
+    PARSE-POS SWAP DUP >IN +! ;
+
+\ Comments
+: (  41 PARSE DROP DROP ; IMMEDIATE
+
+\ Skip delimiter characters from the input stream.
+: SKIP  ( char "<chars>" -- )
+    SOURCE + PARSE-POS
+    DO
+      I @ OVER BL-TEST 0= IF LEAVE THEN
+      >IN 1+!
+    LOOP
+    DROP ( delimiter )
+    ;
+
+: WORD  ( char "<chars>name<char> -- counted-c-addr )
+    DUP SKIP PARSE >HERE ;
+
+\ If flag is set, ABORT
+\ This is useful as a way out of strange unexpected problems when we
+\ do not even bother to tell the user what was wrong.
+: ?ABORT  ( flag -- )
+    IF ABORT THEN ;
 
 \ Copy string to HERE, max 31 characters
 : >HERE  ( caddr u -- ccaddr )
@@ -14,36 +61,21 @@
     HERE >R R@ 2DUP C!
     1+ SWAP MOVE R> ;
 
-: PARSE-POS  ( -- caddr )
-    SOURCE DROP >IN @ + ;
-
-\ Parse ccc delimited by delimiter char.
-\ Parse is part of the core words here as it is used as a building
-\ block for WORD.
-: PARSE  ( char "ccc<char>" -- c-addr u )
-    0 SWAP  ( 0 counter if needed )
-    SOURCE + PARSE-POS
-    DO
-      I @ OVER =
-        IF DROP   I SOURCE DROP -   SWAP LEAVE THEN
-    LOOP
-    DROP ( delimiter )
-    PARSE-POS SWAP DUP >IN +! ;
+: COMPILE,  ( xt -- )                                           ( core-ext )
+    , ;
 
 
-\ Skip delimiter characters from the input stream.
-: SKIP ( char "<chars>" -- )
-    SOURCE + PARSE-POS
-    DO
-      I @ OVER = 0= IF LEAVE THEN
-      >IN 1+!
-    LOOP
-    DROP ( delimiter )
-    ;
+: POSTPONE
+    BL WORD FIND
+    IF COMPILE, ELSE ABORT"  THEN
+; IMMEDIATE
 
 
-: WORD ( char "<chars>name<char> -- counted-c-addr )
-    DUP SKIP PARSE >HERE ;
+\ Colon definitions
+: :  CREATE ] ;
+: ;  POSTPONE EXIT SMUDGE [ ; IMMEDIATE
+
+
 
 
 
