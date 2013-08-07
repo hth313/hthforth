@@ -70,6 +70,7 @@ addNatives = do
   addNative ";" semicolon >> makeImmediate
   addNative "IMMEDIATE" makeImmediate
   addNativeFixed exitId "EXIT" colonExit
+  addNative "CONSTANT" constant
   addNative "TRUE"  (push $ Val (-1))
   addNative "FALSE" (push $ Val 0)
       where
@@ -348,3 +349,9 @@ colonExit = modify $ \s ->
       Loc ip : rs -> s { ip = ip, rstack = rs }
       otherwise -> abortWith "EXIT - misaligned return stack at"
 
+
+constant :: Cell cell => ForthLambda cell
+constant = do
+  (\name -> create name doConst) =<< parseName
+  comma
+  smudge

@@ -17,9 +17,9 @@ module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop, pushAdr,
                       inputBufferId, inputBufferPtrId, inputBufferLengthId,
                       stateId, sourceId, toInId, exitId,
                       wordIdExecute, wordLookup,
-                      doColon, doVar,
+                      doColon, doVar, doConst,
                       withTempBuffer,
-                      compile) where
+                      compile, comma) where
 
 import Control.Applicative
 import Control.Exception
@@ -191,6 +191,11 @@ addFixed name imm wid does = modify $ \s ->
 -- | Push the address of a variable (its data field) on stack
 doVar word = push $ Address (Just (Addr (wid word) 0))
 
+doConst word =
+    case body word of
+      Colon cb | not (V.null cb) ->
+          push $ V.head cb
+      otherwise -> abortWith $ "constant value missing for " ++ C.unpack (name word)
 
 doColon word = do
   oip <- StateT $ \s ->
@@ -237,3 +242,7 @@ compile lit = modify $ \s ->
       Just word | Colon cb <- body word ->
           s { defining = Just word { body = Colon (V.snoc cb lit)  } }
       otherwise -> abortWith "unable to compile literal value"
+
+
+-- | Add a literal to current body of word being defined.
+comma = pop >>= compile
