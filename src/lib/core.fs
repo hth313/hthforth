@@ -9,6 +9,9 @@
 : PARSE-POS  \ ( -- caddr )
     SOURCE DROP >IN @ + ;
 
+: PARSE-DO
+    SOURCE + PARSE-POS DO ;
+
 32 CONSTANT BL
 
 \ Parse delimiter test. BL delimiters will match all character values
@@ -25,8 +28,7 @@
 \ block for WORD.
 : PARSE  \ ( char "ccc<char>" -- c-addr u )                     ( core ext )
     0 SWAP    \ 0 counter if needed
-    SOURCE + PARSE-POS
-    DO
+    PARSE-DO
       I @ OVER BL-TEST
         IF DROP   I SOURCE DROP -   SWAP LEAVE THEN
     LOOP
@@ -38,8 +40,7 @@
 
 \ Skip delimiter characters from the input stream.
 : SKIP  ( char "<chars>" -- )
-    SOURCE + PARSE-POS
-    DO
+    PARSE-DO
       I @ OVER BL-TEST 0= IF LEAVE THEN
       >IN 1+!
     LOOP
