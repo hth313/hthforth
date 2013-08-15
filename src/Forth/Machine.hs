@@ -8,8 +8,8 @@
 -}
 
 module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop, pushAdr,
-                      ForthException(..),
-                      ForthWord(..), StateT(..), emptyStack, abortWith,
+                      ForthWord(..), StateT(..), emptyStack, abortWith, abortMessage,
+                      updateState, updateStateVal, newState,
                       initialState, evalStateT, execute,
                       create, makeImmediate, smudge,
                       addNative, addNativeFixed, addFixed, addVar, putField,
@@ -34,14 +34,17 @@ import Data.Word
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Forth.Address
+import Forth.Cell
 import Forth.CellMemory
+import {-# SOURCE #-} Forth.Core
 import Forth.DataField
 import Forth.Target
 import Forth.Word
 import Forth.WordId
 import Forth.Types
+import System.Console.Haskeline
 
-type MachineM cell = StateT (Machine cell) IO
+type MachineM cell = StateT (Machine cell) (InputT IO)
 
 -- The Forth state
 data Machine cell = Machine { -- The Forth stacks
@@ -63,12 +66,6 @@ data Machine cell = Machine { -- The Forth stacks
 
 -- A Forth native lambda should obey this signature
 type ForthLambda cell = MachineM cell ()
-
-data ForthException = ForthException String deriving Typeable
-
-instance Exception ForthException
-instance Show ForthException where
-    show (ForthException text) = text
 
 -- | Internal words that does not need to be redefinable can share
 --   this identity.
@@ -99,20 +96,38 @@ wordLookup wid = gets $ \s -> IntMap.lookup wid (wordMap s)
 call word = doer word word
 
 -- | Top level item on stack should be an execution token that is invoked.
+execute :: Cell cell => ForthLambda cell
 execute = pop >>= executeXT
 
 executeXT (XT word) = call word
-executeXT _ = abortWith "EXECUTE expects an execution token"
+executeXT _ = abortMessage "EXECUTE expects an execution token"
+
+updateState f = do
+  result <- StateT f
+  case result of
+    Left msg -> abortMessage msg
+    Right x -> return x
+
+updateStateVal x f = do
+  result <- StateT f
+  case result of
+    Left msg -> abortMessage msg >> return x
+    Right y -> return y
+
+newState s = return (Right (), s)
 
 -- | Pop from data stack
-pop :: MachineM cell (Lit cell)
-pop = StateT $ \s ->
+pop :: Cell cell => MachineM cell (Lit cell)
+pop = updateStateVal (Val 0) $ \s ->
         case stack s of
-          t:ts -> return (t, s { stack = ts })
-          [] -> emptyStack
+          t:ts -> return (Right t, s { stack = ts })
+          [] -> emptyStack s
 
 emptyStack = abortWith "empty stack"
-abortWith = throw . ForthException
+
+abortWith msg s = return (Left msg, s)
+
+abortMessage msg = liftIO (putStrLn msg) >> abort
 
 -- | Push a value on data stack
 push x = modify $ \s -> s { stack = x : stack s }
@@ -195,7 +210,7 @@ doConst word =
     case body word of
       Colon cb | not (V.null cb) ->
           push $ V.head cb
-      otherwise -> abortWith $ "constant value missing for " ++ C.unpack (name word)
+      otherwise -> abortMessage $ "constant value missing for " ++ C.unpack (name word)
 
 doColon word = do
   oip <- StateT $ \s ->
@@ -204,6 +219,7 @@ doColon word = do
   when (isNothing oip) nextInterpreter
 
 
+nextInterpreter :: Cell cell => ForthLambda cell
 nextInterpreter = do
   x <- next
   case x of
@@ -237,12 +253,13 @@ withTempBuffer action contents = do
 
 
 -- | Compile a literal into a colon body of the word being defined.
-compile lit = modify $ \s ->
+compile lit = updateState $ \s ->
     case defining s of
       Just word | Colon cb <- body word ->
-          s { defining = Just word { body = Colon (V.snoc cb lit)  } }
-      otherwise -> abortWith "unable to compile literal value"
+          newState s { defining = Just word { body = Colon (V.snoc cb lit)  } }
+      otherwise -> abortWith "unable to compile literal value" s
 
 
 -- | Add a literal to current body of word being defined.
+comma :: Cell cell => ForthLambda cell
 comma = pop >>= compile
