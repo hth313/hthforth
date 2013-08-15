@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables, OverloadedStrings #-}
 {-
   This file is part of Planet Pluto Forth.
   Copyright Håkan Thörngren 2011-2013
@@ -7,9 +7,10 @@
 
 -}
 
-module Forth.Core (addNatives, quit) where
+module Forth.Core (addNatives, abort, quit) where
 
 import Control.Applicative
+import Control.Exception (try)
 import Control.Monad.State.Lazy hiding (state)
 import Data.Vector.Storable.ByteString (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
@@ -29,6 +30,8 @@ import System.IO
 import Numeric
 import Prelude hiding (drop)
 import System.Exit
+import System.Console.Haskeline
+
 
 
 -- | Populate the vocabulary with a basic set of Haskell native words.
@@ -81,53 +84,53 @@ plus, dup, drop, swap, over, rot, plusStore,
       tor, rto, rfetch :: Cell cell => ForthLambda cell
 plus = binary (+)
 
-dup = modify $ \s ->
+dup = updateState $ \s ->
     case stack s of
-      s0 : ss -> s { stack = s0 : s0 : ss }
-      otherwise -> emptyStack
+      s0 : ss -> newState s { stack = s0 : s0 : ss }
+      otherwise -> emptyStack s
 
-drop = modify $ \s ->
+drop = updateState $ \s ->
     case stack s of
-      s0 : ss -> s { stack = ss }
-      otherwise -> emptyStack
+      s0 : ss -> newState s { stack = ss }
+      otherwise -> emptyStack s
 
-swap = modify $ \s ->
+swap = updateState $ \s ->
     case stack s of
-      s0 : s1 : ss -> s { stack = s1 : s0 : ss }
-      otherwise -> emptyStack
+      s0 : s1 : ss -> newState s { stack = s1 : s0 : ss }
+      otherwise -> emptyStack s
 
-over = modify $ \s ->
+over = updateState $ \s ->
     case stack s of
-      s0 : s1 : ss -> s { stack = s1 : s0 : s1 : ss }
-      otherwise -> emptyStack
+      s0 : s1 : ss -> newState s { stack = s1 : s0 : s1 : ss }
+      otherwise -> emptyStack s
 
-rot = modify $ \s ->
+rot = updateState $ \s ->
     case stack s of
-      s0 : s1 : s2 : ss -> s { stack = s2 : s0 : s1 : ss }
-      otherwise -> emptyStack
+      s0 : s1 : s2 : ss -> newState s { stack = s2 : s0 : s1 : ss }
+      otherwise -> emptyStack s
 
 plusStore = dup >> fetch >> rot >> plus >> swap >> store
 
-tor = modify $ \s ->
+tor = updateState $ \s ->
     case stack s of
-      s0 : ss -> s { stack = ss, rstack = s0 : rstack s }
-      otherwise -> emptyStack
+      s0 : ss -> newState s { stack = ss, rstack = s0 : rstack s }
+      otherwise -> emptyStack s
 
-rto = modify $ \s ->
+rto = updateState $ \s ->
     case rstack s of
-      r0 : rs -> s { stack = r0 : stack s, rstack = rs }
-      otherwise -> emptyStack
+      r0 : rs -> newState s { stack = r0 : stack s, rstack = rs }
+      otherwise -> emptyStack s
 
-rfetch = modify $ \s ->
+rfetch = updateState $ \s ->
     case rstack s of
-      r0 : rs -> s { stack = r0 : stack s }
-      otherwise -> emptyStack
+      r0 : rs -> newState s { stack = r0 : stack s }
+      otherwise -> emptyStack s
 
 -- | Perform a binary operation
-binary op = modify $ \s ->
+binary op = updateState $ \s ->
     case stack s of
-      s0 : s1 : ss -> s { stack = s0 `op` s1 : ss  }
-      otherwise -> emptyStack
+      s0 : s1 : ss -> newState s { stack = s0 `op` s1 : ss  }
+      otherwise -> emptyStack s
 
 
 inputBuffer, inputBufferPtr, inputBufferLength, toIn,
@@ -158,16 +161,16 @@ cfetch = modify $ \s ->
 
 
 store :: Cell cell => ForthLambda cell
-store = modify $ \s ->
+store = updateState $ \s ->
     case stack s of
       Address (Just adr@(Addr wid i)) : val : rest
           | Just (DataField cm) <- IntMap.lookup wid (variables s) ->
-              s { variables = IntMap.insert wid (DataField $ writeCell val adr cm)
-                              (variables s),
-                  stack = rest }
-      [] -> emptyStack
-      [x] -> abortWith $ "no value to store to " ++ show x
-      x:_ -> abortWith $ "cannot store to " ++ show x
+              newState s { variables = IntMap.insert wid (DataField $ writeCell val adr cm)
+                                       (variables s),
+                           stack = rest }
+      [] -> emptyStack s
+      [x] -> abortWith ("no value to store to " ++ show x) s
+      x:_ -> abortWith ("cannot store to " ++ show x) s
 
 
 -- | Find the name (counted string) in the dictionary
@@ -194,7 +197,7 @@ find = do
 parseName :: Cell cell => MachineM cell ByteString
 parseName = do
   parseStart
-  name <- StateT $ \s ->
+  name <- updateStateVal "" $ \s ->
     case stack s of
        Address (Just (Addr wid off)) : ss
           | Just (BufferField cmem) <- IntMap.lookup wid (variables s) ->
@@ -210,8 +213,8 @@ parseName = do
                   nameLength = B.length name
                   inAdjust = skipCount + nameLength
                   result = Address $ Just (Addr wid (skipCount + off))
-              in return (name, s { stack = Val (fromIntegral inAdjust) : ss })
-       otherwise -> abortWith "parseName failed"
+              in return (Right name, s { stack = Val (fromIntegral inAdjust) : ss })
+       otherwise -> abortWith "parseName failed" s
   toIn >> plusStore
   return name
 
@@ -249,22 +252,29 @@ interpret = state >> fetch >> pop >>= interpret1 where
     parseNumber = parse =<< countedText =<< pop where
         parse bs = case readDec text of
                      [(x,"")] -> push $ Val x
-                     otherwise -> abortWith $ text ++ " ?"
+                     otherwise -> abortMessage $ text ++ " ?"
             where text = C.unpack bs
 
 
 -- | Given a counted string, extract the actual text as an individual ByteString.
-countedText (Address (Just (Addr wid off))) = gets $ \s ->
+countedText (Address (Just (Addr wid off))) = updateStateVal "" $ \s ->
     case IntMap.lookup wid (variables s) of
       Just (BufferField cmem) ->
           let count = fromIntegral $ B.index (chunk cmem) off
-          in B.take count $ B.drop (off + 1) (chunk cmem)
+          in return (Right $ B.take count $ B.drop (off + 1) (chunk cmem), s)
       otherwise ->
           case IntMap.lookup wid (wordMap s) of
-            Just word -> abortWith $ "expected address pointing to char buffer for " ++
-                           (C.unpack $ name word)
-            otherwise -> abortWith "expected address pointing to char buffer"
-countedText _ = abortWith "expected address"
+            Just word -> abortWith ("expected address pointing to char buffer for " ++
+                                    (C.unpack $ name word)) s
+            otherwise -> abortWith "expected address pointing to char buffer" s
+countedText _ = abortMessage "expected address" >> return ""
+
+
+abort :: Cell cell => ForthLambda cell
+abort = do
+  modify $ \s -> s { stack = [] }
+  push (Val $ 0) >> state >> store
+  quit
 
 
 quit :: Cell cell => ForthLambda cell
@@ -276,12 +286,17 @@ quit = do
 
 mainLoop :: Cell cell => ForthLambda cell
 mainLoop = do
-  line <- liftIO $ B.hGetLine stdin
-  putField inputBufferId (textBuffer inputBufferId line)
-  push (Val 0) >> toIn >> store
-  pushAdr inputBufferId >> inputBufferPtr >> store
-  push (Val $ fromIntegral $ B.length line) >> inputBufferLength >> store
-  interpret
+  mline <- lift $ getInputLine ""
+  case mline of
+    Nothing -> return ()
+    Just input ->
+        let line = C.pack input
+        in do
+          putField inputBufferId (textBuffer inputBufferId line)
+          push (Val 0) >> toIn >> store
+          pushAdr inputBufferId >> inputBufferPtr >> store
+          push (Val $ fromIntegral $ B.length line) >> inputBufferLength >> store
+          interpret
   liftIO $ putStrLn "ok"
   mainLoop
 
@@ -301,7 +316,11 @@ evaluate = do
 
 -- | Load a source file using the Forth interpreter
 loadSource :: Cell cell => FilePath -> ForthLambda cell
-loadSource  filename = withTempBuffer evaluate =<< (liftIO $ readSourceFile filename)
+loadSource  filename = do -- withTempBuffer evaluate =<< (liftIO $ readSourceFile filename)
+  mc <- liftIO $ try $ readSourceFile filename
+  case mc of
+    Right contents -> withTempBuffer evaluate contents
+    Left (e :: IOException) -> abortMessage $ show e
 
 
 -- | Load next word in input stream as a source file.
@@ -344,10 +363,10 @@ semicolon = do
 
 
 colonExit :: Cell cell => ForthLambda cell
-colonExit = modify $ \s ->
+colonExit = updateState $ \s ->
     case rstack s of
-      Loc ip : rs -> s { ip = ip, rstack = rs }
-      otherwise -> abortWith "EXIT - misaligned return stack at"
+      Loc ip : rs -> newState s { ip = ip, rstack = rs }
+      otherwise -> abortWith "EXIT - misaligned return stack at" s
 
 
 constant :: Cell cell => ForthLambda cell
