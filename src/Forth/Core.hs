@@ -331,7 +331,7 @@ parseStart = inputBufferPtr >> fetch >> toIn >> fetch >> plus
 
 colon :: Cell cell => ForthLambda cell
 colon = do
-  (\name -> create name doColon) =<< parseName
+  parseName >>= flip create doColon
   push (Val $ (-1)) >> state >> store
 
 
