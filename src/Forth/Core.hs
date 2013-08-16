@@ -15,6 +15,7 @@ import Control.Monad.State.Lazy hiding (state)
 import Data.Vector.Storable.ByteString (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
 import qualified Data.Vector.Storable.ByteString.Char8 as C
+import qualified Data.Vector as V
 import Data.Bits
 import Forth.Address
 import Forth.Cell
@@ -77,6 +78,7 @@ addNatives = do
   addNative "TRUE"  (push $ Val (-1))
   addNative "FALSE" (push $ Val 0)
   addNative "," comma
+  addNative "HERE" here
       where
         divide (Val a) (Val b) = Val (a `div` b)
         divide a b = Bot $ show a ++ " / " ++ show b
@@ -375,3 +377,10 @@ constant = do
   (\name -> create name doConst) =<< parseName
   comma
   smudge
+
+here :: Cell cell => ForthLambda cell
+here = modify $ \s ->
+    case defining s of
+      Just word
+          | Colon cb <- body word ->
+                s { stack = Address (Just (Addr (wid word) (V.length cb))) : stack s }
