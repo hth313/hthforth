@@ -1,0 +1,34 @@
+Name:           ppForth
+Cabal-Version:  >=1.6
+Version:        1.1.1
+Category:       Language
+License:        BSD3
+License-File:   LICENSE
+Copyright:      (c) Håkan Thörngren
+Author:         Håkan Thörngren
+Maintainer:     Håkan Thörngren <hth313@gmail.com>
+Synopsis:       A Forth-2012 System Subset
+Description:    ppForth implements a subset of Forth-2012.
+Homepage:       http://github.com/ppForth
+Stability:      Experimental
+Build-Type:     Simple
+extra-source-files:
+        src/lib/core.fs
+        src/lib/core-ext.fs
+
+executable Forth
+  hs-source-dirs: src
+  main-is:        Forth/Forth.hs
+
+Library
+  build-depends: base       >= 4     && < 4.6
+               , containers
+               , directory
+               , filepath
+               , mtl
+               , haskeline >= 0.7.0.0
+               , vector-bytestring >= 0.0.0.1
+               , vector >= 0.9
+
+  ghc-options: -funbox-strict-fields -O2
+
