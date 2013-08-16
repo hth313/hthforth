@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable, OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable, OverloadedStrings, PatternGuards #-}
 {-
   This file is part of Planet Pluto Forth.
   Copyright Håkan Thörngren 2011-2013
@@ -18,7 +18,7 @@ module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop, pushAdr,
                       stateId, sourceId, toInId, exitId,
                       wordIdExecute, wordLookup,
                       doColon, doVar, doConst,
-                      withTempBuffer,
+                      withTempBuffer, searchDictionary, compileWord,
                       compile, comma) where
 
 import Control.Applicative
@@ -259,6 +259,19 @@ compile lit = updateState $ \s ->
           newState s { defining = Just word { body = Colon (V.snoc cb lit)  } }
       otherwise -> abortWith "unable to compile literal value" s
 
+
+searchDictionary findname = gets $ \s ->
+    let locate (Just word) | name word == findname = Just word
+                           | otherwise = locate $ link word
+        locate Nothing = Nothing
+    in locate $ dictionaryHead s
+
+
+-- | Compile a named word
+compileWord name = do
+  mword <- searchDictionary name
+  case mword of
+    Just word -> compile $ XT word
 
 -- | Add a literal to current body of word being defined.
 comma :: Cell cell => ForthLambda cell

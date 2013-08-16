@@ -181,7 +181,7 @@ store = updateState $ \s ->
 find :: Cell cell => ForthLambda cell
 find = do
   caddr <- pop
-  findname <- countedText caddr
+  mword <- searchDictionary =<< countedText caddr
   modify $ \s ->
       let locate (Just word) | name word == findname = Just word
                              | otherwise = locate $ link word
