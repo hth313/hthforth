@@ -76,6 +76,7 @@ addNatives = do
   addNative "CONSTANT" constant
   addNative "TRUE"  (push $ Val (-1))
   addNative "FALSE" (push $ Val 0)
+  addNative "," comma
       where
         divide (Val a) (Val b) = Val (a `div` b)
         divide a b = Bot $ show a ++ " / " ++ show b
