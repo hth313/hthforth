@@ -9,6 +9,7 @@
 : PARSE-POS  \ ( -- caddr )
     SOURCE DROP >IN @ + ;
 
+\ Factored out word to start a loop over the parse area
 : PARSE-DO
     SOURCE + PARSE-POS DO ;
 
@@ -71,6 +72,10 @@
     IF COMPILE, ELSE ABORT"  THEN
 ; IMMEDIATE
 
+\ Conditionals
+: IF    HERE >R POSTPONE JUMP-FALSE 0 COMPILE, ; IMMEDIATE
+: ELSE  HERE DUP R> BACKPATCH >R POSTPONE JUMP 0 COMPILE, ; IMMEDIATE
+: THEN  HERE R> BACKPATCH ; IMMEDIATE
 
 \ Colon definitions
 : :  CREATE ] ;
