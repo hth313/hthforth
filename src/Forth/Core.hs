@@ -79,6 +79,11 @@ addNatives = do
   addNative "FALSE" (push $ Val 0)
   addNative "," comma
   addNative "HERE" here
+  addNative "IF" xif >> makeImmediate
+  addNative "ELSE" xelse >> makeImmediate
+  addNative "THEN" xthen >> makeImmediate
+  addNative "JUMP-FALSE" jumpFalse
+  addNative "JUMP" jump
       where
         divide (Val a) (Val b) = Val (a `div` b)
         divide a b = Bot $ show a ++ " / " ++ show b
@@ -183,14 +188,11 @@ find = do
   caddr <- pop
   mword <- searchDictionary =<< countedText caddr
   modify $ \s ->
-      let locate (Just word) | name word == findname = Just word
-                             | otherwise = locate $ link word
-          locate Nothing = Nothing
-      in case locate (dictionaryHead s) of
-           Just word
-               | immediate word -> s { stack = Val 1 : XT word : (stack s) }
-               | otherwise -> s { stack = Val (-1) : XT word : (stack s) }
-           Nothing -> s { stack = Val 0 : caddr : stack s }
+      case mword of
+        Just word
+            | immediate word -> s { stack = Val 1 : XT word : (stack s) }
+            | otherwise -> s { stack = Val (-1) : XT word : (stack s) }
+        Nothing -> s { stack = Val 0 : caddr : stack s }
 
 
 -- | Parse a name in the input stream. Returns the parsed name (does not
@@ -362,7 +364,7 @@ semicolon = do
   Just exit <- wordLookup exitId
   compile $ XT exit
   smudge
-  push (Val $ 0) >> state >> store
+  push (Val 0) >> state >> store
 
 
 colonExit :: Cell cell => ForthLambda cell
@@ -384,3 +386,36 @@ here = modify $ \s ->
       Just word
           | Colon cb <- body word ->
                 s { stack = Address (Just (Addr (wid word) (V.length cb))) : stack s }
+
+backpatch :: Cell cell => ForthLambda cell
+backpatch = modify $ \s ->
+    case defining s of
+      Just word
+           | (Address (Just (Addr _ loc))) : (Address (Just (Addr _ dest))) : stack' <- stack s,
+             Colon cb <- body word ->
+                 s { stack = stack',
+                     defining = Just word { body = Colon $ (V.//) cb [(loc + 1, Val (fromIntegral dest))] } }
+
+xif, xelse, xthen :: Cell cell => ForthLambda cell
+xif = here >> tor >> compileWord "JUMP-FALSE" >> compile (Val 0)
+xelse = here >> dup >> rto >> backpatch >> tor >> compileWord "JUMP" >> compile (Val 0)
+xthen = here >> rto >> backpatch
+
+jumpFalse :: Cell cell => ForthLambda cell
+jumpFalse = do
+  val <- pop
+  case val of
+    Val n | n == 0 -> jump
+    otherwise -> noJump
+
+jump :: Cell cell => ForthLambda cell
+jump = modify $ \s ->
+    case ip s of
+      Just (IP cb off)
+          | Val off' <- (V.!) cb off ->
+                s { ip = Just (IP cb (fromIntegral off')) }
+
+noJump :: Cell cell => ForthLambda cell
+noJump = modify $ \s ->
+    case ip s of
+      Just (IP cb off) -> s { ip = Just (IP cb (off + 1)) }
