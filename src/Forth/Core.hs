@@ -397,9 +397,9 @@ backpatch = modify $ \s ->
                      defining = Just word { body = Colon $ (V.//) cb [(loc + 1, Val (fromIntegral dest))] } }
 
 xif, xelse, xthen :: Cell cell => ForthLambda cell
-xif = here >> tor >> compileWord "JUMP-FALSE" >> compile (Val 0)
-xelse = here >> dup >> rto >> backpatch >> tor >> compileWord "JUMP" >> compile (Val 0)
-xthen = here >> rto >> backpatch
+xif = here >> compileWord "JUMP-FALSE" >> compile (Val 0)
+xelse = here >> dup >> rot >> backpatch >> compileWord "JUMP" >> compile (Val 0)
+xthen = here >> swap >> backpatch
 
 jumpFalse :: Cell cell => ForthLambda cell
 jumpFalse = do
