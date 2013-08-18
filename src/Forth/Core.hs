@@ -249,6 +249,13 @@ interpret = state >> fetch >> pop >>= interpret1 where
           xword
           dup >> cfetch
           eol <- liftM (Val 0 ==) pop
+            parseNumber = parse =<< countedText =<< pop where
+                parse bs = case readDec text of
+                             [(x,"")]
+                                 | compiling -> compile $ Val x
+                                 | otherwise -> push $ Val x
+                             otherwise -> abortMessage $ text ++ " ?"
+                             where text = C.unpack bs
           if eol then drop else do
               find
               val <- pop
@@ -257,12 +264,6 @@ interpret = state >> fetch >> pop >>= interpret1 where
                 Val 1 -> execute >> interpret           -- immediate word
                 _ | compiling -> pop >>= compile >> interpret -- normal word found
                   | otherwise -> execute >> interpret
-
-    parseNumber = parse =<< countedText =<< pop where
-        parse bs = case readDec text of
-                     [(x,"")] -> push $ Val x
-                     otherwise -> abortMessage $ text ++ " ?"
-            where text = C.unpack bs
 
 
 -- | Given a counted string, extract the actual text as an individual ByteString.
