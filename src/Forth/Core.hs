@@ -43,6 +43,8 @@ addNatives = do
   addNative "-"   $ binary (-)
   addNative "*"   $ binary (*)
   addNative "/"   $ binary divide
+  addNative "<"   $ binary (bool $ (<))
+  addNative "="   $ binary (bool $ (==))
   addNative "AND" $ binary (.&.)
   addNative "OR"  $ binary (.|.)
   addNative "XOR" $ binary xor
@@ -90,6 +92,7 @@ addNatives = do
 
 plus, dup, drop, swap, over, rot, plusStore,
       tor, rto, rfetch :: Cell cell => ForthLambda cell
+        bool p (Val a) (Val b) = Val $ if p a b then (-1) else 0
 plus = binary (+)
 
 dup = updateState $ \s ->
