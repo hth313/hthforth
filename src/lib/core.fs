@@ -6,6 +6,18 @@
 
 : SOURCE  INPUT-LINE @ #INPUT-LINE @ ;
 
+\ Stack primitives
+: 2DROP  DROP DROP ;
+: 2DUP   OVER OVER ;
+: 2SWAP  ROT >R ROT R> ;
+: 2OVER  >R >R 2DUP R> R> 2SWAP ;
+
+\ Arithmetic and logical
+: 1+  1 + ;
+: 1-  1 - ;
+: INVERT  TRUE XOR ;
+: NEGATE  INVERT 1+ ;
+
 : PARSE-POS  \ ( -- caddr )
     SOURCE DROP >IN @ + ;
 
