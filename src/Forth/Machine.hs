@@ -100,7 +100,7 @@ execute :: Cell cell => ForthLambda cell
 execute = pop >>= executeXT
 
 executeXT (XT word) = call word
-executeXT _ = abortMessage "EXECUTE expects an execution token"
+executeXT x = abortMessage $ "EXECUTE expects an execution token, got " ++ show x
 
 updateState f = do
   result <- StateT f
