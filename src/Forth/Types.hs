@@ -41,21 +41,29 @@ instance Cell cell => Num (Lit cell) where
     (Val a) + (Val b) = Val (a + b)
     (Address (Just (Addr w off))) + (Val b) = Address (Just (Addr w (off + (fromIntegral b))))
     (Val b) + (Address (Just (Addr w off))) = Address (Just (Addr w (off +  (fromIntegral b))))
-
     a + b = Bot $ show a ++ " " ++ show b ++ " +"
+
     (Val a) - (Val b) = Val (a - b)
     (Address (Just (Addr w off))) - (Val b) =
          Address (Just (Addr w  (off + (negate $ fromIntegral b))))
+    (Address (Just (Addr w1 off1))) - (Address (Just (Addr w2 off2)))
+        | w1 == w2 = Val $ fromIntegral $ off1 - off2
     a - b = Bot $ show a ++ " " ++ show b ++ " -"
+
     (Val a) * (Val b) = Val (a * b)
     a * b = Bot $ show a ++ " " ++ show b ++ " *"
+
     abs (Val a) = Val (abs a)
     abs a = Bot $ show a ++ " ABS"
+
     negate (Val a) = Val (negate a)
     negate a = Bot $ show a ++ " NEGATE"
+
     signum (Val a) = Val (signum a)
     signum a = Bot $ show a ++ " SIGNUM"
+
     fromInteger n = Val (fromInteger n)
+
 
 -- | Also make 'Lit cell' part of Bits to allow further operations.
 instance Cell cell => Bits (Lit cell) where
