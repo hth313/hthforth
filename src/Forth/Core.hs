@@ -141,7 +141,7 @@ rfetch = updateState $ \s ->
 -- | Perform a binary operation
 binary op = updateState $ \s ->
     case stack s of
-      s0 : s1 : ss -> newState s { stack = s0 `op` s1 : ss  }
+      s0 : s1 : ss -> newState s { stack = s1 `op` s0 : ss  }
       otherwise -> emptyStack s
 
 
