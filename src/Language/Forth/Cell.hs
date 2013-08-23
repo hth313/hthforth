@@ -1,10 +1,4 @@
-{-
-  This file is part of Planet Pluto Forth.
-  Copyright Håkan Thörngren 2011-2013
-
-  Type class for primary unit of information.
-
--}
+-- | Type class for primary unit of information.
 
 module Language.Forth.Cell (Cell(..)) where
 

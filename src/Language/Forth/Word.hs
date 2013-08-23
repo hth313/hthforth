@@ -1,6 +1,4 @@
-{-
-  This file is part of Planet Pluto Forth.
-  Copyright Håkan Thörngren 2013
+{-|
 
   Forth word definition.
 

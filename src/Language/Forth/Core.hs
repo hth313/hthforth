@@ -1,7 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables, OverloadedStrings, PatternGuards #-}
-{-
-  This file is part of Planet Pluto Forth.
-  Copyright Håkan Thörngren 2011-2013
+{-|
 
   Forth core words in native lambdas.
 
