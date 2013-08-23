@@ -59,6 +59,7 @@ addNatives = do
   addNative "C@"    cfetch
   addNative "R>"    rto
   addNative "R@"    rfetch
+  addNative "I"     rfetch
   addNative ">R"    tor
   addNative "FIND"  find
   addVar    B.empty inputBufferId Nothing
@@ -81,13 +82,21 @@ addNatives = do
   addNative "FALSE" (push $ Val 0)
   addNative "," comma
   addNative "HERE" here
-  addNative "IF" xif >> makeImmediate
   addNative "(LIT)" lit
+  addNative "IF" xif >> makeImmediate
   addNative "ELSE" xelse >> makeImmediate
   addNative "THEN" xthen >> makeImmediate
   addNative "JUMP-FALSE" jumpFalse
-  addNative "JUMP" jump
       where
+  addNative "JUMP" jump
+  addNative "DO" xdo >> makeImmediate
+  addNative "LOOP" loop >> makeImmediate
+  addNative "+LOOP" plusLoop >> makeImmediate
+  addNative "(DO)" rdo
+  addNative "(LOOP)" rloop
+  addNative "(+LOOP)" rplusLoop
+  addNative "LEAVE" leave
+  addNative "." (pop >>= (liftIO . putStrLn . show)) -- temporary
         divide (Val a) (Val b) = Val (a `div` b)
         divide a b = Bot $ show a ++ " / " ++ show b
 
@@ -405,32 +414,20 @@ backpatch :: Cell cell => ForthLambda cell
 backpatch = modify $ \s ->
     case defining s of
       Just word
-           | (Address (Just (Addr _ loc))) : (Address (Just (Addr _ dest))) : stack' <- stack s,
+           | (Address (Just (Addr _ loc))) : dest : stack' <- stack s,
              Colon cb <- body word ->
                  s { stack = stack',
-                     defining = Just word { body = Colon $ (V.//) cb [(loc + 1, Val (fromIntegral dest))] } }
-
-lit :: Cell cell => ForthLambda cell
-lit = modify $ \s ->
-    case ip s of
-      Just (IP cb off) -> s { ip = Just (IP cb (off + 1)),
-                              stack = (V.!) cb off : stack s }
+                     defining = Just word { body = Colon $ (V.//) cb [(loc + 1, dest)] } }
 
 xif, xelse, xthen :: Cell cell => ForthLambda cell
 xif = here >> compileWord "JUMP-FALSE" >> compile (Val 0)
-xelse = here >> dup >> rot >> backpatch >> compileWord "JUMP" >> compile (Val 0)
+xelse = here >> compileWord "JUMP" >> compile (Val 0) >> here >> rot >> backpatch
 xthen = here >> swap >> backpatch
 
 jumpFalse :: Cell cell => ForthLambda cell
 jumpFalse = do
   val <- pop
   case val of
-lit :: Cell cell => ForthLambda cell
-lit = modify $ \s ->
-    case ip s of
-      Just (IP cb off) -> s { ip = Just (IP cb (off + 1)),
-                              stack = (V.!) cb off : stack s }
-
     Val n | n == 0 -> jump
     otherwise -> noJump
 
@@ -438,10 +435,38 @@ jump :: Cell cell => ForthLambda cell
 jump = modify $ \s ->
     case ip s of
       Just (IP cb off)
-          | Val off' <- (V.!) cb off ->
-                s { ip = Just (IP cb (fromIntegral off')) }
+          | Address (Just (Addr _ off')) <- (V.!) cb off ->
+                s { ip = Just (IP cb off') }
 
 noJump :: Cell cell => ForthLambda cell
 noJump = modify $ \s ->
     case ip s of
       Just (IP cb off) -> s { ip = Just (IP cb (off + 1)) }
+
+-- Loops, we use Forth level run-time words here and we will later replace
+-- DO-LOOP words with something else.
+xdo, rdo, loop, rloop, plusLoop, rplusLoop, back, leave :: Cell cell => ForthLambda cell
+xdo = compileWord "(DO)" >> here
+rdo = updateState $ \s -> case stack s of
+                            s0 : s1 : ss -> newState s { stack = ss, rstack = s0 : s1 : rstack s }
+                            otherwise -> emptyStack s
+
+loop = compileLoop "(LOOP)"
+rloop = updateState $ rloopHelper (1+)
+plusLoop = compileLoop "(+LOOP)"
+rplusLoop = updateState $ \s -> case stack s of
+                                  n : ss -> rloopHelper (n+) (s { stack = ss })
+rloopHelper f s = case rstack s of
+                    i : limit : rs ->
+                        let i' = f i
+                        in newState $ if i' < limit
+                                      then s { rstack = i' : limit : rs,
+                                               stack = Val 0 : stack s }
+                                      else s { rstack = rs,
+                                               stack = Val (-1) : stack s }
+                    otherwise -> emptyStack s
+compileLoop rt = compileWord rt >> compileWord "JUMP-FALSE" >> back
+back = pop >>= compile
+leave = updateState $ \s -> case rstack s of
+                              _i : limit : rs -> newState s { rstack = limit : limit : rs }
+                              otherwise -> emptyStack s
