@@ -289,7 +289,7 @@ abort = do
 
 quit :: Cell cell => ForthLambda cell
 quit = do
-  modify $ \s -> s { rstack = [] }
+  modify $ \s -> s { rstack = [], ip = Nothing }
   push (Val 0) >> sourceID >> store
   mainLoop
 
