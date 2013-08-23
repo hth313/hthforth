@@ -21,10 +21,6 @@
 : PARSE-POS  \ ( -- caddr )
     SOURCE DROP >IN @ + ;
 
-\ Factored out word to start a loop over the parse area
-: PARSE-DO
-    SOURCE + PARSE-POS DO ;
-
 32 CONSTANT BL
 
 \ Parse delimiter test. BL delimiters will match all character values
@@ -33,7 +29,7 @@
 \ we inspect (currying and higher order functions would be nice).
 \ On the other hand, parsing is not what we do most, and especially
 \ not what will be time or power critical.
-: BL-TEST  \ ( char delimiter -- flag )
+: ?DELIM  \ ( char delimiter -- flag )
     DUP BL = IF 1+ < ELSE = THEN ;
 
 \ Parse ccc delimited by delimiter char.
@@ -41,20 +37,22 @@
 \ block for WORD.
 : PARSE  \ ( char "ccc<char>" -- c-addr u )                     ( core ext )
     0 SWAP    \ 0 counter if needed
-    PARSE-DO
-      I @ OVER BL-TEST
-        IF DROP   I SOURCE DROP -   SWAP LEAVE THEN
+    SOURCE + PARSE-POS
+    DO
+      I C@ OVER ?DELIM
+        IF DROP I SOURCE + - SWAP LEAVE THEN
     LOOP
-    DROP  \ delimiter
+    DROP
     PARSE-POS SWAP DUP >IN +! ;
 
 \ Comments
-: (  41 PARSE DROP DROP ; IMMEDIATE
+: (  41 PARSE 2DROP ; IMMEDIATE
 
 \ Skip delimiter characters from the input stream.
 : SKIP  ( char "<chars>" -- )
-    PARSE-DO
-      I @ OVER BL-TEST 0= IF LEAVE THEN
+    SOURCE + PARSE-POS
+    DO
+      I @ OVER ?DELIM 0= IF LEAVE THEN
       >IN 1+!
     LOOP
     DROP ( delimiter )
@@ -78,22 +76,24 @@
 : COMPILE,  ( xt -- )                                           ( core-ext )
     , ;
 
-
 : POSTPONE
     BL WORD FIND
-    IF COMPILE, ELSE ABORT"  THEN
+    IF COMPILE, ELSE ABORT THEN
 ; IMMEDIATE
 
 : ?PAIRS  - IF ABORT" unmatched conditionals" THEN ;
 
 \ Conditionals
 : IF    HERE POSTPONE JUMP-FALSE 0 COMPILE, 2 ; IMMEDIATE
-: ELSE  2 ?PAIRS HERE DUP ROT BACKPATCH POSTPONE JUMP 0 COMPILE, 2 ; IMMEDIATE
+: ELSE  2 ?PAIRS HERE POSTPONE JUMP 0 COMPILE, HERE ROT BACKPATCH 2 ; IMMEDIATE
 : THEN  2 ?PAIRS HERE SWAP BACKPATCH ; IMMEDIATE
 
-\ Colon definitions
-: :  CREATE ] ;
-: ;  POSTPONE EXIT SMUDGE [ ; IMMEDIATE
+\ Loops
+: BACK     HERE COMPILE, ;  ( backward branch )
+: DO      POSTPONE (DO) HERE 3 ; IMMEDIATE
+: LOOP    3 ?PAIRS POSTPONE (LOOP)  POSTPONE JUMP-FALSE BACK ; IMMEDIATE
+: +LOOP   3 ?PAIRS COMPILE, POSTPONE (+LOOP) BACK ; IMMEDIATE
+
 
 
 
