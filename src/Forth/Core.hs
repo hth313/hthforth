@@ -87,7 +87,6 @@ addNatives = do
   addNative "ELSE" xelse >> makeImmediate
   addNative "THEN" xthen >> makeImmediate
   addNative "JUMP-FALSE" jumpFalse
-      where
   addNative "JUMP" jump
   addNative "DO" xdo >> makeImmediate
   addNative "LOOP" loop >> makeImmediate
@@ -97,13 +96,14 @@ addNatives = do
   addNative "(+LOOP)" rplusLoop
   addNative "LEAVE" leave
   addNative "." (pop >>= (liftIO . putStrLn . show)) -- temporary
+      where
         divide (Val a) (Val b) = Val (a `div` b)
         divide a b = Bot $ show a ++ " / " ++ show b
+        boolVal p (Val a) (Val b) = Val $ if p a b then (-1) else 0
+        bool p a b = Val $ if p a b then (-1) else 0
 
 plus, dup, drop, swap, over, rot, plusStore,
       tor, rto, rfetch :: Cell cell => ForthLambda cell
-        boolVal p (Val a) (Val b) = Val $ if p a b then (-1) else 0
-        bool p a b = Val $ if p a b then (-1) else 0
 plus = binary (+)
 
 dup = updateState $ \s ->
@@ -263,10 +263,6 @@ interpret :: Cell cell => ForthLambda cell
 interpret = state >> fetch >> pop >>= interpret1 where
     interpret1 stateFlag =
         let compiling = stateFlag /= Val 0
-        in do
-          xword
-          dup >> cfetch
-          eol <- liftM (Val 0 ==) pop
             parseNumber = parse =<< countedText =<< pop where
                 parse bs = case readDec text of
                              [(x,"")]
@@ -274,6 +270,10 @@ interpret = state >> fetch >> pop >>= interpret1 where
                                  | otherwise -> push $ Val x
                              otherwise -> abortMessage $ text ++ " ?"
                              where text = C.unpack bs
+        in do
+          xword
+          dup >> cfetch
+          eol <- liftM (Val 0 ==) pop
           if eol then drop else do
               find
               val <- pop
@@ -409,6 +409,12 @@ here = modify $ \s ->
       Just word
           | Colon cb <- body word ->
                 s { stack = Address (Just (Addr (wid word) (V.length cb))) : stack s }
+
+lit :: Cell cell => ForthLambda cell
+lit = modify $ \s ->
+    case ip s of
+      Just (IP cb off) -> s { ip = Just (IP cb (off + 1)),
+                              stack = (V.!) cb off : stack s }
 
 backpatch :: Cell cell => ForthLambda cell
 backpatch = modify $ \s ->
