@@ -82,6 +82,7 @@ addNatives = do
   addNative "," comma
   addNative "HERE" here
   addNative "IF" xif >> makeImmediate
+  addNative "(LIT)" lit
   addNative "ELSE" xelse >> makeImmediate
   addNative "THEN" xthen >> makeImmediate
   addNative "JUMP-FALSE" jumpFalse
@@ -252,7 +253,7 @@ interpret = state >> fetch >> pop >>= interpret1 where
             parseNumber = parse =<< countedText =<< pop where
                 parse bs = case readDec text of
                              [(x,"")]
-                                 | compiling -> compile $ Val x
+                                 | compiling -> compileWord "(LIT)" >> compile (Val x)
                                  | otherwise -> push $ Val x
                              otherwise -> abortMessage $ text ++ " ?"
                              where text = C.unpack bs
@@ -410,6 +411,12 @@ jumpFalse :: Cell cell => ForthLambda cell
 jumpFalse = do
   val <- pop
   case val of
+lit :: Cell cell => ForthLambda cell
+lit = modify $ \s ->
+    case ip s of
+      Just (IP cb off) -> s { ip = Just (IP cb (off + 1)),
+                              stack = (V.!) cb off : stack s }
+
     Val n | n == 0 -> jump
     otherwise -> noJump
 
