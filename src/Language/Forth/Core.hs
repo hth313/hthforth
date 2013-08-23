@@ -7,7 +7,7 @@
 
 -}
 
-module Forth.Core (addNatives, abort, quit) where
+module Language.Forth.Core (addNatives, abort, quit) where
 
 import Control.Applicative
 import Control.Exception (try)
@@ -17,14 +17,14 @@ import qualified Data.Vector.Storable.ByteString as B
 import qualified Data.Vector.Storable.ByteString.Char8 as C
 import qualified Data.Vector as V
 import Data.Bits
-import Forth.Address
-import Forth.Cell
-import Forth.CellMemory
-import Forth.DataField
-import Forth.Machine
-import Forth.StreamFile
-import Forth.Types
-import Forth.Word
+import Language.Forth.Address
+import Language.Forth.Cell
+import Language.Forth.CellMemory
+import Language.Forth.DataField
+import Language.Forth.Machine
+import Language.Forth.StreamFile
+import Language.Forth.Types
+import Language.Forth.Word
 import Util.Memory
 import qualified Data.IntMap as IntMap
 import System.IO

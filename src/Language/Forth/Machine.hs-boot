@@ -1,4 +1,4 @@
-module Forth.Machine (MachineM, ForthLambda) where
+module Language.Forth.Machine (MachineM, ForthLambda) where
 
 import Control.Monad.State.Lazy
 import System.Console.Haskeline

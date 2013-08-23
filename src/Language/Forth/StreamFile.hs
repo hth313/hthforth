@@ -6,7 +6,7 @@
 
 -}
 
-module Forth.StreamFile (readSourceFile) where
+module Language.Forth.StreamFile (readSourceFile) where
 
 import Control.Monad.Trans
 import Data.Vector.Storable.ByteString (ByteString)

@@ -6,7 +6,7 @@
 
 -}
 
-module Forth.Cell (Cell(..)) where
+module Language.Forth.Cell (Cell(..)) where
 
 import Data.Bits
 import Data.Int

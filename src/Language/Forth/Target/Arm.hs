@@ -6,10 +6,10 @@
 
 -}
 
-module Forth.Target.Arm () where
+module Language.Forth.Target.Arm () where
 
 import Data.Int
-import Forth.Cell
+import Language.Forth.Cell
 
 instance Cell Int32 where
     bytesPerCell _        = 4

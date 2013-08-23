@@ -6,16 +6,16 @@
 
 -}
 
-module Forth.Word (ForthWord(..), IP(..), Body(..), LinkField) where
+module Language.Forth.Word (ForthWord(..), IP(..), Body(..), LinkField) where
 
 import Data.Char
 import Data.Vector.Storable.ByteString.Char8 (ByteString)
 import qualified Data.Vector.Storable.ByteString.Char8 as B
 import Data.Vector (Vector)
 import qualified Data.Vector as V
-import Forth.WordId
-import Forth.Types
-import {-# SOURCE #-} Forth.Machine
+import Language.Forth.WordId
+import Language.Forth.Types
+import {-# SOURCE #-} Language.Forth.Machine
 
 
 -- | A Forth word

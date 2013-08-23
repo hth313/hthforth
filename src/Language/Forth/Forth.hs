@@ -10,9 +10,9 @@ module Main (main) where
 
 import Control.Monad.Trans
 import Data.Int
-import Forth.Core
-import Forth.Machine
-import Forth.Target
+import Language.Forth.Core
+import Language.Forth.Machine
+import Language.Forth.Target
 import Util.Endian
 import System.Console.Haskeline
 import System.Directory

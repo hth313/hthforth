@@ -7,7 +7,7 @@
 
 -}
 
-module Forth.Block (readBlockFile) where
+module Language.Forth.Block (readBlockFile) where
 
 import Data.Vector.Storable.ByteString.Char8 (ByteString)
 import qualified Data.Vector.Storable.ByteString.Char8ByteString.Char8 as C

@@ -18,7 +18,7 @@ extra-source-files:
 
 executable Forth
   hs-source-dirs: src
-  main-is:        Forth/Forth.hs
+  main-is:        Language/Forth/Forth.hs
 
 Library
   build-depends: base       >= 4     && < 4.6

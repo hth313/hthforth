@@ -6,19 +6,19 @@
 
 -}
 
-module Forth.Types (Lit(..),
-                    true, false,
-                    isValue, isAddress, isAny, isExecutionToken) where
+module Language.Forth.Types (Lit(..),
+                             true, false,
+                             isValue, isAddress, isAny, isExecutionToken) where
 
 import Data.Bits
 import Data.Ord
 import Data.Map (Map)
 import Data.Word
-import Forth.Cell
+import Language.Forth.Cell
 import qualified Data.Vector as V
 import Data.Vector.Storable.ByteString (ByteString)
-import Forth.Address
-import {-# SOURCE #-} Forth.Word
+import Language.Forth.Address
+import {-# SOURCE #-} Language.Forth.Word
 
 -- | Literals are values that can be stored inside a cell. This is also what goes
 --   into a colon definition.

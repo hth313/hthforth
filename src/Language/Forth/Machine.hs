@@ -7,19 +7,19 @@
 
 -}
 
-module Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop, pushAdr,
-                      ForthWord(..), StateT(..), emptyStack, abortWith, abortMessage,
-                      updateState, updateStateVal, newState,
-                      initialState, evalStateT, execute,
-                      create, makeImmediate, smudge,
-                      addNative, addNativeFixed, addFixed, addVar, putField,
-                      wordBufferId,
-                      inputBufferId, inputBufferPtrId, inputBufferLengthId,
-                      stateId, sourceId, toInId, exitId,
-                      wordIdExecute, wordLookup,
-                      doColon, doVar, doConst,
-                      withTempBuffer, searchDictionary, compileWord,
-                      compile, comma) where
+module Language.Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop, pushAdr,
+                               ForthWord(..), StateT(..), emptyStack, abortWith, abortMessage,
+                               updateState, updateStateVal, newState,
+                               initialState, evalStateT, execute,
+                               create, makeImmediate, smudge,
+                               addNative, addNativeFixed, addFixed, addVar, putField,
+                               wordBufferId,
+                               inputBufferId, inputBufferPtrId, inputBufferLengthId,
+                               stateId, sourceId, toInId, exitId,
+                               wordIdExecute, wordLookup,
+                               doColon, doVar, doConst,
+                               withTempBuffer, searchDictionary, compileWord,
+                               compile, comma) where
 
 import Control.Applicative
 import Control.Exception
@@ -33,15 +33,15 @@ import Data.Typeable
 import Data.Word
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
-import Forth.Address
-import Forth.Cell
-import Forth.CellMemory
-import {-# SOURCE #-} Forth.Core
-import Forth.DataField
-import Forth.Target
-import Forth.Word
-import Forth.WordId
-import Forth.Types
+import Language.Forth.Address
+import Language.Forth.Cell
+import Language.Forth.CellMemory
+import {-# SOURCE #-} Language.Forth.Core
+import Language.Forth.DataField
+import Language.Forth.Target
+import Language.Forth.Word
+import Language.Forth.WordId
+import Language.Forth.Types
 import System.Console.Haskeline
 
 type MachineM cell = StateT (Machine cell) (InputT IO)

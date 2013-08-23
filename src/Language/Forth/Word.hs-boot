@@ -1,4 +1,4 @@
-module Forth.Word (ForthWord, name, IP) where
+module Language.Forth.Word (ForthWord, name, IP) where
 
 import Data.Vector.Storable.ByteString.Char8 (ByteString)
 

@@ -1,5 +1,5 @@
 
-module Forth.Target (Target(..)) where
+module Language.Forth.Target (Target(..)) where
 
 import Util.Endian
 import Util.Memory

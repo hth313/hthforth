@@ -6,11 +6,11 @@
 
 -}
 
-module Forth.DataField (DataField(..), newDataField, newBuffer,
-                        textBuffer) where
+module Language.Forth.DataField (DataField(..), newDataField, newBuffer,
+                                 textBuffer) where
 
-import Forth.Address
-import Forth.CellMemory
+import Language.Forth.Address
+import Language.Forth.CellMemory
 import Util.Memory
 
 -- | A data field is the body of a data word. It can either be
