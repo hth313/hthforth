@@ -157,12 +157,20 @@ state = wordIdExecute stateId
 
 
 fetch :: Cell cell => ForthLambda cell
-fetch = modify $ \s ->
+fetch = updateState $ \s ->
     case stack s of
-      Address (Just adr@(Addr wid _)) : rest
-          | Just (DataField cm) <- IntMap.lookup wid (variables s),
-            Just x <- readCell adr cm ->
-                s { stack = x : rest }
+      Address (Just adr@(Addr wid _)) : rest ->
+          case IntMap.lookup wid (variables s) of
+            Just (DataField cm) ->
+                case readCell adr cm of
+                  Just x -> newState s { stack = x : rest }
+                  otherwise -> abortWith "@ outside data field" s
+            Just (BufferField mem) -> abortWith "@ in buffer field" s
+            Nothing -> case IntMap.lookup wid (wordMap s) of
+                         Just word -> abortWith (C.unpack (name word) ++ " lacks data field") s
+                         Nothing -> abortWith "@ on unknwon word" s
+      [] -> emptyStack s
+      a : _ -> abortWith ("cannot fetch from " ++ show a) s
 
 cfetch :: Cell cell => ForthLambda cell
 cfetch = modify $ \s ->
