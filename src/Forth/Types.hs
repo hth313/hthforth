@@ -11,6 +11,7 @@ module Forth.Types (Lit(..),
                     isValue, isAddress, isAny, isExecutionToken) where
 
 import Data.Bits
+import Data.Ord
 import Data.Map (Map)
 import Data.Word
 import Forth.Cell
@@ -27,6 +28,11 @@ data Lit cell = Address (Maybe Addr) |
                 Loc (Maybe (IP cell)) |
                 Bot String
                 deriving (Eq, Show)
+
+instance Cell cell => Ord (Lit cell) where
+    compare (Val a) (Val b) = compare a b
+    compare (Address a) (Address b) = compare a b
+    compare (XT a) (XT b) = comparing name a b
 
 
 -- | Make 'Lit cell' part of Num class. This allows us to use functions such as (+)

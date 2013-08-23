@@ -6,7 +6,7 @@ import Util.Address
 -- | All address refer to a data field of some word. In some cases we
 --   are pointing to an input buffer, but in those cases we use a special
 --   word to hold the buffer, so we still can use the same means.
-data Addr = Addr WordId Int deriving Eq
+data Addr = Addr WordId Int deriving (Eq, Ord)
 
 instance Show Addr where
     show (Addr word off) = "#(" ++ show word ++ "," ++ show off ++ ")"
