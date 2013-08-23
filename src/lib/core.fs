@@ -17,7 +17,7 @@
 
 \ Parse delimiter test. BL delimiters will match all character values
 \ up to BL. Other delimiters are precise.
-\ This is a tab inefficient as we test the delimiter for each chararcter
+\ This is a tad inefficient as we test the delimiter for each chararcter
 \ we inspect (currying and higher order functions would be nice).
 \ On the other hand, parsing is not what we do most, and especially
 \ not what will be time or power critical.
