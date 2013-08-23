@@ -410,6 +410,12 @@ backpatch = modify $ \s ->
                  s { stack = stack',
                      defining = Just word { body = Colon $ (V.//) cb [(loc + 1, Val (fromIntegral dest))] } }
 
+lit :: Cell cell => ForthLambda cell
+lit = modify $ \s ->
+    case ip s of
+      Just (IP cb off) -> s { ip = Just (IP cb (off + 1)),
+                              stack = (V.!) cb off : stack s }
+
 xif, xelse, xthen :: Cell cell => ForthLambda cell
 xif = here >> compileWord "JUMP-FALSE" >> compile (Val 0)
 xelse = here >> dup >> rot >> backpatch >> compileWord "JUMP" >> compile (Val 0)
