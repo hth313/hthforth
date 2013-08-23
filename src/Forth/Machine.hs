@@ -272,6 +272,7 @@ compileWord name = do
   mword <- searchDictionary name
   case mword of
     Just word -> compile $ XT word
+    otherwise -> abortMessage $ C.unpack name ++ " ?"
 
 -- | Add a literal to current body of word being defined.
 comma :: Cell cell => ForthLambda cell
