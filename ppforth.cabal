@@ -1,4 +1,4 @@
-Name:           ppForth
+Name:           ppforth
 Cabal-Version:  >=1.6
 Version:        1.1.1
 Category:       Language
@@ -8,7 +8,7 @@ Copyright:      (c) Håkan Thörngren
 Author:         Håkan Thörngren
 Maintainer:     Håkan Thörngren <hth313@gmail.com>
 Synopsis:       A Forth-2012 System Subset
-Description:    ppForth implements a subset of Forth-2012.
+Description:    ppforth implements a subset of Forth-2012.
 Homepage:       http://github.com/ppForth
 Stability:      Experimental
 Build-Type:     Simple
@@ -16,7 +16,7 @@ extra-source-files:
         src/lib/core.fs
         src/lib/core-ext.fs
 
-executable Forth
+executable ppforth
   hs-source-dirs: src
   main-is:        Language/Forth/Forth.hs
 
