@@ -1,5 +1,13 @@
 \ Forth core words
 
+\ When this file is loaded, only a very small subset of words are available.
+\ They are defined in the Haskell module Language.Forth.Core
+\ Only backslash comments are available at this point, we will define ( comments
+\ further down in this file.
+\ The order of the words are dictated by the fact that we do not have so many
+\ words available when we start.
+
+
 \ Compile state
 : [  FALSE STATE ! ; IMMEDIATE
 : ]  TRUE STATE ! ;
