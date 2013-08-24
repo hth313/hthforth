@@ -18,6 +18,8 @@
 : INVERT  TRUE XOR ;
 : NEGATE  INVERT 1+ ;
 
+: 1+!  DUP @ 1+ SWAP ! ;
+
 : PARSE-POS  \ ( -- caddr )
     SOURCE DROP >IN @ + ;
 
