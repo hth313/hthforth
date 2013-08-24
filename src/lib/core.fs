@@ -48,13 +48,19 @@
     PARSE-POS SWAP DUP >IN +! ;
 
 \ Comments
-: (  41 PARSE 2DROP ; IMMEDIATE
+: (
+    SOURCE + PARSE-POS
+    DO
+      I C@ 41 = IF LEAVE THEN
+      >IN 1+!
+    LOOP
+; IMMEDIATE
 
 \ Skip delimiter characters from the input stream.
 : SKIP  ( char "<chars>" -- )
     SOURCE + PARSE-POS
     DO
-      I @ OVER ?DELIM 0= IF LEAVE THEN
+      I C@ OVER ?DELIM 0= IF LEAVE THEN
       >IN 1+!
     LOOP
     DROP ( delimiter )
