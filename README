@@ -1,0 +1,16 @@
+ppforth is a Forth-2012 written in Haskell and Forth. The ideas is to
+keep pace with the development of ANS EuroForth standard.
+
+The current aim is to have fun implementing Forth, provide a subset of
+the standard by implementing core words.
+
+This Forth can be used standalone, just build it using Haskell
+cabal. Later it is hoped it can be used as an embedded scripting
+language in Haskell.
+Further down the road the idea is also to make it into Forth cross
+compiler for embedded systems development.
+
+August 2013, Håkan Thörngren, hth313@gmail.com
+
+There is a Trello board for this project available at
+https://trello.com/b/HNLHA3en/forth
