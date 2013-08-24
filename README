@@ -1,16 +1,40 @@
-ppforth is a Forth-2012 written in Haskell and Forth. The ideas is to
-keep pace with the development of ANS EuroForth standard.
+ppforth is a Forth-2012 written in Haskell and Forth. The idea is to
+keep pace with the development of the proposed Forth 200x standard
+(currently called Forth-2012).
+Visit http://www.forth200x.org for more information.
 
-The current aim is to have fun implementing Forth, provide a subset of
-the standard by implementing core words.
+This project is under development and is currently not complete in any
+way.
+
+At the mlment the aim is to have fun implementing Forth and provide a
+subset of the standard by implementing the core set of words, probably
+including core-ext words as well.
 
 This Forth can be used standalone, just build it using Haskell
-cabal. Later it is hoped it can be used as an embedded scripting
+cabal. Later it is hoped it can also be used as an embedded scripting
 language in Haskell.
-Further down the road the idea is also to make it into Forth cross
-compiler for embedded systems development.
+Even further down the road the idea is to also make it into Forth
+cross compiler for embedded systems development.
+
+To build ppforth, you will need to have Haskell installed, some ghc
+version 7.x version should work. Then do the following in the top
+level directory:
+% cabal configure
+% cabal build
+
+To run:
+% dist/build/ppforth/ppforth
+
+When started, there is a very small subset of core words available. To
+bring more words in (it will currently fail a bit into the file):
+LOAD-SOURCE src/lib/core.fs
+
+To exit ppforth, type BYE or press Ctrl-C.
+
+Haskeline is used, so you have full command line history and editing
+available.
 
 August 2013, Håkan Thörngren, hth313@gmail.com
 
-There is a Trello board for this project available at
+There is also a Trello board for this project available at
 https://trello.com/b/HNLHA3en/forth
