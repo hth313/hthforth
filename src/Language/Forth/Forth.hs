@@ -15,7 +15,7 @@ import System.IO
 
 main =
     let target = Target 4 4 1 LittleEndian :: Target Int32
-        name = "ppforth"
+        name = "hthforth"
     in do
       putStrLn $ name ++ ", version 1.1.1"
       putStrLn "A Forth-2012 System Subset - under development"

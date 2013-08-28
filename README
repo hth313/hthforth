@@ -1,4 +1,4 @@
-ppforth is a Forth-2012 written in Haskell and Forth. The idea is to
+hthforth is a Forth-2012 written in Haskell and Forth. The idea is to
 keep pace with the development of the proposed Forth 200x standard
 (currently called Forth-2012).
 Visit http://www.forth200x.org for more information.
@@ -6,7 +6,7 @@ Visit http://www.forth200x.org for more information.
 This project is under development and is currently not complete in any
 way.
 
-At the mlment the aim is to have fun implementing Forth and provide a
+At the moment the aim is to have fun implementing Forth and provide a
 subset of the standard by implementing the core set of words, probably
 including core-ext words as well.
 
@@ -16,20 +16,22 @@ language in Haskell.
 Even further down the road the idea is to also make it into Forth
 cross compiler for embedded systems development.
 
-To build ppforth, you will need to have Haskell installed, some ghc
-version 7.x version should work. Then do the following in the top
-level directory:
+To build hthforth, you will need to have Haskell installed, some ghc
+version 7.0.x - 7.2.x should work (I have not tested 7.4.x).
+Currently you need to avoid 7.6 as it has been found that hthforth
+cause a ghc compiler panic (tested on 7.6.2 and 7.6.3).
+With a suitable ghc, do the following in the top level directory:
 % cabal configure
 % cabal build
 
 To run:
-% dist/build/ppforth/ppforth
+% dist/build/hthforth/hthforth
 
 When started, there is a very small subset of core words available. To
 bring more words in (it will currently fail a bit into the file):
 LOAD-SOURCE src/lib/core.fs
 
-To exit ppforth, type BYE or press Ctrl-C.
+To exit hthforth, type BYE or press Ctrl-C.
 
 Haskeline is used, so you have full command line history and editing
 available.
@@ -37,4 +39,4 @@ available.
 August 2013, Håkan Thörngren, hth313@gmail.com
 
 There is also a Trello board for this project available at
-https://trello.com/b/HNLHA3en/forth
+https://trello.com/b/HNLHA3en/hthforth
