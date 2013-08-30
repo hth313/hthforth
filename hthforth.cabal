@@ -21,7 +21,7 @@ executable hthforth
   main-is:        Language/Forth/Forth.hs
 
 Library
-  build-depends: base       >= 4     && < 4.6
+  build-depends: base       >= 4     && < 4.7
                , containers
                , directory
                , filepath
