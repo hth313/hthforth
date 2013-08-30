@@ -8,7 +8,7 @@ import Util.Endian
 
 
 -- | Cell class
-class (Bits cell, Integral cell, Num cell) => Cell cell
+class (Bits cell, Integral cell, Num cell, Show cell) => Cell cell
 
 instance Cell Int16
 instance Cell Int32
