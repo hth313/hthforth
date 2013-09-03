@@ -349,7 +349,7 @@ evaluate = do
 
 -- | Load a source file using the Forth interpreter
 loadSource :: Cell cell => FilePath -> ForthLambda cell
-loadSource  filename = do -- withTempBuffer evaluate =<< (liftIO $ readSourceFile filename)
+loadSource  filename = do
   mc <- liftIO $ try $ readSourceFile filename
   case mc of
     Right contents -> withTempBuffer evaluate contents
