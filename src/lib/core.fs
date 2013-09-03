@@ -134,21 +134,10 @@ VARIABLE BLK
 : LOAD
     BLK @ SWAP DUP BLK ! (LOAD) BLK ! ;
 
-\ Stack primitives
-: ROT
-    >R SWAP R> SWAP ;
-: ?DUP
-    DUP IF DUP THEN ;
-
 ( Not part of CORE, disabled at the moment )
 \ : -ROT  SWAP >R SWAP R> ;  \ or ROT ROT
 \ : NIP  ( n1 n2 -- n2 )       SWAP DROP ;
 \ : TUCK ( n1 n2 -- n2 n1 n2 ) SWAP OVER ;
-
-: 2DROP   DROP DROP ;
-: 2DUP  OVER OVER ;
-: 2SWAP  ROT >R ROT R> ;
-: 2OVER  >R >R 2DUP R> R> 2SWAP ;
 
 \ Comparisons
 -1 CONSTANT TRUE   0 CONSTANT FALSE
@@ -159,11 +148,6 @@ VARIABLE BLK
     - 0< ;
 :  > ( n n -- f )
     SWAP < ;
-
-: MAX ( n n -- n )
-    2DUP < IF SWAP THEN DROP ;
-: MIN ( n n -- n )
-    2DUP > IF SWAP THEN DROP ;
 
 : WITHIN  ( u ul uh -- f )
     OVER - >R - R> U< ;
