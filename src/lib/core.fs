@@ -28,7 +28,6 @@
 : INVERT  TRUE XOR ;
 : NEGATE  INVERT 1+ ;
 
-: 1+!  DUP @ 1+ SWAP ! ;
 : +!   DUP @ ROT + SWAP ! ;
 
 \ Comparison
