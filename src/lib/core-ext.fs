@@ -23,3 +23,6 @@
 \ Skip leading space delimiters. Parse name delimited by a space
 : PARSE-NAME  ( "<spaces>name<space> -- caddr u )
     BL DUP SKIP PARSE ;
+
+: WITHIN  ( u ul uh -- f )
+    OVER - >R - R> U< ;
