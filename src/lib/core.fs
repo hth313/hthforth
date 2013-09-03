@@ -118,6 +118,12 @@
 : +LOOP   3 ?PAIRS COMPILE, POSTPONE (+LOOP) BACK ; IMMEDIATE
 
 
+: MAX  ( n n -- n )
+    2DUP < IF SWAP THEN DROP ;
+: MIN ( n n -- n)
+    2DUP > IF SWAP THEN DROP ;
+
+
 
 
 
