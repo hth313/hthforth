@@ -93,6 +93,8 @@ addNatives = do
   addNative "(LOOP)" rloop
   addNative "(+LOOP)" rplusLoop
   addNative "LEAVE" leave
+  addNative "ABORT" abort
+  addNative "QUIT" quit
   addNative "." (pop >>= (liftIO . putStrLn . show)) -- temporary
       where
         divide (Val a) (Val b) = Val (a `div` b)
