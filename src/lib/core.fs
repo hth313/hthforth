@@ -30,6 +30,11 @@
 
 : 1+!  DUP @ 1+ SWAP ! ;
 
+\ Comparison
+: =  - 0= ;
+: <  - 0< ;
+: >  SWAP < ;
+
 : PARSE-POS  \ ( -- caddr )
     SOURCE DROP >IN @ + ;
 
