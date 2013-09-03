@@ -41,8 +41,8 @@ addNatives = do
   addNative "-"   $ binary (-)
   addNative "*"   $ binary (*)
   addNative "/"   $ binary divide
-  addNative "<"   $ binary (boolVal $ (<))
-  addNative "="   $ binary (bool $ (==))
+  addNative "0<"  $ unary $ boolVal (0<)
+  addNative "0="  $ unary $ bool (0==)
   addNative "AND" $ binary (.&.)
   addNative "OR"  $ binary (.|.)
   addNative "XOR" $ binary xor
@@ -97,8 +97,9 @@ addNatives = do
       where
         divide (Val a) (Val b) = Val (a `div` b)
         divide a b = Bot $ show a ++ " / " ++ show b
-        boolVal p (Val a) (Val b) = Val $ if p a b then (-1) else 0
-        bool p a b = Val $ if p a b then (-1) else 0
+        boolVal p (Val x) = bool p x
+        bool p x | p x = Val (-1)
+                 | otherwise = Val 0
 
 plus, dup, drop, swap, over, rot, plusStore,
       tor, rto, rfetch :: Cell cell => ForthLambda cell
@@ -152,6 +153,10 @@ binary op = updateState $ \s ->
       s0 : s1 : ss -> newState s { stack = s1 `op` s0 : ss  }
       otherwise -> emptyStack s
 
+unary op = updateState $ \s ->
+    case stack s of
+      s0 : ss -> newState s { stack = op s0 : ss  }
+      otherwise -> emptyStack s
 
 inputBuffer, inputBufferPtr, inputBufferLength, toIn,
     sourceID, state :: Cell cell => ForthLambda cell
