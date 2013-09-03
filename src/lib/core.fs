@@ -81,9 +81,6 @@
     DROP ( delimiter )
     ;
 
-: WORD  ( char "<chars>name<char> -- counted-c-addr )
-    DUP SKIP PARSE >HERE ;
-
 \ If flag is set, ABORT
 \ This is useful as a way out of strange unexpected problems when we
 \ do not even bother to tell the user what was wrong.
@@ -95,6 +92,9 @@
     31 OVER U< ?ABORT
     HERE >R R@ 2DUP C!
     1+ SWAP MOVE R> ;
+
+: WORD  ( char "<chars>name<char> -- counted-c-addr )
+    DUP SKIP PARSE >HERE ;
 
 : COMPILE,  ( xt -- )                                           ( core-ext )
     , ;
