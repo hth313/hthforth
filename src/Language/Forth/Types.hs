@@ -4,7 +4,7 @@
 
 -}
 
-module Language.Forth.Types (Lit(..),
+module Language.Forth.Types (CellVal(..),
                              true, false,
                              isValue, isAddress, isAny, isExecutionToken) where
 
@@ -18,24 +18,24 @@ import Data.Vector.Storable.ByteString (ByteString)
 import Language.Forth.Address
 import {-# SOURCE #-} Language.Forth.Word
 
--- | Literals are values that can be stored inside a cell. This is also what goes
+-- | Cell values are what we can put into a cell.This is also what goes
 --   into a colon definition.
-data Lit cell = Address (Maybe Addr) |
-                Val cell |
-                XT (ForthWord cell) |
-                Loc (Maybe (IP cell)) |
-                Bot String
-                deriving (Eq, Show)
+data CellVal cell = Address (Maybe Addr) |
+                    Val cell |
+                    XT (ForthWord cell) |
+                    Loc (Maybe (IP cell)) |
+                    Bot String
+                    deriving (Eq, Show)
 
-instance Cell cell => Ord (Lit cell) where
+instance Cell cell => Ord (CellVal cell) where
     compare (Val a) (Val b) = compare a b
     compare (Address a) (Address b) = compare a b
     compare (XT a) (XT b) = comparing name a b
 
 
--- | Make 'Lit cell' part of Num class. This allows us to use functions such as (+)
+-- | Make 'CellVal cell' part of Num class. This allows us to use functions such as (+)
 --   and many others direct on literals.
-instance Cell cell => Num (Lit cell) where
+instance Cell cell => Num (CellVal cell) where
     (Val a) + (Val b) = Val (a + b)
     (Address (Just (Addr w off))) + (Val b) = Address (Just (Addr w (off + (fromIntegral b))))
     (Val b) + (Address (Just (Addr w off))) = Address (Just (Addr w (off +  (fromIntegral b))))
@@ -63,8 +63,8 @@ instance Cell cell => Num (Lit cell) where
     fromInteger n = Val (fromInteger n)
 
 
--- | Also make 'Lit cell' part of Bits to allow further operations.
-instance Cell cell => Bits (Lit cell) where
+-- | Also make 'CellVal cell' part of Bits to allow further operations.
+instance Cell cell => Bits (CellVal cell) where
     (Val a) .&. (Val b) = Val (a .&. b)
     a .&. b = Bot $ show a ++ " " ++ show b ++ " AND"
     (Val a) .|. (Val b) = Val (a .|. b)
@@ -78,7 +78,7 @@ instance Cell cell => Bits (Lit cell) where
     isSigned _ = False
 
 -- | Boolean truth values.
-true, false :: Cell cell => Lit cell
+true, false :: Cell cell => CellVal cell
 true = Val (-1)
 false = Val 0
 

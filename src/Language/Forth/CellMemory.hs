@@ -22,16 +22,16 @@ data CellMemory cell = CellMemory {
       target :: Target cell
     }
 
-data StorageUnit cell = Part Int (Lit cell) | Byte Word8
+data StorageUnit cell = Part Int (CellVal cell) | Byte Word8
 
 newCellMemory :: Target cell -> Int -> CellMemory cell
 newCellMemory target size = CellMemory IntMap.empty size target
 
-readCell :: Addr -> CellMemory cell -> Maybe (Lit cell)
+readCell :: Addr -> CellMemory cell -> Maybe (CellVal cell)
 readCell (Addr _ i) mem =
     case IntMap.lookup i (contents mem) of
       Just (Part _ cell) -> Just cell
 
-writeCell :: Lit cell -> Addr -> CellMemory cell -> CellMemory cell
+writeCell :: CellVal cell -> Addr -> CellMemory cell -> CellMemory cell
 writeCell val (Addr _ i) mem =
     mem { contents = IntMap.insert i (Part 0 val) (contents mem) }

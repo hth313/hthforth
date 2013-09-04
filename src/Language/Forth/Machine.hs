@@ -46,7 +46,7 @@ type MachineM cell = StateT (Machine cell) (InputT IO)
 
 -- The Forth state
 data Machine cell = Machine { -- The Forth stacks
-                              stack, rstack :: [Lit cell],
+                              stack, rstack :: [CellVal cell],
                               dictionaryHead :: LinkField cell,
                               defining :: LinkField cell,  -- ^ word being defined
                               ip :: Maybe (IP cell),
@@ -115,7 +115,7 @@ updateStateVal x f = do
 newState s = return (Right (), s)
 
 -- | Pop from data stack
-pop :: Cell cell => MachineM cell (Lit cell)
+pop :: Cell cell => MachineM cell (CellVal cell)
 pop = updateStateVal (Val 0) $ \s ->
         case stack s of
           t:ts -> return (Right t, s { stack = ts })
