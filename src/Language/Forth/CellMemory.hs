@@ -11,8 +11,8 @@ import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Data.Word
 import Language.Forth.Address
+import Language.Forth.CellVal
 import Language.Forth.Target
-import Language.Forth.Types
 import Util.Address
 import Util.Endian
 

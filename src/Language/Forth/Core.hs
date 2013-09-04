@@ -18,10 +18,10 @@ import Data.Bits
 import Language.Forth.Address
 import Language.Forth.Cell
 import Language.Forth.CellMemory
+import Language.Forth.CellVal
 import Language.Forth.DataField
 import Language.Forth.Machine
 import Language.Forth.StreamFile
-import Language.Forth.Types
 import Language.Forth.Word
 import Util.Memory
 import qualified Data.IntMap as IntMap

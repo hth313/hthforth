@@ -1,12 +1,12 @@
 {-|
 
-  Basic types.
+  Cell values.
 
 -}
 
-module Language.Forth.Types (CellVal(..),
-                             true, false,
-                             isValue, isAddress, isAny, isExecutionToken) where
+module Language.Forth.CellVal (CellVal(..),
+                               true, false,
+                               isValue, isAddress, isAny, isExecutionToken) where
 
 import Data.Bits
 import Data.Ord

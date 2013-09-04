@@ -34,12 +34,12 @@ import qualified Data.IntMap as IntMap
 import Language.Forth.Address
 import Language.Forth.Cell
 import Language.Forth.CellMemory
+import Language.Forth.CellVal
 import {-# SOURCE #-} Language.Forth.Core
 import Language.Forth.DataField
 import Language.Forth.Target
 import Language.Forth.Word
 import Language.Forth.WordId
-import Language.Forth.Types
 import System.Console.Haskeline
 
 type MachineM cell = StateT (Machine cell) (InputT IO)
