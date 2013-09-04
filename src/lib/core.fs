@@ -15,8 +15,8 @@
 : SOURCE  INPUT-LINE @ #INPUT-LINE @ ;
 
 \ Stack primitives
-: ROT  >R SWAP R> SWAP ;
-: ?DUP  DUP IF DUP THEN ;
+: ROT    >R SWAP R> SWAP ;
+: ?DUP   DUP IF DUP THEN ;
 : 2DROP  DROP DROP ;
 : 2DUP   OVER OVER ;
 : 2SWAP  ROT >R ROT R> ;
