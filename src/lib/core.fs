@@ -34,6 +34,7 @@
 : =  - 0= ;
 : <  - 0< ;
 : >  SWAP < ;
+: U<  2DUP XOR 0< IF SWAP DROP 0< EXIT THEN - 0< ;
 
 : PARSE-POS  \ ( -- caddr )
     SOURCE DROP >IN @ + ;
