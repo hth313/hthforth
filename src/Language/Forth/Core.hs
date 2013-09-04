@@ -52,6 +52,7 @@ addNatives = do
   addNative "OVER"  over
   addNative "SWAP"  swap
   addNative "!"     store
+  addNative "C!"    cstore
   addNative "+!"    plusStore
   addNative "@"     fetch
   addNative "C@"    cfetch
@@ -206,6 +207,19 @@ store = updateState $ \s ->
       [] -> emptyStack s
       [x] -> abortWith ("no value to store to " ++ show x) s
       x:_ -> abortWith ("cannot store to " ++ show x) s
+
+
+cstore :: Cell cell => ForthLambda cell
+cstore = updateState $ \s ->
+    case stack s of
+      Address (Just adr@(Addr wid i)) : Val val : rest
+          | Just (BufferField bm) <- IntMap.lookup wid (variables s) ->
+              newState s { variables = IntMap.insert wid (BufferField $ write8 (fromIntegral val) adr bm)
+                                       (variables s),
+                           stack = rest }
+      [] -> emptyStack s
+      [x] -> abortWith ("no value to C! to " ++ show x) s
+      x:_ -> abortWith ("cannot C! to " ++ show x) s
 
 
 -- | Find the name (counted string) in the dictionary
