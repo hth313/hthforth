@@ -46,7 +46,9 @@ instance Cell cell => Num (CellVal cell) where
          Address (Just (Addr w  (off + (negate $ fromIntegral b))))
     (Address (Just (Addr w1 off1))) - (Address (Just (Addr w2 off2)))
         | w1 == w2 = Val $ fromIntegral $ off1 - off2
-    a - b = Bot $ show a ++ " " ++ show b ++ " -"
+    a - b
+        | a == b = Val 0
+        | otherwise = Bot $ show a ++ " " ++ show b ++ " -"
 
     (Val a) * (Val b) = Val (a * b)
     a * b = Bot $ show a ++ " " ++ show b ++ " *"
