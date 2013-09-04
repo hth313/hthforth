@@ -68,7 +68,7 @@
     SOURCE + PARSE-POS
     DO
       I C@ 41 = IF LEAVE THEN
-      >IN 1+!
+      1 >IN +!
     LOOP
 ; IMMEDIATE
 
@@ -77,7 +77,7 @@
     SOURCE + PARSE-POS
     DO
       I C@ OVER ?DELIM 0= IF LEAVE THEN
-      >IN 1+!
+      1 >IN +!
     LOOP
     DROP ( delimiter )
     ;
