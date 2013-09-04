@@ -1,9 +1,11 @@
 module Util.Memory (Memory(..), newMemory, bufferMemory,
-                    read8, read32, write8) where
+                    read8, read32, write8, blockMove) where
 
+import Foreign
 import Data.Word
 import Data.Vector.Storable.ByteString (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
+import Data.Vector.Storable.ByteString.Internal
 import Data.Bits
 import Util.Address
 import Util.Endian
@@ -46,3 +48,14 @@ shifts n mem = case endian mem of
              LittleEndian -> bits
              BigEndian -> reverse bits
     where bits = take n [0,8..]
+
+blockMove :: Address a => Int -> a -> Memory a -> a -> Memory a -> IO ()
+blockMove count adrFrom memFrom adrTo memTo =
+    let (fpFrom, offsetFrom) = decode adrFrom memFrom
+        (fpTo, offsetTo) = decode adrTo memTo
+        decode adr mem =
+            let (fp, offset, len) = toForeignPtr $ chunk mem
+            in (fp, offset + offsetOf adr (baseAddress mem))
+    in withForeignPtr fpFrom $ \from ->
+         withForeignPtr fpTo $ \to ->
+             memcpy from to (fromIntegral count)

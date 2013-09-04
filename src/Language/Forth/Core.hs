@@ -96,6 +96,7 @@ addNatives = do
   addNative "LEAVE" leave
   addNative "ABORT" abort
   addNative "QUIT" quit
+  addNative "MOVE" move
   addNative "." (pop >>= (liftIO . putStrLn . show)) -- temporary
       where
         divide (Val a) (Val b) = Val (a `div` b)
@@ -214,12 +215,29 @@ cstore = updateState $ \s ->
     case stack s of
       Address (Just adr@(Addr wid i)) : Val val : rest
           | Just (BufferField bm) <- IntMap.lookup wid (variables s) ->
-              newState s { variables = IntMap.insert wid (BufferField $ write8 (fromIntegral val) adr bm)
+              newState s { variables = IntMap.insert wid
+                                       (BufferField $ write8 (fromIntegral val) adr bm)
                                        (variables s),
                            stack = rest }
       [] -> emptyStack s
       [x] -> abortWith ("no value to C! to " ++ show x) s
       x:_ -> abortWith ("cannot C! to " ++ show x) s
+
+
+move :: Cell cell => ForthLambda cell
+move = do
+  mtuple <- updateStateVal Nothing $ \s ->
+    case stack s of
+      Val count : Address (Just adrTo@(Addr widTo iTo)) : Address (Just adrFrom@(Addr widFrom iFrom)) : rest
+          | Just (BufferField bmTo) <- IntMap.lookup widTo (variables s),
+            Just (BufferField bmFrom) <- IntMap.lookup widFrom (variables s) ->
+                return (Right (Just (count, adrFrom, bmFrom, adrTo, bmTo)), s { stack = rest })
+      xs | length xs < 3 -> emptyStack s
+         | otherwise -> abortWith "illegal arguments to MOVE" s
+  case mtuple of
+    Nothing -> return ()
+    Just (count, adrFrom, bmFrom, adrTo, bmTo) ->
+        liftIO $ blockMove (fromIntegral count) adrFrom bmFrom adrTo bmTo
 
 
 -- | Find the name (counted string) in the dictionary
