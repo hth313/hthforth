@@ -41,7 +41,7 @@ addNatives = do
   addNative "-"   $ binary (-)
   addNative "*"   $ binary (*)
   addNative "/"   $ binary divide
-  addNative "0<"  $ unary $ boolVal (0<)
+  addNative "0<"  $ unary $ boolVal (<0)
   addNative "0="  $ unary $ bool (0==)
   addNative "AND" $ binary (.&.)
   addNative "OR"  $ binary (.|.)
