@@ -27,7 +27,7 @@ Library
                , filepath
                , mtl
                , haskeline >= 0.7.0.0
-               , vector-bytestring >= 0.0.0.1
+               , vector-bytestring >= 0.0.0.2
                , vector >= 0.9
 
   ghc-options: -funbox-strict-fields -O2

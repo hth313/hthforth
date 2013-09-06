@@ -34,12 +34,10 @@ read32 :: Address a => a -> Memory a -> Word32
 read32 adr mem = toValue 4 (map fetch [0..3]) mem
     where fetch n = read8 (addAddress adr n) mem
 
-write8 :: Address a => Word8 -> a -> Memory a -> Memory a
+write8 :: Address a => Word8 -> a -> Memory a -> IO ()
 write8 val adr mem =
     let i = offsetOf adr $ baseAddress mem
-        (p0, p1) = B.splitAt i (chunk mem)
-        chunk' = B.concat [p0, B.singleton val, B.tail p1]
-    in mem { chunk = chunk' }
+    in B.update val (chunk mem) i
 
 toValue n bytes mem =
     sum $ map (uncurry shiftL) (zip (map fromIntegral bytes) (shifts n mem))
