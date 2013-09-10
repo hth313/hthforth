@@ -11,6 +11,7 @@ Synopsis:       A Forth-2012 System Subset
 Description:    hthforth implements a subset of Forth-2012.
 Homepage:       http://github.com/hthforth
 Stability:      Experimental
+Category:       Language
 Build-Type:     Simple
 extra-source-files:
         src/lib/core.fs
