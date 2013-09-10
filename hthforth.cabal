@@ -16,10 +16,6 @@ extra-source-files:
         src/lib/core.fs
         src/lib/core-ext.fs
 
-executable hthforth
-  hs-source-dirs: src
-  main-is:        Language/Forth/Forth.hs
-
 Library
   build-depends: base       >= 4     && < 4.7
                , containers
@@ -31,4 +27,21 @@ Library
                , vector >= 0.9
 
   ghc-options: -funbox-strict-fields -O2
+
+  c-sources:        cbits/bytestring.c
+  include-dirs:     include
+  includes:         bytestring.h
+  install-includes: bytestring.h
+
+Executable hthforth
+  hs-source-dirs: src
+  main-is:        Language/Forth/Forth.hs
+  build-depends   hthforth
+
+  ghc-options: -funbox-strict-fields -O2
+
+  c-sources:        cbits/bytestring.c
+  include-dirs:     include
+  includes:         bytestring.h
+  install-includes: bytestring.h
 

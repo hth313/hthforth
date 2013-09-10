@@ -1,13 +1,14 @@
 module Util.Memory (Memory(..), newMemory, bufferMemory,
                     read8, read32, write8, blockMove) where
 
-import Foreign
+import Foreign.ForeignPtr (withForeignPtr)
 import Data.Word
 import Data.Vector.Storable.ByteString (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
 import Data.Vector.Storable.ByteString.Internal
 import Data.Bits
 import Util.Address
+import Util.ByteString
 import Util.Endian
 
 
@@ -37,7 +38,7 @@ read32 adr mem = toValue 4 (map fetch [0..3]) mem
 write8 :: Address a => Word8 -> a -> Memory a -> IO ()
 write8 val adr mem =
     let i = offsetOf adr $ baseAddress mem
-    in B.update val (chunk mem) i
+    in unsafeUpdate val (chunk mem) i
 
 toValue n bytes mem =
     sum $ map (uncurry shiftL) (zip (map fromIntegral bytes) (shifts n mem))
