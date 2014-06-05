@@ -24,6 +24,7 @@ data CellVal cell = Address (Maybe Addr) |
                     Val cell |
                     XT (ForthWord cell) |
                     Loc (Maybe (IP cell)) |
+                    Text ByteString |
                     Bot String
                     deriving (Eq, Show)
 

@@ -16,16 +16,21 @@ module Language.Forth.Machine (MachineM, ForthLambda, Machine(..), push, pop, pu
                                stateId, sourceId, toInId, exitId,
                                wordIdExecute, wordLookup,
                                doColon, doVar, doConst,
-                               withTempBuffer, searchDictionary, compileWord,
-                               compile, comma) where
+                               withTempBuffer, addrString, searchDictionary,
+                               compileWord, compile, comma) where
 
 import Control.Applicative
 import Control.Exception
-import Control.Monad.State.Lazy
+import Control.Monad
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.State
 import qualified Data.Vector as V
 import Data.Vector.Storable.ByteString (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
 import qualified Data.Vector.Storable.ByteString.Char8 as C
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Maybe
 import Data.Typeable
 import Data.Word
@@ -127,7 +132,6 @@ emptyStack = abortWith "empty stack"
 abortWith msg s = return (Left msg, s)
 
 abortMessage msg = liftIO (putStrLn msg) >> abort
-
 -- | Push a value on data stack
 push x = modify $ \s -> s { stack = x : stack s }
 

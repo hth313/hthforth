@@ -21,14 +21,13 @@ executable hthforth
   main-is:        Language/Forth/Forth.hs
 
 Library
-  build-depends: base       >= 4     && < 4.7
+  build-depends: base       >= 4     && < 4.8
                , containers
                , directory
                , filepath
-               , mtl
+               , transformers >= 0.3.0.0 && < 0.4.0.0
                , haskeline >= 0.7.0.0
                , vector-bytestring >= 0.0.0.1
                , vector >= 0.9
 
   ghc-options: -funbox-strict-fields -O2
-

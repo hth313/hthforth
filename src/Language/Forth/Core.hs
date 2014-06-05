@@ -9,12 +9,16 @@ module Language.Forth.Core (addNatives, abort, quit) where
 
 import Control.Applicative
 import Control.Exception (try)
-import Control.Monad.State.Lazy hiding (state)
+import Control.Monad
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.State hiding (state)
 import Data.Vector.Storable.ByteString (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
 import qualified Data.Vector.Storable.ByteString.Char8 as C
 import qualified Data.Vector as V
 import Data.Bits
+import Data.Char
 import Language.Forth.Address
 import Language.Forth.Cell
 import Language.Forth.CellMemory
@@ -32,11 +36,10 @@ import System.Exit
 import System.Console.Haskeline
 
 
-
 -- | Populate the vocabulary with a basic set of Haskell native words.
 addNatives :: Cell cell => MachineM cell ()
 addNatives = do
-  addNative "BYE" (liftIO $ exitSuccess)
+  addNative "BYE" (liftIO exitSuccess)
   addNative "+"     plus
   addNative "-"   $ binary (-)
   addNative "*"   $ binary (*)

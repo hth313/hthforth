@@ -1,6 +1,6 @@
 module Main (main) where
 
-import Control.Monad.Trans
+import Control.Monad
 import Data.Int
 import Language.Forth.Core
 import Language.Forth.Machine
