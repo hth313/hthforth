@@ -82,6 +82,10 @@
     DROP ( delimiter )
     ;
 
+: TYPE  ( caddr u -- )
+    OVER + SWAP
+    DO I C@ EMIT LOOP ;
+
 \ If flag is set, ABORT
 \ This is useful as a way out of strange unexpected problems when we
 \ do not even bother to tell the user what was wrong.
@@ -102,8 +106,13 @@
 
 : POSTPONE
     BL WORD FIND
-    IF COMPILE, ELSE ABORT THEN
-; IMMEDIATE
+    IF COMPILE, ELSE ABORT THEN ; IMMEDIATE
+
+: (ABORT")  ( flag caddr u -- )
+    ROT IF TYPE ELSE 2DROP THEN ;
+
+: ABORT"
+    34 PARSE STRING, POSTPONE (ABORT") ; IMMEDIATE
 
 : ?PAIRS  - IF ABORT" unmatched conditionals" THEN ;
 
