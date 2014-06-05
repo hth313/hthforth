@@ -82,6 +82,8 @@ addNatives = do
   addNative "," comma
   addNative "HERE" here
   addNative "(LIT)" lit
+  addNative "STRING," compileString
+  addNative "(STRING)" string
   addNative "IF" xif >> makeImmediate
   addNative "ELSE" xelse >> makeImmediate
   addNative "THEN" xthen >> makeImmediate
@@ -97,6 +99,7 @@ addNatives = do
   addNative "ABORT" abort
   addNative "QUIT" quit
   addNative "MOVE" move
+  addNative "EMIT" emit
   addNative "." (pop >>= (liftIO . putStrLn . show)) -- temporary
       where
         divide (Val a) (Val b) = Val (a `div` b)
@@ -513,3 +516,42 @@ back = pop >>= compile
 leave = updateState $ \s -> case rstack s of
                               _i : limit : rs -> newState s { rstack = limit : limit : rs }
                               otherwise -> emptyStack s
+
+-- | Compile a string literal. We expect to get a string pointer (caddr u) on
+--   the stack pointing to some character buffer. Compile a string literal
+--   that has the execution semantics to push the string back on stack.
+--   The actual compiled string reside in the body of the colon definition
+--   being compiled.
+compileString :: Cell cell => ForthLambda cell
+compileString = do
+  text <- updateStateVal "" $ \s ->
+    case stack s of
+      Val n : Address (Just (Addr wid i)) : rest
+          | Just (BufferField bm) <- IntMap.lookup wid (variables s) ->
+                let text = B.take (fromIntegral n) (B.drop i (chunk bm))
+                in return (Right text, s { stack = rest } )
+  compileWord "(STRING)"
+  compile $ Text text
+
+-- | Run-time behavior for a string literal. Push the address and length
+--   of the string and skip over the string.
+--
+--   The string literal need to be made addressable here. Skipping over
+--   it is trivial, just increment the IP by 1.
+--
+--   On a target we have addresses, so it will be easy to get the address,
+--   skipping past would use the length with some optional paddind.
+--   But this is not we are concerned with here as we do the lambda implementation.
+string :: Cell cell => ForthLambda cell
+string = modify $ \s ->
+    case ip s of
+      Just (IP cb off) ->
+          let Text text = (V.!) cb off
+              u = fromIntegral $ C.length text
+              (caddr, s') = addrString text s
+          in s' { ip = Just (IP cb (off + 1)),
+                 stack = Val u : caddr : stack s }
+
+emit :: Cell cell => ForthLambda cell
+emit = pop >>= emit1 where
+    emit1 (Val n) = liftIO $ putStr [chr $ fromIntegral n]
