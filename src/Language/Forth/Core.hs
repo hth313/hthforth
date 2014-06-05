@@ -195,12 +195,14 @@ fetch = updateState $ \s ->
       a : _ -> abortWith ("cannot fetch from " ++ show a) s
 
 cfetch :: Cell cell => ForthLambda cell
-cfetch = modify $ \s ->
+cfetch = updateState $ \s ->
     case stack s of
       Address (Just adr@(Addr wid i)) : rest
           | Just (BufferField bm) <- IntMap.lookup wid (variables s) ->
               let c = Val $ fromIntegral $ B.index (chunk bm) i
-              in s { stack = c : rest }
+              in newState s { stack = c : rest }
+      [] -> emptyStack s
+      x -> abortWith ("bad C@ address " ++ show x) s
 
 
 store :: Cell cell => ForthLambda cell
@@ -217,17 +219,16 @@ store = updateState $ \s ->
 
 
 cstore :: Cell cell => ForthLambda cell
-cstore = updateState $ \s ->
+cstore = do
+  action <- updateStateVal (return ()) $ \s ->
     case stack s of
       Address (Just adr@(Addr wid i)) : Val val : rest
           | Just (BufferField bm) <- IntMap.lookup wid (variables s) ->
-              newState s { variables = IntMap.insert wid
-                                       (BufferField $ write8 (fromIntegral val) adr bm)
-                                       (variables s),
-                           stack = rest }
+              return (Right (write8 (fromIntegral val) adr bm), s { stack = rest })
       [] -> emptyStack s
       [x] -> abortWith ("no value to C! to " ++ show x) s
       x:_ -> abortWith ("cannot C! to " ++ show x) s
+  liftIO action
 
 
 move :: Cell cell => ForthLambda cell

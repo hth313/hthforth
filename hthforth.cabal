@@ -9,16 +9,13 @@ Author:         Håkan Thörngren
 Maintainer:     Håkan Thörngren <hth313@gmail.com>
 Synopsis:       A Forth-2012 System Subset
 Description:    hthforth implements a subset of Forth-2012.
-Homepage:       http://github.com/hthforth
+Homepage:       https://github.com/hth313/hthforth
 Stability:      Experimental
+Category:       Language
 Build-Type:     Simple
 extra-source-files:
         src/lib/core.fs
         src/lib/core-ext.fs
-
-executable hthforth
-  hs-source-dirs: src
-  main-is:        Language/Forth/Forth.hs
 
 Library
   build-depends: base       >= 4     && < 4.8
@@ -27,7 +24,24 @@ Library
                , filepath
                , transformers >= 0.3.0.0 && < 0.4.0.0
                , haskeline >= 0.7.0.0
-               , vector-bytestring >= 0.0.0.1
+               , vector-bytestring >= 0.0.0.2
                , vector >= 0.9
 
   ghc-options: -funbox-strict-fields -O2
+
+  c-sources:        cbits/bytestring.c
+  include-dirs:     include
+  includes:         bytestring.h
+  install-includes: bytestring.h
+
+Executable hthforth
+  hs-source-dirs: src
+  main-is:        Language/Forth/Forth.hs
+  build-depends   hthforth
+
+  ghc-options: -funbox-strict-fields -O2
+
+  c-sources:        cbits/bytestring.c
+  include-dirs:     include
+  includes:         bytestring.h
+  install-includes: bytestring.h
