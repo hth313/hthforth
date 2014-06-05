@@ -59,7 +59,8 @@ data Machine cell = Machine { -- The Forth stacks
                               -- a WordId is an Int here.
                               variables :: IntMap (DataField cell),
                               wordMap :: IntMap (ForthWord cell),
-                              oldHandles :: [WordId]
+                              oldHandles :: [WordId],
+                              stringLiterals :: Map ByteString Addr
     }
 
 -- A Forth native lambda should obey this signature
@@ -138,7 +139,8 @@ pushAdr wid = push $ Address (Just (Addr wid 0))
 -- | Create an initial empty Forth machine state
 initialState :: Target cell -> Machine cell
 initialState target =
-    Machine [] [] Nothing Nothing Nothing target [firstId..] IntMap.empty IntMap.empty []
+    Machine [] [] Nothing Nothing Nothing target [firstId..]
+            IntMap.empty IntMap.empty [] Map.empty
 
 
 create :: ByteString -> (ForthWord cell -> ForthLambda cell) -> MachineM cell ()
@@ -248,6 +250,18 @@ withTempBuffer action contents = do
              if null (oldHandles s)
              then return (head (keys s), s { keys = tail (keys s) })
              else return (head (oldHandles s), s { oldHandles = tail (oldHandles s) })
+
+
+-- | Make a string literal addressable on the fly.
+addrString text s =
+    case Map.lookup text (stringLiterals s) of
+      Just addr -> (Address (Just addr), s)
+      Nothing ->
+          let (k:ks) = keys s
+              addr = Addr k 0
+              in (Address (Just addr), s { keys = ks,
+                                           stringLiterals = Map.insert text addr
+                                                            (stringLiterals s) })
 
 
 -- | Compile a literal into a colon body of the word being defined.
