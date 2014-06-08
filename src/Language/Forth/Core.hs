@@ -197,10 +197,13 @@ fetch = updateState $ \s ->
 cfetch :: Cell cell => ForthLambda cell
 cfetch = updateState $ \s ->
     case stack s of
-      Address (Just adr@(Addr wid i)) : rest
-          | Just (BufferField bm) <- IntMap.lookup wid (variables s) ->
-              let c = Val $ fromIntegral $ B.index (chunk bm) i
-              in newState s { stack = c : rest }
+      Address (Just adr@(Addr wid _)) : rest ->
+        case IntMap.lookup wid (variables s) of
+          Just (BufferField buf) ->
+              let c = Val $ fromIntegral $ read8 adr buf
+              in  newState s { stack = c : rest }
+          Nothing -> abortWith "C@ - no valid address" s
+          Just DataField{} -> abortWith "C@ - data field not implemented" s
       [] -> emptyStack s
       x -> abortWith ("bad C@ address " ++ show x) s
 
