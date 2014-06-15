@@ -6,7 +6,7 @@
 
 module Language.Forth.Input (nextWord) where
 
-import Langauge.Forth.Machine
+import Language.Forth.Interpreter.Monad
 import Data.Char
 import System.IO
 

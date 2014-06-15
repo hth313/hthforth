@@ -4,37 +4,27 @@
 
 -}
 
-module Language.Forth.Word (ForthWord(..), IP(..), Body(..), LinkField) where
+module Language.Forth.Word (ForthWord(..), LinkField) where
 
 import Data.Char
 import Data.Vector.Storable.ByteString.Char8 (ByteString)
 import qualified Data.Vector.Storable.ByteString.Char8 as B
-import Data.Vector (Vector)
-import qualified Data.Vector as V
-import Language.Forth.CellVal
 import Language.Forth.WordId
-import {-# SOURCE #-} Language.Forth.Machine
 
 
 -- | A Forth word
-data ForthWord cell = ForthWord {
-      name :: ByteString,
-      immediate :: Bool,
-      link :: LinkField cell,
-      wid :: WordId,
-      doer :: ForthWord cell -> ForthLambda cell,
-      body :: Body cell
-    }
+data ForthWord a = ForthWord
+  { name :: ByteString
+  , immediate :: Bool
+  , link :: LinkField a
+  , wid :: WordId
+  , doer :: a
+  }
 
-instance Eq (ForthWord cell) where
+instance Eq (ForthWord a) where
     a == b = wid a == wid b
 
-instance Show (ForthWord cell) where
+instance Show (ForthWord a) where
     show = B.unpack . name
 
-data Body cell = Native | Colon (ColonBody cell)
-type LinkField cell = Maybe (ForthWord cell)
-type ColonBody cell = Vector (CellVal cell)
-
--- | Interpretive pointer
-data IP cell = IP (ColonBody cell) Int deriving (Eq, Show)
+type LinkField a = Maybe (ForthWord a)

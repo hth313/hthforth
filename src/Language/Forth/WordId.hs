@@ -1,4 +1,6 @@
-module Language.Forth.WordId (WordId) where
+module Language.Forth.WordId (WordId(..)) where
 
 -- | Unique identifier for words.
-type WordId = Int
+newtype WordId = WordId Int deriving (Eq, Ord)
+instance Show WordId where
+  show (WordId n) = show n
