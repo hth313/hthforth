@@ -36,7 +36,7 @@ Library
 
 Executable hthforth
   hs-source-dirs: src
-  main-is:        Language/Forth/Forth.hs
+  main-is:        Language/Forth.hs
 
   ghc-options: -funbox-strict-fields -O2
 
