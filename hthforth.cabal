@@ -19,12 +19,12 @@ extra-source-files:
 
 Library
   build-depends: base       >= 4     && < 4.8
-               , containers
-               , directory
-               , filepath
-               , transformers >= 0.3.0.0 && < 0.4.0.0
+               , containers >= 0.4
+               , directory >= 1.1 && < 1.3
+               , filepath >= 1.2
+               , transformers >= 0.3 && < 0.4
                , haskeline >= 0.7.0.0
-               , vector-bytestring >= 0.0.0.2
+               , vector-bytestring >= 0.0.0.1
                , vector >= 0.9
 
   ghc-options: -funbox-strict-fields -O2
