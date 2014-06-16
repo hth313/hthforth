@@ -6,16 +6,20 @@
 
 -}
 
-module Language.Forth.Interpreter () where
+module Language.Forth.Interpreter (initialState, quit) where
 
 import Control.Monad
-import Control.Monad.Trans
+import Control.Monad.IO.Class
 import qualified Data.Vector as V
 import Language.Forth.Cell
 import Language.Forth.CellVal
+import Language.Forth.Dictionary
 import Language.Forth.Interpreter.Monad
 import Language.Forth.Primitive
+import Language.Forth.Target
 
+initialState :: Cell cell => Target cell -> FState cell
+initialState target = FState [] [] [] target newDictionary
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FMonad cell ()) where
