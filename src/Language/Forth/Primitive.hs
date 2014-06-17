@@ -23,9 +23,13 @@ class Primitive c a | a -> c where
   execute :: a
   lit :: c -> a
   swap :: a
+  fetch :: a
+  store :: a
   add :: a
   quit :: a
   interpret :: a
   branch :: [a] -> a
   branch0 :: [a] -> a
   docol :: [a] -> a
+  state :: a                  -- ^ STATE (compilation state)
+  sourceId :: a               -- ^ SOURCE-ID (current input source)

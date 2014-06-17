@@ -5,29 +5,46 @@
 
 -}
 
-module Language.Forth.Dictionary (newDictionary, Dictionary(..)) where
+module Language.Forth.Dictionary (newDictionary, Dictionary(..),
+                                 sourceWId, stateWId) where
 
 import Control.Monad
 import Control.Monad.Trans.Class
-import Control.Monad.Trans.State
+import Control.Monad.Trans.State hiding (state)
+import Data.Vector.Storable.ByteString.Char8 (ByteString)
+import Language.Forth.Address
+import Language.Forth.CellMemory
+import Language.Forth.CellVal
+import Language.Forth.DataField
 import Language.Forth.Primitive
+import Language.Forth.Target
 import Language.Forth.Word
 import Language.Forth.WordId
 
 data Dictionary a = Dictionary
   { wids :: [WordId]
-  , latest :: Maybe (ForthWord a)
+  , latest :: LinkField a
   }
 
+-- Word identities are used to identify a particular word in a unique way.
+-- They are used to find mutable datafields, which are stored separately in
+-- the Forth state of the interpreter.
+-- Some words (typically variables) that are needed early get theie word
+-- identity preallocated here and we use the tail for the rest of words.
+(sourceWId : stateWId : wordsIds) = map WordId [0..]
+
 newDictionary :: Primitive c a => Dictionary a
-newDictionary = execState build (Dictionary (map WordId [0..]) Nothing)
+newDictionary = execState build (Dictionary wordsIds Nothing)
   where
     build = do
-      addNative "(;)" semi
-      addNative "SWAP" swap
-      addNative "+" add
+      addWord "(;)"  semi
+      addWord "SWAP" swap
+      addWord "+"    add
+      addWord "STATE" state
+      addWord "SOURCE-ID" sourceId
 
-    addNative name doer = modify $ \s ->
-                          let i:is = wids s
-                          in  s { wids = is,
-                                  latest = Just $ ForthWord name False (latest s) i doer }
+    addWord name doer =
+      StateT $ \s ->
+        let i:is = wids s
+        in  return (i, s { wids = is,
+                           latest = Just $ ForthWord name False (latest s) i doer })
