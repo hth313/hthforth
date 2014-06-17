@@ -16,22 +16,22 @@ import Language.Forth.Target
 import Util.Address
 import Util.Endian
 
-data CellMemory cell = CellMemory {
-      contents :: IntMap (StorageUnit cell),
+data CellMemory cell a = CellMemory {
+      contents :: IntMap (StorageUnit cell a),
       memSize :: Int,
       target :: Target cell
     }
 
-data StorageUnit cell = Part Int (CellVal cell) | Byte Word8
+data StorageUnit cell a = Part Int (CellVal cell a) | Byte Word8
 
-newCellMemory :: Target cell -> Int -> CellMemory cell
+newCellMemory :: Target cell -> Int -> CellMemory cell a
 newCellMemory target size = CellMemory IntMap.empty size target
 
-readCell :: Addr -> CellMemory cell -> Maybe (CellVal cell)
+readCell :: Addr -> CellMemory cell a -> Maybe (CellVal cell a)
 readCell (Addr _ i) mem =
     case IntMap.lookup i (contents mem) of
       Just (Part _ cell) -> Just cell
 
-writeCell :: CellVal cell -> Addr -> CellMemory cell -> CellMemory cell
+writeCell :: CellVal cell a -> Addr -> CellMemory cell a -> CellMemory cell a
 writeCell val (Addr _ i) mem =
     mem { contents = IntMap.insert i (Part 0 val) (contents mem) }
