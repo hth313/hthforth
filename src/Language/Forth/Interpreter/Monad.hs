@@ -8,8 +8,10 @@ module Language.Forth.Interpreter.Monad (FMonad, FState(..), CV,
                                          module Control.Monad.Trans.State) where
 
 import Control.Monad.Trans.State
+import Data.IntMap
 import System.Console.Haskeline
 import Language.Forth.CellVal
+import Language.Forth.DataField
 import Language.Forth.Dictionary
 import Language.Forth.Target
 import Language.Forth.WordId
@@ -27,4 +29,5 @@ data FState cell = FState
   , ip     :: [FMonad cell ()]                 -- ^ Interpretive pointer
   , target :: Target cell
   , dict   :: Dictionary (FMonad cell ())      -- ^ Dictionary of Forth words
+  , variables :: IntMap (DataField cell (FMonad cell ()))
   }
