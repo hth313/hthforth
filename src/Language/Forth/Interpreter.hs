@@ -71,12 +71,28 @@ searchDict n = gets (f . latest . dict)
 
 mainLoop :: Cell cell => FMonad cell ()
 mainLoop = do
-  return ()
+  mline <- lift $ getInputLine ""
+  case mline of
+    Nothing -> return ()
+    Just input ->
+        let line = C.pack input
+        in docol [ putField inputBufferWId (textBuffer inputBufferWId line),
+                   push (Val 0), toIn, store,
+                   pushAdr inputBufferWId, inputLine, store,
+                   push (Val $ fromIntegral $ C.length line), inputLineLength, store,
+                   interpret, liftIO $ putStrLn "ok", mainLoop]
 
 -- | Insert the field contents of given word
+putField :: Cell cell => WordId -> DataField cell (FMonad cell ()) -> FMonad cell ()
 putField wid field = modify $ \s -> s { variables = IntMap.insert (unWordId wid) field  (variables s) }
 
-pushVar wid = modify $ \s -> s { stack = Address (Just $ Addr wid 0) : stack s }
+-- | Push a value on data stack
+push :: Cell cell => CellVal cell (FMonad cell ()) -> FMonad cell ()
+push x = modify $ \s -> s { stack = x : stack s }
+
+-- | Push the field address of a word on stack
+pushAdr :: Cell cell => WordId -> FMonad cell ()
+pushAdr wid = push $ Address (Just $ Addr wid 0)
 
 abort :: Cell cell => FMonad cell ()
 abort = quit
