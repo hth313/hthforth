@@ -32,7 +32,7 @@ initialState :: Cell cell => Target cell -> FState cell
 initialState target = FState [] [] [] target newDictionary IntMap.empty
 
 -- | Foundation of the Forth interpreter
-instance Cell cell => Primitive (CV cell) (FMonad cell ()) where
+instance Cell cell => Primitive (CV cell) (FM cell ()) where
   semi = call =<< rpop
   execute = call =<< dpop
   lit val = dpush val >> next
@@ -63,13 +63,13 @@ x name = searchDict name >>= \case
             Just word -> doer word
             Nothing -> abort
 
-searchDict :: Cell cell => ByteString -> FMonad cell (Maybe (ForthWord (FMonad cell ())))
+searchDict :: Cell cell => ByteString -> FM cell (Maybe (ForthWord (FM cell ())))
 searchDict n = gets (f . latest . dict)
   where f jw@(Just word) | n == name word = jw
                       | otherwise = f (link word)
         f Nothing = Nothing
 
-mainLoop :: Cell cell => FMonad cell ()
+mainLoop :: Cell cell => FM cell ()
 mainLoop = do
   mline <- lift $ getInputLine ""
   case mline of
@@ -83,40 +83,40 @@ mainLoop = do
                    interpret, liftIO $ putStrLn "ok", mainLoop]
 
 -- | Insert the field contents of given word
-putField :: Cell cell => WordId -> DataField cell (FMonad cell ()) -> FMonad cell ()
+putField :: Cell cell => WordId -> DataField cell (FM cell ()) -> FM cell ()
 putField wid field = modify $ \s -> s { variables = IntMap.insert (unWordId wid) field  (variables s) }
 
 -- | Push a value on data stack
-push :: Cell cell => CellVal cell (FMonad cell ()) -> FMonad cell ()
+push :: Cell cell => CellVal cell (FM cell ()) -> FM cell ()
 push x = modify $ \s -> s { stack = x : stack s }
 
 -- | Push the field address of a word on stack
-pushAdr :: Cell cell => WordId -> FMonad cell ()
+pushAdr :: Cell cell => WordId -> FM cell ()
 pushAdr wid = push $ Address (Just $ Addr wid 0)
 
-abort :: Cell cell => FMonad cell ()
+abort :: Cell cell => FM cell ()
 abort = quit
 
-abort0 :: Cell cell => FMonad cell (CV cell)
+abort0 :: Cell cell => FM cell (CV cell)
 abort0 = abort >> return (Val 0)
 
-next :: Cell cell => FMonad cell ()
+next :: Cell cell => FM cell ()
 next = gets ip >>= docol
 
-call :: Cell cell => CV cell -> FMonad cell ()
+call :: Cell cell => CV cell -> FM cell ()
 call (XT name) = abort
 call _ = abort
 
 -- Data stack primitives
-dpush :: CV cell -> FMonad cell ()
+dpush :: CV cell -> FM cell ()
 dpush val = modify $ \s -> s { stack = val : stack s }
 
-dpop :: Cell cell => FMonad cell (CV cell)
+dpop :: Cell cell => FM cell (CV cell)
 dpop = gets stack >>= \case
            [] -> abort0
            x:xs -> modify (\s -> s { stack = xs }) >> return x
 
-rpop :: Cell cell => FMonad cell (CV cell)
+rpop :: Cell cell => FM cell (CV cell)
 rpop = gets rstack >>= \case
            [] -> abort0
            x:xs -> modify (\s -> s { rstack = xs }) >> return x
@@ -139,7 +139,7 @@ emptyStack = abortWith "empty stack"
 abortWith msg s = return (Left msg, s)
 abortMessage msg = liftIO (putStrLn msg) >> abort
 
-fetch' :: Cell cell => FMonad cell ()
+fetch' :: Cell cell => FM cell ()
 fetch' = updateState $ \s ->
     case stack s of
       Address (Just adr@(Addr wid _)) : rest ->
@@ -153,7 +153,7 @@ fetch' = updateState $ \s ->
       [] -> emptyStack s
       a : _ -> abortWith "bad address given to @" s
 
-store' :: Cell cell => FMonad cell ()
+store' :: Cell cell => FM cell ()
 store' = updateState $ \s ->
     case stack s of
       Address (Just adr@(Addr wid i)) : val : rest
