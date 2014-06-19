@@ -16,11 +16,11 @@ import qualified Data.IntMap as IntMap
 import qualified Data.Vector as V
 import System.Console.Haskeline
 import qualified Data.Vector.Storable.ByteString.Char8 as C
-import Language.Forth.Address
+import Language.Forth.Interpreter.Address
+import Language.Forth.Interpreter.CellMemory
+import Language.Forth.Interpreter.DataField
 import Language.Forth.Cell
-import Language.Forth.CellMemory
 import Language.Forth.CellVal
-import Language.Forth.DataField
 import Language.Forth.Dictionary
 import Language.Forth.Interpreter.Monad
 import Language.Forth.Primitive

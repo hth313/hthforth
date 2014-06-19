@@ -1,4 +1,4 @@
-module Language.Forth.Address (Addr(..)) where
+module Language.Forth.Interpreter.Address (Addr(..)) where
 
 import Language.Forth.WordId
 import Util.Address

@@ -5,12 +5,13 @@
 
 -}
 
-module Language.Forth.CellMemory (CellMemory, newCellMemory, readCell, writeCell) where
+module Language.Forth.Interpreter.CellMemory (CellMemory, newCellMemory,
+                                              readCell, writeCell) where
 
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Data.Word
-import Language.Forth.Address
+import Language.Forth.Interpreter.Address
 import Language.Forth.CellVal
 import Language.Forth.Target
 import Util.Address

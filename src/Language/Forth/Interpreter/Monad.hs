@@ -10,8 +10,8 @@ module Language.Forth.Interpreter.Monad (FM, FState(..), CV,
 import Control.Monad.Trans.State
 import Data.IntMap
 import System.Console.Haskeline
+import Language.Forth.Interpreter.DataField
 import Language.Forth.CellVal
-import Language.Forth.DataField
 import Language.Forth.Dictionary
 import Language.Forth.Target
 import Language.Forth.WordId

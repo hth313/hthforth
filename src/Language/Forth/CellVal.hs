@@ -13,7 +13,7 @@ import Data.Map (Map)
 import Data.Word
 import Language.Forth.Cell
 import Data.Vector.Storable.ByteString (ByteString)
-import Language.Forth.Address
+import Language.Forth.Interpreter.Address
 import Language.Forth.Word
 
 

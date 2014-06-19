@@ -14,10 +14,10 @@ import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State hiding (state)
 import Data.Vector.Storable.ByteString.Char8 (ByteString)
-import Language.Forth.Address
-import Language.Forth.CellMemory
+import Language.Forth.Interpreter.Address
+import Language.Forth.Interpreter.CellMemory
+import Language.Forth.Interpreter.DataField
 import Language.Forth.CellVal
-import Language.Forth.DataField
 import Language.Forth.Primitive
 import Language.Forth.Target
 import Language.Forth.Word
