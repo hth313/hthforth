@@ -33,3 +33,7 @@ class Primitive c a | a -> c where
   docol :: [a] -> a
   state :: a                  -- ^ STATE (compilation state)
   sourceId :: a               -- ^ SOURCE-ID (current input source)
+  toIn :: a                   -- ^ >IN
+  inputBuffer :: a            -- ^ Input buffer
+  inputLine :: a              -- ^ INPUT-LINE
+  inputLineLength :: a        -- ^ #INPUT-LINE

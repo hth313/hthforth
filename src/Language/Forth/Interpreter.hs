@@ -50,9 +50,15 @@ instance Cell cell => Primitive (CV cell) (FMonad cell ()) where
   branch = docol
   branch0 loc = dpop >>= \n -> if | isZero n -> docol loc
                                   | otherwise  -> next
-  state = pushVar stateWId
-  sourceId = pushVar sourceWId
+  -- variables
+  state           = pushAdr stateWId
+  sourceId        = pushAdr sourceWId
+  toIn            = pushAdr toInWId
+  inputBuffer     = pushAdr inputBufferWId
+  inputLine       = pushAdr inputLineWId
+  inputLineLength = pushAdr inputLineLengthWId
 
+-- Execute from a name
 x name = searchDict name >>= \case
             Just word -> doer word
             Nothing -> abort
