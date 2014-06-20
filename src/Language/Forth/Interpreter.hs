@@ -6,7 +6,7 @@
 
 -}
 
-module Language.Forth.Interpreter (initialState, quit) where
+module Language.Forth.Interpreter (initialState, initialVarStorage, quit) where
 
 import Control.Monad
 import Control.Monad.IO.Class
@@ -30,6 +30,14 @@ import Language.Forth.WordId
 
 initialState :: Cell cell => Target cell -> FState cell
 initialState target = FState [] [] [] target newDictionary IntMap.empty
+
+initialVarStorage :: Cell cell => FM cell ()
+initialVarStorage = gets target >>=
+  \t -> let f (wid, val) =
+              let field@(DataField cm) = newDataField t wid (bytesPerCell t)
+              in  putField wid (DataField $ writeCell val (Addr wid 0) cm)
+        in mapM_ f [(sourceWId, 0), (stateWId, 0), (toInWId, 0),
+                    (inputLineWId, 0), (inputLineLengthWId, 0)]
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where

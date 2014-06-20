@@ -29,4 +29,4 @@ main =
       let settings = Settings { complete = noCompletion,
                                 historyFile = Just history,
                                 autoAddHistory = True }
-      runInputT settings $ evalStateT quit (initialState target)
+      runInputT settings $ evalStateT (initialVarStorage >> quit) (initialState target)
