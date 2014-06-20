@@ -42,10 +42,10 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   fetch = fetch'
   store = store'
   add = (dpush =<< (liftM2 (+) dpop dpop)) >> next
-  quit = docol [ modify $ \s -> s { rstack = [], ip = [], stack = Val 0 : stack s },
+  quit = docol [ modify $ \s -> s { rstack = [], stack = Val 0 : stack s },
                  sourceId, store, mainLoop ]
   interpret = return ()
-  docol (x:xs) = modify (\s -> s { ip = xs }) >> x
+  docol (x:xs) = modify (\s -> s { ip = xs }) >> x >> next
   docol [] = semi
   branch = docol
   branch0 loc = dpop >>= \n -> if | isZero n -> docol loc
