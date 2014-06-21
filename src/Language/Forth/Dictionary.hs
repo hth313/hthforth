@@ -6,9 +6,9 @@
 -}
 
 module Language.Forth.Dictionary (newDictionary, Dictionary(..),
-                                 sourceWId, stateWId, toInWId,
-                                 inputBufferWId, inputLineWId,
-                                  inputLineLengthWId) where
+                                  sourceWId, stateWId, toInWId,
+                                  inputBufferWId, inputLineWId,
+                                  inputLineLengthWId, wordBufferWId) where
 
 import Control.Monad
 import Control.Monad.Trans.Class
@@ -34,7 +34,7 @@ data Dictionary a = Dictionary
 -- Some words (typically variables) that are needed early get theie word
 -- identity preallocated here and we use the tail for the rest of words.
 (sourceWId : stateWId : toInWId : inputBufferWId : inputLineWId :
- inputLineLengthWId : wordsIds) = map WordId [0..]
+ inputLineLengthWId : wordBufferWId : wordsIds) = map WordId [0..]
 
 newDictionary :: Primitive c a => Dictionary a
 newDictionary = execState build (Dictionary wordsIds Nothing)
@@ -42,7 +42,14 @@ newDictionary = execState build (Dictionary wordsIds Nothing)
     build = do
       addWord "(;)"  semi
       addWord "SWAP" swap
-      addWord "+"    add
+      addWord "OVER" over
+      addWord "DUP"  dup
+      addWord "ROT"  rot
+      addWord "+"    plus
+      addWord "!"    store
+      addWord "+!"   plusStore
+      addWord "@"    fetch
+      addWord "C@"   cfetch
       addWord "STATE" state
       addWord "SOURCE-ID" sourceId
       addWord ">IN" toIn

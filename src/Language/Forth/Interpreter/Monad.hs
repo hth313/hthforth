@@ -5,9 +5,9 @@
 -}
 
 module Language.Forth.Interpreter.Monad (FM, FState(..), CV,
-                                         module Control.Monad.Trans.State) where
+                                         module Control.Monad.Trans.State ) where
 
-import Control.Monad.Trans.State
+import Control.Monad.Trans.State hiding (state)
 import Data.IntMap
 import System.Console.Haskeline
 import Language.Forth.Interpreter.DataField

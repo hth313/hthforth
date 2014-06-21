@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances, LambdaCase, MultiParamTypeClasses, TypeSynonymInstances #-}
-{-# LANGUAGE MultiWayIf, PatternGuards #-}
+{-# LANGUAGE MultiWayIf, OverloadedStrings, PatternGuards, ScopedTypeVariables #-}
 {- |
 
    The Forth interpreter.
@@ -8,6 +8,7 @@
 
 module Language.Forth.Interpreter (initialState, initialVarStorage, quit) where
 
+import Numeric
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
@@ -15,6 +16,7 @@ import Data.Vector.Storable.ByteString.Char8 (ByteString)
 import qualified Data.IntMap as IntMap
 import qualified Data.Vector as V
 import System.Console.Haskeline
+import qualified Data.Vector.Storable.ByteString as B
 import qualified Data.Vector.Storable.ByteString.Char8 as C
 import Language.Forth.Interpreter.Address
 import Language.Forth.Interpreter.CellMemory
@@ -27,6 +29,8 @@ import Language.Forth.Primitive
 import Language.Forth.Target
 import Language.Forth.Word
 import Language.Forth.WordId
+import Util.Memory
+import Prelude hiding (drop)
 
 initialState :: Cell cell => Target cell -> FState cell
 initialState target = FState [] [] [] target newDictionary IntMap.empty
@@ -41,20 +45,37 @@ initialVarStorage = gets target >>=
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
-  semi = call =<< rpop
+  semi = rpop >>= \case
+           IP ip' -> do
+             modify $ \s -> s { ip = ip' }
+             next
+           otherwise -> abortMessage "IP not on rstack"
   execute = call =<< dpop
   lit val = dpush val >> next
   swap = updateState $ \s -> case stack s of
                                s0 : s1 : ss -> newState s { stack = s1 : s0 : ss }
                                otherwise -> emptyStack s
+  drop = updateState $ \s -> case stack s of
+                               s0 : ss -> newState s { stack = ss }
+                               otherwise -> emptyStack s
+  dup = updateState $ \s -> case stack s of
+                               s0 : ss -> newState s { stack = s0 : s0 : ss }
+                               otherwise -> emptyStack s
+  over = updateState $ \s -> case stack s of
+                               ss@(s0 : s1 : _) -> newState s { stack = s1 : ss }
+                               otherwise -> emptyStack s
+  rot = updateState $ \s -> case stack s of
+                              s0 : s1 : s2 : ss -> newState s { stack = s2 : s0 : s1 : ss }
+                              otherwise -> emptyStack s
+  cfetch = cfetch'
   fetch = fetch'
   store = store'
-  add = (dpush =<< (liftM2 (+) dpop dpop)) >> next
-  quit = docol [ modify $ \s -> s { rstack = [], stack = Val 0 : stack s },
-                 sourceId, store, mainLoop ]
-  interpret = return ()
-  docol (x:xs) = modify (\s -> s { ip = xs }) >> x >> next
-  docol [] = semi
+  plusStore = docol [dup, fetch, rot, plus, swap, store, next]
+  plus = (dpush =<< (liftM2 (+) dpop dpop)) >> next
+  quit = ipdo [ modify $ \s -> s { rstack = [], stack = Val 0 : stack s },
+                sourceId, store, mainLoop ]
+  interpret = docol [state, fetch, dpop >>= interpret1, next]
+  docol xs = modify (\s -> s { rstack = IP (ip s) : rstack s, ip = xs }) >> next
   branch = docol
   branch0 loc = dpop >>= \n -> if | isZero n -> docol loc
                                   | otherwise  -> next
@@ -77,6 +98,9 @@ searchDict n = gets (f . latest . dict)
                       | otherwise = f (link word)
         f Nothing = Nothing
 
+ipdo :: Cell cell => [FM cell ()] -> FM cell ()
+ipdo ip' = modify (\s -> s { ip = ip' }) >> next
+
 mainLoop :: Cell cell => FM cell ()
 mainLoop = do
   mline <- lift $ getInputLine ""
@@ -84,18 +108,39 @@ mainLoop = do
     Nothing -> return ()
     Just input ->
         let line = C.pack input
-        in docol [ putField inputBufferWId (textBuffer inputBufferWId line),
-                   push (Val 0), toIn, store,
-                   pushAdr inputBufferWId, inputLine, store,
-                   push (Val $ fromIntegral $ C.length line), inputLineLength, store,
-                   interpret, liftIO $ putStrLn "ok", mainLoop]
+        in ipdo [ putField inputBufferWId (textBuffer inputBufferWId line),
+                  push (Val 0), toIn, store,
+                  pushAdr inputBufferWId, inputLine, store,
+                  push (Val $ fromIntegral $ C.length line), inputLineLength, store,
+                  interpret, liftIO $ putStrLn "ok", mainLoop]
+
+interpret1 :: forall cell. Cell cell => CV cell -> FM cell ()
+interpret1 stateFlag =
+  let compiling = stateFlag /= Val 0
+      parseNumber :: FM cell ()
+      parseNumber = parse =<< countedText =<< dpop where
+        parse bs = case readDec text of
+                     [(x,"")]
+--                       | compiling -> compileWord "(LIT)" >> compile (Val x)
+                       | otherwise -> push $ Val x
+                     otherwise -> abortMessage $ text ++ " ?"
+                     where text = C.unpack bs
+      interpret2 :: Bool -> FM cell ()
+      interpret2 True = drop
+      interpret2 False = find >> dpop >>= interpret3
+      interpret3 :: CV cell -> FM cell ()
+      interpret3 (Val 0) = parseNumber >> interpret
+      interpret3 (Val 1) =  (execute :: FM cell ())  >> interpret
+      interpret3 _ | compiling = dpop >>= compile >> interpret -- normal word found
+                   | otherwise = (execute :: FM cell ()) >> interpret
+  in docol [xword, dup, cfetch, liftM (Val 0 ==) dpop >>= interpret2, next]
 
 -- | Insert the field contents of given word
 putField :: Cell cell => WordId -> DataField cell (FM cell ()) -> FM cell ()
 putField wid field = modify $ \s -> s { variables = IntMap.insert (unWordId wid) field  (variables s) }
 
 -- | Push a value on data stack
-push :: Cell cell => CellVal cell (FM cell ()) -> FM cell ()
+push :: Cell cell => CV cell -> FM cell ()
 push x = modify $ \s -> s { stack = x : stack s }
 
 -- | Push the field address of a word on stack
@@ -109,7 +154,9 @@ abort0 :: Cell cell => FM cell (CV cell)
 abort0 = abort >> return (Val 0)
 
 next :: Cell cell => FM cell ()
-next = gets ip >>= docol
+next = do x <- StateT $ \s -> let (x:xs) = ip s
+                              in return (x, s { ip = xs } )
+          x
 
 call :: Cell cell => CV cell -> FM cell ()
 call (XT name) = abort
@@ -120,14 +167,16 @@ dpush :: CV cell -> FM cell ()
 dpush val = modify $ \s -> s { stack = val : stack s }
 
 dpop :: Cell cell => FM cell (CV cell)
-dpop = gets stack >>= \case
-           [] -> abort0
-           x:xs -> modify (\s -> s { stack = xs }) >> return x
+dpop = updateStateVal (Val 0) $ \s ->
+         case stack s of
+           t:ts -> return (Right t, s { stack = ts })
+           [] -> emptyStack s
 
 rpop :: Cell cell => FM cell (CV cell)
-rpop = gets rstack >>= \case
-           [] -> abort0
-           x:xs -> modify (\s -> s { rstack = xs }) >> return x
+rpop = updateStateVal (Val 0) $ \s ->
+         case rstack s of
+           t:ts -> return (Right t, s { rstack = ts })
+           [] -> emptyStack s
 
 updateState f = do
   result <- StateT f
@@ -146,6 +195,19 @@ newState s = return (Right (), s)
 emptyStack = abortWith "empty stack"
 abortWith msg s = return (Left msg, s)
 abortMessage msg = liftIO (putStrLn msg) >> abort
+
+cfetch' :: Cell cell => FM cell ()
+cfetch' = updateState $ \s ->
+    case stack s of
+      Address (Just adr@(Addr wid _)) : rest ->
+        case IntMap.lookup (unWordId wid) (variables s) of
+          Just (BufferField buf) ->
+              let c = Val $ fromIntegral $ read8 adr buf
+              in  newState s { stack = c : rest }
+          Nothing -> abortWith "C@ - no valid address" s
+          Just DataField{} -> abortWith "C@ - data field not implemented" s
+      [] -> emptyStack s
+      x -> abortWith "bad C@ address" s
 
 fetch' :: Cell cell => FM cell ()
 fetch' = updateState $ \s ->
@@ -171,3 +233,71 @@ store' = updateState $ \s ->
                            stack = rest }
       [] -> emptyStack s
       otherwise -> abortWith "Bad arguments to !" s
+
+-- | Given a counted string, extract the actual text as an individual ByteString.
+countedText :: Cell cell => CV cell -> FM cell ByteString
+countedText (Address (Just (Addr wid off))) = updateStateVal B.empty $ \s ->
+    case IntMap.lookup (unWordId wid) (variables s) of
+      Just (BufferField cmem) ->
+          let count = fromIntegral $ B.index (chunk cmem) off
+          in return (Right $ B.take count $ B.drop (off + 1) (chunk cmem), s)
+      otherwise -> abortWith "expected address pointing to char buffer" s
+countedText _ = abortMessage "expected address" >> return B.empty
+
+-- | Find the name (counted string) in the dictionary
+--   ( c-addr -- c-addr 0 | xt 1 | xt -1 )
+find :: Cell cell => FM cell ()
+find = do
+  caddr <- dpop
+  mword <- searchDict =<< countedText caddr
+  modify $ \s ->
+      case mword of
+        Just word
+            | immediate word -> s { stack = Val 1 : XT word : (stack s) }
+            | otherwise -> s { stack = Val (-1) : XT word : (stack s) }
+        Nothing -> s { stack = Val 0 : caddr : stack s }
+
+-- Push start address of parse area on stack, basically 'SOURCE +'
+parseStart :: Cell cell => FM cell ()
+parseStart = docol [inputLine, fetch, toIn, fetch, plus, next]
+
+-- | Parse a name in the input stream. Returns the parsed name (does not
+--   put on stack). Uses and updates >IN.
+--   This is initially the foundation for parsing Forth words.
+--   ( "<spaces>ccc<space>" -- )
+parseName :: forall cell. Cell cell => FM cell ByteString
+parseName = do
+  parseStart
+  name <- updateStateVal "" $ \s ->
+    case stack s of
+       Address (Just (Addr wid off)) : ss
+          | Just (BufferField cmem) <- IntMap.lookup (unWordId wid) (variables s) ->
+              let start = B.drop off (chunk cmem)
+                  (skipCount, nameStart) = skipSpaces start
+                  skipSpaces bs
+                      | B.null bs = (0, bs)
+                      | otherwise = skipSpaces1 0 bs where
+                      skipSpaces1 n bs
+                          | C.head bs <= ' ' = skipSpaces1 (n + 1) (B.tail bs)
+                          | otherwise = (n, bs)
+                  name = C.takeWhile (> ' ') nameStart
+                  nameLength = C.length name
+                  inAdjust = skipCount + nameLength
+                  result = Address $ Just (Addr wid (skipCount + off))
+              in return (Right name, s { stack = Val (fromIntegral inAdjust) : ss })
+       otherwise -> abortWith "parseName failed" s
+  (toIn :: FM cell ())  >> (plusStore :: FM cell ())
+  return name
+
+-- | Copy word from given address with delimiter to a special transient area.
+--   ( "<chars>ccc<char>" -- c-addr )
+xword :: Cell cell => FM cell ()
+xword = do
+  name <- parseName
+  modify $ \s ->
+      let countedField = textBuffer wordBufferWId (B.cons (fromIntegral $ B.length name) name)
+          result = Address (Just $ Addr wordBufferWId 0)
+      in s { stack = result : stack s,
+             variables = IntMap.insert (unWordId wordBufferWId) countedField (variables s) }
+
+compile _ = return ()

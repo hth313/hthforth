@@ -23,6 +23,7 @@ data CellVal cell a =
     Address (Maybe Addr)    -- ^ An address value
   | Val cell                -- ^ A numeric value
   | XT (ForthWord a)        -- ^ Execution token
+  | IP [a]                  -- ^ Pushed interpretive pointer
   | Text ByteString         -- ^ Some text buffer
   | Bot String
 

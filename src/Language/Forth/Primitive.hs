@@ -22,10 +22,10 @@ class Primitive c a | a -> c where
   semi :: a
   execute :: a
   lit :: c -> a
-  swap :: a
-  fetch :: a
-  store :: a
-  add :: a
+  swap, drop, dup, rot, over :: a
+  fetch, cfetch :: a
+  store, plusStore :: a
+  plus :: a
   quit :: a
   interpret :: a
   branch :: [a] -> a
