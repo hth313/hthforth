@@ -256,6 +256,7 @@ find = do
             | immediate word -> s { stack = Val 1 : XT word : (stack s) }
             | otherwise -> s { stack = Val (-1) : XT word : (stack s) }
         Nothing -> s { stack = Val 0 : caddr : stack s }
+  next
 
 -- Push start address of parse area on stack, basically 'SOURCE +'
 parseStart :: Cell cell => FM cell ()
