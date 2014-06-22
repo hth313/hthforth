@@ -22,6 +22,7 @@ import Language.Forth.Primitive
 import Language.Forth.Target
 import Language.Forth.Word
 import Language.Forth.WordId
+import Prelude hiding (drop)
 
 data Dictionary a = Dictionary
   { wids :: [WordId]
@@ -42,6 +43,7 @@ newDictionary = execState build (Dictionary wordsIds Nothing)
     build = do
       addWord "(;)"  semi
       addWord "SWAP" swap
+      addWord "DROP" drop
       addWord "OVER" over
       addWord "DUP"  dup
       addWord "ROT"  rot
@@ -56,6 +58,8 @@ newDictionary = execState build (Dictionary wordsIds Nothing)
       addWord "#INBUF" inputBuffer
       addWord "INPUT-LINE" inputLine
       addWord "#INPUT-LINE" inputLineLength
+      addWord "QUIT" quit
+      addWord "INTERPRET" interpret
     addWord name doer =
       StateT $ \s ->
         let i:is = wids s
