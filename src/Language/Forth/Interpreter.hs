@@ -59,7 +59,7 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
                                s0 : ss -> newState s { stack = ss }
                                otherwise -> emptyStack s
   dup = updateState $ \s -> case stack s of
-                              s0 : ss -> newState s { stack = s0 : s0 : ss }
+                              ss@(s0 : _) -> newState s { stack = s0 : ss }
                               otherwise -> emptyStack s
   over = updateState $ \s -> case stack s of
                                ss@(s0 : s1 : _) -> newState s { stack = s1 : ss }
