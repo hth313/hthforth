@@ -97,7 +97,7 @@ x name = searchDict name >>= \case
 searchDict :: Cell cell => ByteString -> FM cell (Maybe (ForthWord (FM cell ())))
 searchDict n = gets (f . latest . dict)
   where f jw@(Just word) | n == name word = jw
-                      | otherwise = f (link word)
+                         | otherwise = f (link word)
         f Nothing = Nothing
 
 ipdo :: Cell cell => [FM cell ()] -> FM cell ()
