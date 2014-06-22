@@ -59,8 +59,8 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
                                s0 : ss -> newState s { stack = ss }
                                otherwise -> emptyStack s
   dup = updateState $ \s -> case stack s of
-                               s0 : ss -> newState s { stack = s0 : s0 : ss }
-                               otherwise -> emptyStack s
+                              s0 : ss -> newState s { stack = s0 : s0 : ss }
+                              otherwise -> emptyStack s
   over = updateState $ \s -> case stack s of
                                ss@(s0 : s1 : _) -> newState s { stack = s1 : ss }
                                otherwise -> emptyStack s
@@ -70,11 +70,13 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   cfetch = cfetch'
   fetch = fetch'
   store = store'
-  plusStore = docol [dup, fetch, rot, plus, swap, store, next]
-  plus = (dpush =<< (liftM2 (+) dpop dpop)) >> next
-  quit = ipdo [ modify $ \s -> s { rstack = [], stack = Val 0 : stack s },
+  plusStore = docol [dup, fetch, rot, plus, swap, store, semi]
+  plus = updateState $ \s -> case stack s of
+                               op1 : op2 : ss -> newState s { stack = op1 + op2 : ss }
+                               otherwise -> emptyStack s
+  quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next),
                 sourceId, store, mainLoop ]
-  interpret = docol [state, fetch, dpop >>= interpret1, next]
+  interpret = docol [state, fetch, dpop >>= interpret1, semi]
   docol xs = modify (\s -> s { rstack = IP (ip s) : rstack s, ip = xs }) >> next
   branch = docol
   branch0 loc = dpop >>= \n -> if | isZero n -> docol loc
@@ -108,11 +110,11 @@ mainLoop = do
     Nothing -> return ()
     Just input ->
         let line = C.pack input
-        in ipdo [ putField inputBufferWId (textBuffer inputBufferWId line),
+        in ipdo [ putField inputBufferWId (textBuffer inputBufferWId line) >> next,
                   push (Val 0), toIn, store,
                   pushAdr inputBufferWId, inputLine, store,
                   push (Val $ fromIntegral $ C.length line), inputLineLength, store,
-                  interpret, liftIO $ putStrLn "ok", mainLoop]
+                  interpret, liftIO (putStrLn "ok") >> next, mainLoop]
 
 interpret1 :: forall cell. Cell cell => CV cell -> FM cell ()
 interpret1 stateFlag =
@@ -126,14 +128,14 @@ interpret1 stateFlag =
                      otherwise -> abortMessage $ text ++ " ?"
                      where text = C.unpack bs
       interpret2 :: Bool -> FM cell ()
-      interpret2 True = drop
+      interpret2 True = (drop :: FM cell ()) >> next
       interpret2 False = find >> dpop >>= interpret3
       interpret3 :: CV cell -> FM cell ()
       interpret3 (Val 0) = parseNumber >> interpret
       interpret3 (Val 1) =  (execute :: FM cell ())  >> interpret
       interpret3 _ | compiling = dpop >>= compile >> interpret -- normal word found
                    | otherwise = (execute :: FM cell ()) >> interpret
-  in docol [xword, dup, cfetch, liftM (Val 0 ==) dpop >>= interpret2, next]
+  in docol [xword, dup, cfetch, liftM (Val 0 ==) dpop >>= interpret2, semi]
 
 -- | Insert the field contents of given word
 putField :: Cell cell => WordId -> DataField cell (FM cell ()) -> FM cell ()
@@ -141,7 +143,9 @@ putField wid field = modify $ \s -> s { variables = IntMap.insert (unWordId wid)
 
 -- | Push a value on data stack
 push :: Cell cell => CV cell -> FM cell ()
-push x = modify $ \s -> s { stack = x : stack s }
+push x = do
+  modify $ \s -> s { stack = x : stack s }
+  next
 
 -- | Push the field address of a word on stack
 pushAdr :: Cell cell => WordId -> FM cell ()
@@ -178,17 +182,13 @@ rpop = updateStateVal (Val 0) $ \s ->
            t:ts -> return (Right t, s { rstack = ts })
            [] -> emptyStack s
 
-updateState f = do
-  result <- StateT f
-  case result of
-    Left msg -> abortMessage msg
-    Right x -> return x
+updateState f = StateT f >>= \case
+                  Left msg -> abortMessage msg
+                  Right () -> next
 
-updateStateVal x f = do
-  result <- StateT f
-  case result of
-    Left msg -> abortMessage msg >> return x
-    Right y -> return y
+updateStateVal x f = StateT f >>= \case
+                        Left msg -> abortMessage msg >> return x
+                        Right y -> return y
 
 newState s = return (Right (), s)
 
@@ -259,7 +259,7 @@ find = do
 
 -- Push start address of parse area on stack, basically 'SOURCE +'
 parseStart :: Cell cell => FM cell ()
-parseStart = docol [inputLine, fetch, toIn, fetch, plus, next]
+parseStart = docol [inputLine, fetch, toIn, fetch, plus, semi]
 
 -- | Parse a name in the input stream. Returns the parsed name (does not
 --   put on stack). Uses and updates >IN.
@@ -299,5 +299,6 @@ xword = do
           result = Address (Just $ Addr wordBufferWId 0)
       in s { stack = result : stack s,
              variables = IntMap.insert (unWordId wordBufferWId) countedField (variables s) }
+  next
 
 compile _ = return ()
