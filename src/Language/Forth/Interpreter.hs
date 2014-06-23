@@ -258,48 +258,30 @@ find = do
         Nothing -> s { stack = Val 0 : caddr : stack s }
   next
 
--- Push start address of parse area on stack, basically 'SOURCE +'
-parseStart :: Cell cell => FM cell ()
-parseStart = docol [inputLine, fetch, toIn, fetch, plus, semi]
-
--- | Parse a name in the input stream. Returns the parsed name (does not
---   put on stack). Uses and updates >IN.
---   This is initially the foundation for parsing Forth words.
---   ( "<spaces>ccc<space>" -- )
-parseName :: forall cell. Cell cell => FM cell ByteString
-parseName = do
-  parseStart
-  name <- updateStateVal "" $ \s ->
-    case stack s of
-       Address (Just (Addr wid off)) : ss
-          | Just (BufferField cmem) <- IntMap.lookup (unWordId wid) (variables s) ->
-              let start = B.drop off (chunk cmem)
-                  (skipCount, nameStart) = skipSpaces start
-                  skipSpaces bs
-                      | B.null bs = (0, bs)
-                      | otherwise = skipSpaces1 0 bs where
-                      skipSpaces1 n bs
-                          | C.head bs <= ' ' = skipSpaces1 (n + 1) (B.tail bs)
-                          | otherwise = (n, bs)
-                  name = C.takeWhile (> ' ') nameStart
-                  nameLength = C.length name
-                  inAdjust = skipCount + nameLength
-                  result = Address $ Just (Addr wid (skipCount + off))
-              in return (Right name, s { stack = Val (fromIntegral inAdjust) : ss })
-       otherwise -> abortWith "parseName failed" s
-  (toIn :: FM cell ())  >> (plusStore :: FM cell ())
-  return name
-
 -- | Copy word from given address with delimiter to a special transient area.
 --   ( "<chars>ccc<char>" -- c-addr )
 xword :: Cell cell => FM cell ()
-xword = do
-  name <- parseName
-  modify $ \s ->
-      let countedField = textBuffer wordBufferWId (B.cons (fromIntegral $ B.length name) name)
-          result = Address (Just $ Addr wordBufferWId 0)
-      in s { stack = result : stack s,
-             variables = IntMap.insert (unWordId wordBufferWId) countedField (variables s) }
-  next
+xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, semi]
+  where
+    parseName =   -- ( "<spaces>ccc<space>" -- ctransbuf n )
+      updateState  $ \s ->
+         case stack s of
+           Address (Just (Addr wid off)) : ss
+             | Just (BufferField cmem) <- IntMap.lookup (unWordId wid) (variables s) ->
+                 let start = B.drop off (chunk cmem)
+                     (skipCount, nameStart) = skipSpaces start
+                     skipSpaces bs
+                       | B.null bs = (0, bs)
+                       | otherwise = skipSpaces1 0 bs where
+                     skipSpaces1 n bs
+                       | C.head bs <= ' ' = skipSpaces1 (n + 1) (B.tail bs)
+                       | otherwise = (n, bs)
+                     name = C.takeWhile (> ' ') nameStart
+                     nameLength = C.length name
+                     inAdjust = skipCount + nameLength
+                     countedField = textBuffer wordBufferWId (B.cons (fromIntegral nameLength) name)
+                 in newState s { stack = Val (fromIntegral inAdjust) : Address (Just $ Addr wordBufferWId 0) : ss,
+                                 variables = IntMap.insert (unWordId wordBufferWId) countedField (variables s) }
+           otherwise -> abortWith "parseName failed" s
 
-compile _ = return ()
+compile _ = next
