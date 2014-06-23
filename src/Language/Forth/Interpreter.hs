@@ -128,13 +128,13 @@ interpret1 stateFlag =
                      otherwise -> abortMessage $ text ++ " ?"
                      where text = C.unpack bs
       interpret2 :: Bool -> FM cell ()
-      interpret2 True = (drop :: FM cell ()) >> next
-      interpret2 False = find >> dpop >>= interpret3
+      interpret2 True  = docol [drop, semi]
+      interpret2 False = docol [find, dpop >>= interpret3, semi]
       interpret3 :: CV cell -> FM cell ()
-      interpret3 (Val 0) = parseNumber >> interpret
-      interpret3 (Val 1) =  (execute :: FM cell ())  >> interpret
-      interpret3 _ | compiling = dpop >>= compile >> interpret -- normal word found
-                   | otherwise = (execute :: FM cell ()) >> interpret
+      interpret3 (Val 0) = docol [parseNumber, interpret, semi]
+      interpret3 (Val 1) = docol [execute, interpret, semi]
+      interpret3 _ | compiling = docol [dpop >>= compile, interpret, semi] -- normal word found
+                   | otherwise = docol [execute, interpret, semi]
   in docol [xword, dup, cfetch, liftM (Val 0 ==) dpop >>= interpret2, semi]
 
 -- | Insert the field contents of given word
