@@ -28,9 +28,9 @@ data CellVal cell a =
   | Bot String
 
 instance Eq cell => Eq (CellVal cell a) where
-  a1@Address{} == a2@Address{} = a1 == a2
-  v1@Val{} == v2@Val{} = v1 == v2
-  t1@Text{} == t2@Text{} = t1 == t2
+  Address a1 == Address a2 = a1 == a2
+  Val n1     == Val n2     = n1 == n2
+  Text t1    == Text t2    = t1 == t2
   _ == _ = False
 
 {-
