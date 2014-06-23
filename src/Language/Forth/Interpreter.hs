@@ -236,7 +236,7 @@ store' = updateState $ \s ->
 
 -- | Given a counted string, extract the actual text as an individual ByteString.
 countedText :: Cell cell => CV cell -> FM cell ByteString
-countedText (Address (Just (Addr wid off))) = updateStateVal B.empty $ \s ->
+countedText (Address (Just (Addr wid off))) = updateStateVal "" $ \s ->
     case IntMap.lookup (unWordId wid) (variables s) of
       Just (BufferField cmem) ->
           let count = fromIntegral $ B.index (chunk cmem) off
