@@ -163,8 +163,8 @@ next = do x <- StateT $ \s -> let (x:xs) = ip s
           x
 
 call :: Cell cell => CV cell -> FM cell ()
-call (XT name) = abort
-call _ = abort
+call (XT word) = doer word
+call _ = abortMessage "not an execution token"
 
 -- Data stack primitives
 dpush :: CV cell -> FM cell ()
