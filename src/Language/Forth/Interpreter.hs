@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances, LambdaCase, MultiParamTypeClasses, TypeSynonymInstances #-}
-{-# LANGUAGE MultiWayIf, OverloadedStrings, PatternGuards, ScopedTypeVariables #-}
+{-# LANGUAGE MultiWayIf, OverloadedStrings, PatternGuards #-}
 {- |
 
    The Forth interpreter.
@@ -111,10 +111,9 @@ mainLoop = do
                   push (Val $ fromIntegral $ C.length line), inputLineLength, store,
                   interpret, liftIO (putStrLn "ok") >> next, mainLoop]
 
-interpret1 :: forall cell. Cell cell => CV cell -> FM cell ()
+interpret1 :: Cell cell => CV cell -> FM cell ()
 interpret1 stateFlag =
   let compiling = stateFlag /= Val 0
-      parseNumber :: FM cell ()
       parseNumber = parse =<< countedText =<< dpop where
         parse bs = case readDec text of
                      [(x,"")]
@@ -122,10 +121,8 @@ interpret1 stateFlag =
                        | otherwise -> push $ Val x
                      otherwise -> abortMessage $ text ++ " ?"
                      where text = C.unpack bs
-      interpret2 :: Bool -> FM cell ()
       interpret2 True  = docol [drop, semi]
       interpret2 False = docol [find, dpop >>= interpret3, semi]
-      interpret3 :: CV cell -> FM cell ()
       interpret3 (Val 0) = docol [parseNumber, interpret, semi]
       interpret3 (Val 1) = docol [execute, interpret, semi]
       interpret3 _ | compiling = docol [dpop >>= compile, interpret, semi] -- normal word found
