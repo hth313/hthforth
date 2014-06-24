@@ -89,11 +89,6 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   inputLine       = pushAdr inputLineWId
   inputLineLength = pushAdr inputLineLengthWId
 
--- Execute from a name
-x name = searchDict name >>= \case
-            Just word -> doer word
-            Nothing -> abort
-
 searchDict :: Cell cell => ByteString -> FM cell (Maybe (ForthWord (FM cell ())))
 searchDict n = gets (f . latest . dict)
   where f jw@(Just word) | n == name word = jw
