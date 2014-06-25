@@ -153,7 +153,8 @@ pushAdr :: Cell cell => WordId -> FM cell ()
 pushAdr wid = push $ Address (Just $ Addr wid 0)
 
 abort :: Cell cell => FM cell ()
-abort = quit
+abort = docol [modify (\s -> s { stack = [], defining = Nothing }) >> next,
+               push (Val 0), state, store, quit]
 
 abort0 :: Cell cell => FM cell (CV cell)
 abort0 = abort >> return (Val 0)
