@@ -37,3 +37,4 @@ class Primitive c a | a -> c where
   inputBuffer :: a            -- ^ Input buffer
   inputLine :: a              -- ^ INPUT-LINE
   inputLineLength :: a        -- ^ #INPUT-LINE
+  create, colon, semicolon, smudge :: a

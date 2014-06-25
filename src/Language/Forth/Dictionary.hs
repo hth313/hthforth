@@ -60,8 +60,14 @@ newDictionary = execState build (Dictionary wordsIds Nothing)
       addWord "#INPUT-LINE" inputLineLength
       addWord "QUIT" quit
       addWord "INTERPRET" interpret
+      addWord ":" colon
+      addWord ";" semicolon >> makeImmediate
+      addWord "SMUDGE" smudge
+      addWord "CREATE" create
     addWord name doer =
       StateT $ \s ->
         let i:is = wids s
         in  return (i, s { wids = is,
                            latest = Just $ ForthWord name False (latest s) i doer })
+    makeImmediate = modify $ \s -> s { latest = fmap imm (latest s) }
+                      where imm word = word { immediate = True }

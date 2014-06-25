@@ -33,7 +33,7 @@ import Util.Memory
 import Prelude hiding (drop)
 
 initialState :: Cell cell => Target cell -> FState cell
-initialState target = FState [] [] [] target newDictionary IntMap.empty
+initialState target = FState [] [] [] target newDictionary IntMap.empty Nothing
 
 initialVarStorage :: Cell cell => FM cell ()
 initialVarStorage = gets target >>=
@@ -89,6 +89,12 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   inputLine       = pushAdr inputLineWId
   inputLineLength = pushAdr inputLineLengthWId
 
+  -- Compiling words
+  create = docol [xword, create', semi]
+  colon = docol [push (Val (-1)), state, store, create, semi]
+  semicolon = docol [compile semi, push (Val 0), state, store, smudge, semi]
+  smudge = smudge'
+
 searchDict :: Cell cell => ByteString -> FM cell (Maybe (ForthWord (FM cell ())))
 searchDict n = gets (f . latest . dict)
   where f jw@(Just word) | n == name word = jw
@@ -117,7 +123,7 @@ interpret1 stateFlag =
       parseNumber = parse =<< countedText =<< dpop where
         parse bs = case readDec text of
                      [(x,"")]
---                       | compiling -> compileWord "(LIT)" >> compile (Val x)
+                       | compiling -> compile $ lit (Val x)
                        | otherwise -> push $ Val x
                      otherwise -> abortMessage $ text ++ " ?"
                      where text = C.unpack bs
@@ -125,8 +131,11 @@ interpret1 stateFlag =
       interpret2 False = docol [find, dpop >>= interpret3, semi]
       interpret3 (Val 0) = docol [parseNumber, interpret, semi]
       interpret3 (Val 1) = docol [execute, interpret, semi]
-      interpret3 _ | compiling = docol [dpop >>= compile, interpret, semi] -- normal word found
+      interpret3 _ | compiling = docol [xtpop >>= compile, interpret, semi] -- normal word found
                    | otherwise = docol [execute, interpret, semi]
+      xtpop = dpop >>= \case
+                XT word -> return (doer word)
+                otherwise -> abortMessage "expected execution token" >> return next
   in docol [xword, dup, cfetch, liftM (Val 0 ==) dpop >>= interpret2, semi]
 
 -- | Insert the field contents of given word
@@ -276,4 +285,42 @@ xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, 
                                  variables = IntMap.insert (unWordId wordBufferWId) countedField (variables s) }
            otherwise -> abortWith "parseName failed" s
 
-compile _ = next
+compile :: Cell cell => FM cell () -> FM cell ()
+compile a = updateState $ \s ->
+  case defining s of
+    Nothing -> abortWith "not defining" s
+    Just d  -> newState s { defining = Just (d { compileList = V.snoc (compileList d) a } ) }
+
+
+-- Helper for create. Open up for defining a word assuming that the name of the
+-- word can be found on top of stack.
+-- ( caddr -- )  of word name to be created
+create' :: Cell cell => FM cell ()
+create' = updateState $ \s ->
+  case defining s of
+    Just{}  -> abortWith "already compiling" s
+    Nothing -> case stack s of
+                 Address (Just (Addr awid off)) : ss
+                   | Just (BufferField cmem) <- IntMap.lookup (unWordId awid) (variables s) ->
+                       let dict' = (dict s) { wids = wids' }
+                           wid : wids' = wids (dict s)
+                           linkhead = latest (dict s)
+                           name = B.drop (1 + off) $ chunk cmem
+                       in newState s { stack = ss,
+                                       dict = dict',
+                                       defining = Just $ Defining V.empty []
+                                                             (ForthWord name False linkhead wid abort) }
+                 otherwise -> abortWith "missing word name" s
+
+-- Helper for smudge, terminate defining of a word and make it available.
+smudge' :: Cell cell => FM cell ()
+smudge' = updateState $ \s ->
+  case defining s of
+    Nothing -> abortWith "not defining" s
+    Just defining  ->
+      let dict' = (dict s) { latest = Just word }
+          word = (definingWord defining) { doer = codeField }
+          codeVector = compileList defining
+          codeField = docol $ V.toList codeVector
+      in newState s { defining = Nothing,
+                      dict = dict' }
