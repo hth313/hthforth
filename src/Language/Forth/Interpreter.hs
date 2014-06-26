@@ -17,6 +17,7 @@ import Data.Vector.Storable.ByteString.Char8 (ByteString)
 import qualified Data.IntMap as IntMap
 import qualified Data.Vector as V
 import System.Console.Haskeline
+import System.Exit
 import qualified Data.Vector.Storable.ByteString as B
 import qualified Data.Vector.Storable.ByteString.Char8 as C
 import Language.Forth.Interpreter.Address
@@ -87,6 +88,7 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
                                 otherwise            -> emptyStack s
   quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next),
                 sourceId, store, mainLoop ]
+  bye = liftIO exitSuccess
   interpret = interpret'
   docol xs = modify (\s -> s { rstack = IP (ip s) : rstack s, ip = xs }) >> next
   branch = ipdo

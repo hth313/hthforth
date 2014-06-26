@@ -27,7 +27,7 @@ class Primitive c a | a -> c where
   store, plusStore :: a
   plus, minus, star, slash, and, or, xor :: a
   zerop :: a
-  quit :: a
+  quit, bye :: a
   interpret :: a
   branch :: [a] -> a
   branch0 :: [a] -> a
