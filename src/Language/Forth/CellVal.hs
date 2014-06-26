@@ -33,13 +33,6 @@ instance Eq cell => Eq (CellVal cell a) where
   Text t1    == Text t2    = t1 == t2
   _ == _ = False
 
-{-
-instance Cell cell => Ord (CellVal cell) where
-    compare (Val a) (Val b) = compare a b
-    compare (Address a) (Address b) = compare a b
-    compare (XT a) (XT b) = comparing name a b
--}
-
 illegalValue = Bot "illegal value"
 
 -- | Make 'CellVal cell' part of Num class. This allows us to use functions such as (+)
