@@ -96,7 +96,8 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   -- Compiling words
   create = docol [xword, create', semi]
   colon = docol [push (Val (-1)), state, store, create, semi]
-  semicolon = docol [compile semi, push (Val 0), state, store, smudge, semi]
+  semicolon = docol [compile (XT semi), push (Val 0), state, store, smudge, semi]
+  compileComma = dpop >>= compile
   smudge = smudge'
 
 searchDict :: Cell cell => ByteString -> FM cell (Maybe (ForthWord (FM cell ())))
@@ -294,11 +295,15 @@ xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, 
                                  variables = IntMap.insert (unWordId wordBufferWId) countedField (variables s) }
            otherwise -> abortWith "parseName failed" s
 
-compile :: Cell cell => FM cell () -> FM cell ()
-compile a = updateState $ \s ->
+compile :: Cell cell => CV cell -> FM cell ()
+compile cv = updateState $ \s ->
   case defining s of
     Nothing -> abortWith "not defining" s
-    Just d  -> newState s { defining = Just (d { compileList = V.snoc (compileList d) a } ) }
+    Just d  -> case cv of
+                 adr@Address{} -> tack $ lit adr
+                 val@Val{}     -> tack $ lit val
+                 XT a          -> tack a
+      where tack a = newState s { defining = Just (d { compileList = V.snoc ( compileList d) a } ) }
 
 
 -- Helper for create. Open up for defining a word assuming that the name of the
