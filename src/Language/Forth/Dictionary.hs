@@ -65,6 +65,7 @@ newDictionary = execState build (Dictionary wordsIds Nothing)
       addWord ";" semicolon >> makeImmediate
       addWord "SMUDGE" smudge
       addWord "CREATE" create
+      addWord "COMPILE," compileComma
     addWord name doer =
       StateT $ \s ->
         let i:is = wids s
