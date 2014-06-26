@@ -94,7 +94,7 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   inputLineLength = pushAdr inputLineLengthWId
 
   -- Compiling words
-  create = docol [xword, create', semi]
+  create = docol [word, create', semi]
   colon = docol [push (Val (-1)), state, store, create, semi]
   semicolon = docol [compile (XT semi), push (Val 0), state, store, smudge, semi]
   compileComma = dpop >>= compile
@@ -128,7 +128,7 @@ mainLoop = do
 
 interpret' :: Cell cell => FM cell ()
 interpret' = docol begin
-  where begin = xword : dup : cfetch : zerop : branch0 lab1 : drop : semi : lab1
+  where begin = word : dup : cfetch : zerop : branch0 lab1 : drop : semi : lab1
         lab1 = find : dup : zerop : branch0 lab2 : drop : parseNumber : state : fetch : branch0 begin : compileComma : branch begin : lab2
         lab2 = push (Val 1) : minus : zerop : branch0 lab3 : execute : branch begin : lab3
         lab3 = state : fetch : zerop : branch0 skip1 : execute : branch begin : skip1
@@ -263,8 +263,8 @@ find = do
 
 -- | Copy word from given address with delimiter to a special transient area.
 --   ( "<chars>ccc<char>" -- c-addr )
-xword :: Cell cell => FM cell ()
-xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, semi]
+word :: Cell cell => FM cell ()
+word = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, semi]
   where
     parseName =   -- ( "<spaces>ccc<space>" -- ctransbuf n )
       updateState  $ \s ->
