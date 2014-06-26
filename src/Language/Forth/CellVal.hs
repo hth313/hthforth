@@ -14,7 +14,6 @@ import Data.Word
 import Language.Forth.Cell
 import Data.Vector.Storable.ByteString (ByteString)
 import Language.Forth.Interpreter.Address
-import Language.Forth.Word
 
 
 -- | Cell values are what we can put into a data cell.
@@ -22,7 +21,7 @@ import Language.Forth.Word
 data CellVal cell a =
     Address (Maybe Addr)    -- ^ An address value
   | Val cell                -- ^ A numeric value
-  | XT (ForthWord a)        -- ^ Execution token
+  | XT a                    -- ^ Execution token
   | IP [a]                  -- ^ Pushed interpretive pointer
   | Text ByteString         -- ^ Some text buffer
   | Bot String

@@ -164,7 +164,7 @@ next = do x <- StateT $ \s -> let (x:xs) = ip s
           x
 
 call :: Cell cell => CV cell -> FM cell ()
-call (XT word) = doer word
+call (XT a) = a
 call _ = abortMessage "not an execution token"
 
 -- Data stack primitives
@@ -254,8 +254,8 @@ find = do
   modify $ \s ->
       case mword of
         Just word
-            | immediate word -> s { stack = Val 1 : XT word : (stack s) }
-            | otherwise -> s { stack = Val (-1) : XT word : (stack s) }
+            | immediate word -> s { stack = Val 1 : XT (doer word) : (stack s) }
+            | otherwise -> s { stack = Val (-1) : XT (doer word) : (stack s) }
         Nothing -> s { stack = Val 0 : caddr : stack s }
   next
 
