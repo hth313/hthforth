@@ -21,7 +21,6 @@ import Language.Forth.CellVal
 import Language.Forth.Primitive
 import Language.Forth.Target
 import Language.Forth.Word
-import Language.Forth.WordId
 import Prelude hiding (drop)
 
 data Dictionary a = Dictionary

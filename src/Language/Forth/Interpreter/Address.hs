@@ -1,6 +1,6 @@
 module Language.Forth.Interpreter.Address (Addr(..)) where
 
-import Language.Forth.WordId
+import Language.Forth.Word
 import Util.Address
 
 -- | All address refer to a data field of some word. In some cases we

@@ -4,12 +4,11 @@
 
 -}
 
-module Language.Forth.Word (ForthWord(..), LinkField) where
+module Language.Forth.Word (ForthWord(..), WordId(..), LinkField) where
 
 import Data.Char
 import Data.Vector.Storable.ByteString.Char8 (ByteString)
 import qualified Data.Vector.Storable.ByteString.Char8 as B
-import Language.Forth.WordId
 
 
 -- | A Forth word
@@ -28,3 +27,8 @@ instance Show (ForthWord a) where
     show = B.unpack . name
 
 type LinkField a = Maybe (ForthWord a)
+
+-- | Unique identifier for words.
+newtype WordId = WordId { unWordId :: Int } deriving (Eq, Ord)
+instance Show WordId where
+  show (WordId n) = show n

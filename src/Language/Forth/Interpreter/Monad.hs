@@ -15,7 +15,6 @@ import Language.Forth.Interpreter.DataField
 import Language.Forth.CellVal
 import Language.Forth.Dictionary
 import Language.Forth.Target
-import Language.Forth.WordId
 import Language.Forth.Word
 
 -- Interpreter monad

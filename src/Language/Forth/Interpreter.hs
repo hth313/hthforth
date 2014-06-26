@@ -28,7 +28,6 @@ import Language.Forth.Interpreter.Monad
 import Language.Forth.Primitive
 import Language.Forth.Target
 import Language.Forth.Word
-import Language.Forth.WordId
 import Util.Memory
 import Prelude hiding (drop)
 
