@@ -110,7 +110,7 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   smudge = smudge'
 
 binary op = updateState $ \s -> case stack s of
-                                  op1 : op2 : ss -> newState s { stack = op1 `op` op2 : ss }
+                                  op1 : op2 : ss -> newState s { stack = op2 `op` op1 : ss }
                                   otherwise -> emptyStack s
 
 divide :: Cell cell => CV cell -> CV cell -> CV cell
