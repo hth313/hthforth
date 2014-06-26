@@ -40,6 +40,7 @@ newDictionary :: Primitive c a => Dictionary a
 newDictionary = execState build (Dictionary wordsIds Nothing)
   where
     build = do
+      addWord "\\"   backslash >> makeImmediate
       addWord "(;)"  semi
       addWord "SWAP" swap
       addWord "DROP" drop
