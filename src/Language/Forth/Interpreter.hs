@@ -80,7 +80,7 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
                                 otherwise            -> emptyStack s
   quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next),
                 sourceId, store, mainLoop ]
-  interpret = docol [state, fetch, dpop >>= interpret1, semi]
+  interpret = interpret'
   docol xs = modify (\s -> s { rstack = IP (ip s) : rstack s, ip = xs }) >> next
   branch = ipdo
   branch0 loc = dpop >>= \n -> if | isZero n -> ipdo loc
@@ -126,26 +126,18 @@ mainLoop = do
                   push (Val $ fromIntegral $ C.length line), inputLineLength, store,
                   interpret, liftIO (putStrLn "ok") >> next, mainLoop]
 
-interpret1 :: Cell cell => CV cell -> FM cell ()
-interpret1 stateFlag =
-  let compiling = stateFlag /= Val 0
-      parseNumber = parse =<< countedText =<< dpop where
-        parse bs = case readDec text of
-                     [(x,"")]
-                       | compiling -> compile $ lit (Val x)
-                       | otherwise -> push $ Val x
-                     otherwise -> abortMessage $ text ++ " ?"
-                     where text = C.unpack bs
-      interpret2 True  = docol [drop, semi]
-      interpret2 False = docol [find, dpop >>= interpret3, semi]
-      interpret3 (Val 0) = docol [parseNumber, interpret, semi]
-      interpret3 (Val 1) = docol [execute, interpret, semi]
-      interpret3 _ | compiling = docol [xtpop >>= compile, interpret, semi] -- normal word found
-                   | otherwise = docol [execute, interpret, semi]
-      xtpop = dpop >>= \case
-                XT word -> return (doer word)
-                otherwise -> abortMessage "expected execution token" >> return next
-  in docol [xword, dup, cfetch, liftM (Val 0 ==) dpop >>= interpret2, semi]
+interpret' :: Cell cell => FM cell ()
+interpret' = docol begin
+  where begin = xword : dup : cfetch : zerop : branch0 lab1 : drop : semi : lab1
+        lab1 = find : dup : zerop : branch0 lab2 : drop : parseNumber : state : fetch : branch0 begin : compileComma : branch begin : lab2
+        lab2 = push (Val 1) : minus : zerop : branch0 lab3 : execute : branch begin : lab3
+        lab3 = state : fetch : zerop : branch0 skip1 : execute : branch begin : skip1
+        skip1 = [compileComma, branch begin]
+        parseNumber = dpop >>= countedText >>= parse where
+          parse bs = case readDec text of
+                       [(x,"")] -> push $ Val x
+                       otherwise -> abortMessage $ text ++ " ?"
+                       where text = C.unpack bs
 
 -- | Insert the field contents of given word
 putField :: Cell cell => WordId -> DataField cell (FM cell ()) -> FM cell ()
