@@ -82,8 +82,8 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
                 sourceId, store, mainLoop ]
   interpret = docol [state, fetch, dpop >>= interpret1, semi]
   docol xs = modify (\s -> s { rstack = IP (ip s) : rstack s, ip = xs }) >> next
-  branch = docol
-  branch0 loc = dpop >>= \n -> if | isZero n -> docol loc
+  branch = ipdo
+  branch0 loc = dpop >>= \n -> if | isZero n -> ipdo loc
                                   | otherwise  -> next
   -- variables
   state           = pushAdr stateWId
