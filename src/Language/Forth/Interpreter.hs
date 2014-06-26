@@ -12,6 +12,7 @@ import Numeric
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
+import qualified Data.Bits as Bits
 import Data.Vector.Storable.ByteString.Char8 (ByteString)
 import qualified Data.IntMap as IntMap
 import qualified Data.Vector as V
@@ -70,8 +71,14 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   fetch = fetch'
   store = store'
   plusStore = docol [dup, fetch, rot, plus, swap, store, semi]
-  plus = binary (+)
+  plus  = binary (+)
   minus = binary (-)
+  star  = binary (*)
+  slash = binary divide
+  and   = binary (Bits..&.)
+  or    = binary (Bits..|.)
+  xor   = binary Bits.xor
+
   zerop = updateState $ \s -> case stack s of
                                 (Val 0) : ss         -> newState s { stack = true  : ss }
                                 Val{} : ss           -> newState s { stack = false : ss }
@@ -103,6 +110,10 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
 binary op = updateState $ \s -> case stack s of
                                   op1 : op2 : ss -> newState s { stack = op1 `op` op2 : ss }
                                   otherwise -> emptyStack s
+
+divide :: Cell cell => CV cell -> CV cell -> CV cell
+divide (Val a) (Val b) = Val (a `div` b)
+divide a b = Bot $ "non numeric divide"
 
 ipdo :: Cell cell => [FM cell ()] -> FM cell ()
 ipdo ip' = modify (\s -> s { ip = ip' }) >> next

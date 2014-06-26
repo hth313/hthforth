@@ -25,7 +25,7 @@ class Primitive c a | a -> c where
   swap, drop, dup, rot, over :: a
   fetch, cfetch :: a
   store, plusStore :: a
-  plus, minus :: a
+  plus, minus, star, slash, and, or, xor :: a
   zerop :: a
   quit :: a
   interpret :: a

@@ -21,7 +21,7 @@ import Language.Forth.CellVal
 import Language.Forth.Primitive
 import Language.Forth.Target
 import Language.Forth.Word
-import Prelude hiding (drop)
+import Prelude hiding (drop, or, and)
 
 data Dictionary a = Dictionary
   { wids :: [WordId]
@@ -48,6 +48,11 @@ newDictionary = execState build (Dictionary wordsIds Nothing)
       addWord "ROT"  rot
       addWord "+"    plus
       addWord "-"    minus
+      addWord "*"    star
+      addWord "/"    slash
+      addWord "and"  and
+      addWord "or"   or
+      addWord "xor"  xor
       addWord "0="   zerop
       addWord "!"    store
       addWord "+!"   plusStore
