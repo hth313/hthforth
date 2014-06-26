@@ -70,9 +70,14 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   fetch = fetch'
   store = store'
   plusStore = docol [dup, fetch, rot, plus, swap, store, semi]
-  plus = updateState $ \s -> case stack s of
-                               op1 : op2 : ss -> newState s { stack = op1 + op2 : ss }
-                               otherwise -> emptyStack s
+  plus = binary (+)
+  minus = binary (-)
+  zerop = updateState $ \s -> case stack s of
+                                (Val 0) : ss         -> newState s { stack = true  : ss }
+                                Val{} : ss           -> newState s { stack = false : ss }
+                                Address Nothing : ss -> newState s { stack = true : ss }
+                                Address{} : ss       -> newState s { stack = false : ss }
+                                otherwise            -> emptyStack s
   quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next),
                 sourceId, store, mainLoop ]
   interpret = docol [state, fetch, dpop >>= interpret1, semi]
@@ -95,6 +100,10 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   smudge = smudge'
 
 searchDict :: Cell cell => ByteString -> FM cell (Maybe (ForthWord (FM cell ())))
+binary op = updateState $ \s -> case stack s of
+                                  op1 : op2 : ss -> newState s { stack = op1 `op` op2 : ss }
+                                  otherwise -> emptyStack s
+
 searchDict n = gets (f . latest . dict)
   where f jw@(Just word) | n == name word = jw
                          | otherwise = f (link word)

@@ -47,6 +47,8 @@ newDictionary = execState build (Dictionary wordsIds Nothing)
       addWord "DUP"  dup
       addWord "ROT"  rot
       addWord "+"    plus
+      addWord "-"    minus
+      addWord "0="   zerop
       addWord "!"    store
       addWord "+!"   plusStore
       addWord "@"    fetch
