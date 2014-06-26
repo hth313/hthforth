@@ -100,18 +100,18 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   compileComma = dpop >>= compile
   smudge = smudge'
 
-searchDict :: Cell cell => ByteString -> FM cell (Maybe (ForthWord (FM cell ())))
 binary op = updateState $ \s -> case stack s of
                                   op1 : op2 : ss -> newState s { stack = op1 `op` op2 : ss }
                                   otherwise -> emptyStack s
 
+ipdo :: Cell cell => [FM cell ()] -> FM cell ()
+ipdo ip' = modify (\s -> s { ip = ip' }) >> next
+
+searchDict :: Cell cell => ByteString -> FM cell (Maybe (ForthWord (FM cell ())))
 searchDict n = gets (f . latest . dict)
   where f jw@(Just word) | n == name word = jw
                          | otherwise = f (link word)
         f Nothing = Nothing
-
-ipdo :: Cell cell => [FM cell ()] -> FM cell ()
-ipdo ip' = modify (\s -> s { ip = ip' }) >> next
 
 mainLoop :: Cell cell => FM cell ()
 mainLoop = do
