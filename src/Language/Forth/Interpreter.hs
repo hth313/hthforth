@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances, LambdaCase, MultiParamTypeClasses, TypeSynonymInstances #-}
-{-# LANGUAGE MultiWayIf, OverloadedStrings, PatternGuards #-}
+{-# LANGUAGE MultiWayIf, OverloadedStrings, PatternGuards, ScopedTypeVariables #-}
 {- |
 
    The Forth interpreter.
@@ -9,6 +9,7 @@
 module Language.Forth.Interpreter (initialState, initialVarStorage, quit) where
 
 import Numeric
+import Control.Exception (try)
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
@@ -28,13 +29,14 @@ import Language.Forth.CellVal
 import Language.Forth.Dictionary
 import Language.Forth.Interpreter.Monad
 import Language.Forth.Primitive
+import Language.Forth.StreamFile
 import Language.Forth.Target
 import Language.Forth.Word
 import Util.Memory
 import Prelude hiding (drop)
 
 initialState :: Cell cell => Target cell -> FState cell
-initialState target = FState [] [] [] target interpreterDictionary IntMap.empty Nothing
+initialState target = FState [] [] [] target interpreterDictionary IntMap.empty [] Nothing
 
 initialVarStorage :: Cell cell => FM cell ()
 initialVarStorage = gets target >>=
@@ -50,6 +52,7 @@ interpreterDictionary = newDictionary extras
   where extras = do
           addWord "\\"   backslash >> makeImmediate
           addWord "BYE" (liftIO exitSuccess)
+          addWord "LOAD-SOURCE" loadSource
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
@@ -376,3 +379,36 @@ backslash = docol body
         loop = lit (Val 1) : minus : dup : branch0 eol : over : cfetch : lit (Val 10) : minus : branch0 found : swap : lit (Val 1) : plus : swap : branch loop : eol
         eol = drop : drop : inputLineLength : fetch : toIn : store : semi : found
         found = [inputLineLength, fetch, swap, minus, toIn, store, drop, semi]
+
+loadSource :: Cell cell => FM cell ()
+loadSource = docol [word, makeTempBuffer, evaluate, releaseTempBuffer, semi] where
+  makeTempBuffer = do
+    filename <- updateStateVal "" (
+                  \s -> case stack s of
+                          Address (Just (Addr wid off)) : ss
+                            | Just (BufferField cmem) <- IntMap.lookup (unWordId wid) (variables s),
+                              not (B.null $ chunk cmem) ->
+                                let len = fromIntegral $ B.head $ chunk cmem
+                                    name = C.take len $ C.drop (1 + off) $ chunk cmem
+                                in return (Right (C.unpack name), s { stack = ss })
+                            | otherwise -> abortWith "missing filename" s)
+    mc <- liftIO $ try $ readSourceFile filename
+    case mc of
+      Left (e :: IOException) -> abortMessage (show e)
+      Right contents -> updateState $ \s ->
+               let (handle, oldHandles', dict')
+                     | null (oldHandles s) = let w:ws = (wids $ dict s)
+                                             in (w, [], (dict s) { wids = ws })
+                     | otherwise = (head $ oldHandles s, tail $ oldHandles s, dict s)
+                   adr = Address (Just (Addr handle 0))
+               in newState s { oldHandles = oldHandles',
+                               dict = dict',
+                               rstack = adr : rstack s,
+                               stack = Val (fromIntegral $ C.length contents) : adr : stack s,
+                               variables = IntMap.insert (unWordId handle) (textBuffer handle contents) (variables s) }
+
+  releaseTempBuffer = updateState $ \s -> case rstack s of
+                                            Address (Just (Addr handle 0)) : rs ->
+                                              newState s { variables = IntMap.delete (unWordId handle) (variables s),
+                                                           rstack = rs,
+                                                           oldHandles = handle : oldHandles s }

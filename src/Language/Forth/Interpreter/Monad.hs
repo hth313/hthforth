@@ -31,7 +31,8 @@ data FState cell = FState
   , target :: Target cell
   , dict   :: Dictionary (FM cell ())      -- ^ Dictionary of Forth words
   , variables :: IntMap (DataField cell (FM cell ()))
-  , defining :: Maybe (Defining cell)     -- ^ Collector when compiling
+  , oldHandles :: [WordId]                 -- ^ Unused handles after reading source files
+  , defining :: Maybe (Defining cell)      -- ^ Collector when compiling
   }
 
 -- | The defining state. We collect words into a Vector together with
