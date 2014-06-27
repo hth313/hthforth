@@ -64,6 +64,8 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   execute = call =<< dpop
   evaluate = evaluate'
   lit val = dpush val >> next
+  false = lit falseVal
+  true = lit trueVal
   swap = updateState $ \s -> case stack s of
                                s0 : s1 : ss -> newState s { stack = s1 : s0 : ss }
                                otherwise -> emptyStack s
@@ -101,10 +103,10 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   xor   = binary Bits.xor
 
   zerop = updateState $ \s -> case stack s of
-                                (Val 0) : ss         -> newState s { stack = true  : ss }
-                                Val{} : ss           -> newState s { stack = false : ss }
-                                Address Nothing : ss -> newState s { stack = true : ss }
-                                Address{} : ss       -> newState s { stack = false : ss }
+                                (Val 0) : ss         -> newState s { stack = trueVal  : ss }
+                                Val{} : ss           -> newState s { stack = falseVal : ss }
+                                Address Nothing : ss -> newState s { stack = trueVal : ss }
+                                Address{} : ss       -> newState s { stack = falseVal : ss }
                                 otherwise            -> emptyStack s
   quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next),
                 sourceId, store, mainLoop ]

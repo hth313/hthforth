@@ -4,7 +4,7 @@
 
 -}
 
-module Language.Forth.CellVal (CellVal(..), true, false, isValue, isAddress, isAny,
+module Language.Forth.CellVal (CellVal(..), trueVal, falseVal, isValue, isAddress, isAny,
                                isExecutionToken, isZero) where
 
 import Data.Bits
@@ -81,9 +81,9 @@ instance Cell cell => Bits (CellVal cell a) where
     isSigned _ = False
 
 -- | Boolean truth values.
-true, false :: Cell cell => CellVal cell a
-true = Val (-1)
-false = Val 0
+trueVal, falseVal :: Cell cell => CellVal cell a
+trueVal = Val (-1)
+falseVal = Val 0
 
 isValue (Val _) = True
 isValue _ = False

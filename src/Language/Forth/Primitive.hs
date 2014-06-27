@@ -22,6 +22,7 @@ class Primitive c a | a -> c where
   semi :: a
   evaluate, execute :: a
   lit :: c -> a
+  false, true :: a
   swap, drop, dup, rot, over, rto, tor, rfetch :: a
   fetch, cfetch :: a
   store, plusStore :: a
