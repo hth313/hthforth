@@ -106,6 +106,7 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   inputBuffer     = litAdr inputBufferWId
   inputLine       = litAdr inputLineWId
   inputLineLength = litAdr inputLineLengthWId
+  sourceID        = litAdr sourceIDWid
 
   -- Compiling words
   create = docol [word, create', semi]

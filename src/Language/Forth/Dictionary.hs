@@ -8,7 +8,7 @@
 module Language.Forth.Dictionary (newDictionary, Dictionary(..),
                                   sourceWId, stateWId, toInWId,
                                   inputBufferWId, inputLineWId,
-                                  inputLineLengthWId, wordBufferWId,
+                                  inputLineLengthWId, wordBufferWId, sourceIDWid,
                                   addWord, makeImmediate) where
 
 import Control.Monad
@@ -35,7 +35,7 @@ data Dictionary a = Dictionary
 -- Some words (typically variables) that are needed early get theie word
 -- identity preallocated here and we use the tail for the rest of words.
 (sourceWId : stateWId : toInWId : inputBufferWId : inputLineWId :
- inputLineLengthWId : wordBufferWId : wordsIds) = map WordId [0..]
+ inputLineLengthWId : wordBufferWId : sourceIDWid : wordsIds) = map WordId [0..]
 
 -- Create a new basic dictionary.
 newDictionary :: Primitive c a => State (Dictionary a) WordId -> Dictionary a
@@ -67,6 +67,7 @@ newDictionary extras = execState build (Dictionary wordsIds Nothing)
       addWord "#INBUF" inputBuffer
       addWord "INPUT-LINE" inputLine
       addWord "#INPUT-LINE" inputLineLength
+      addWord "SOURCE-ID" sourceID
       addWord "QUIT" quit
       addWord "INTERPRET" interpret
       addWord ":" colon
