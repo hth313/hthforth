@@ -16,12 +16,12 @@ data ForthWord a = ForthWord
   { name :: ByteString
   , immediateFlag :: Bool
   , link :: LinkField a
-  , wid :: WordId
+  , wordId :: WordId
   , doer :: a
   }
 
 instance Eq (ForthWord a) where
-    a == b = wid a == wid b
+    a == b = wordId a == wordId b
 
 instance Show (ForthWord a) where
     show = B.unpack . name
