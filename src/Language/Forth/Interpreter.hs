@@ -42,7 +42,8 @@ initialVarStorage = gets target >>=
               let field@(DataField cm) = newDataField t wid (bytesPerCell t)
               in  putField wid (DataField $ writeCell val (Addr wid 0) cm)
         in mapM_ f [(sourceWId, 0), (stateWId, 0), (toInWId, 0),
-                    (inputLineWId, 0), (inputLineLengthWId, 0)]
+                    (inputLineWId, 0), (inputLineLengthWId, 0),
+                    (sourceIDWid, 0)]
 
 interpreterDictionary :: Cell cell => Dictionary (FM cell ())
 interpreterDictionary = newDictionary extras
