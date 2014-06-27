@@ -20,7 +20,7 @@ module Language.Forth.Primitive (Primitive(..)) where
 -}
 class Primitive c a | a -> c where
   semi :: a
-  execute :: a
+  evaluate, execute :: a
   lit :: c -> a
   swap, drop, dup, rot, over, rto, tor, rfetch :: a
   fetch, cfetch :: a

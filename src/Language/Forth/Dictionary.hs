@@ -43,6 +43,7 @@ newDictionary extras = execState build (Dictionary wordsIds Nothing)
   where
     build = do
       addWord "(;)"  semi
+      addWord "EVALUATE" evaluate
       addWord "EXECUTE" execute
       addWord "SWAP" swap
       addWord "DROP" drop

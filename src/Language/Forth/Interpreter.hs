@@ -58,6 +58,7 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
              next
            otherwise -> abortMessage "IP not on rstack"
   execute = call =<< dpop
+  evaluate = evaluate'
   lit val = dpush val >> next
   swap = updateState $ \s -> case stack s of
                                s0 : s1 : ss -> newState s { stack = s1 : s0 : ss }
@@ -166,6 +167,21 @@ interpret' = docol begin
                        [(x,"")] -> lit $ Val x
                        otherwise -> abortMessage $ text ++ " ?"
                        where text = C.unpack bs
+
+evaluate' :: Cell cell => FM cell ()
+evaluate' = docol [inputLine, fetch, tor,              -- save input specification
+                   inputLineLength, fetch, tor,
+                   sourceID, fetch, tor,
+                   toIn, fetch, tor,
+                   lit (Val (-1)), sourceID, store,    -- set SOURCE-ID to -1
+                   inputLineLength, store,             -- set new SOURCE specification
+                   inputLine, store,
+                   lit (Val 0), toIn, store,           -- clear >IN
+                   interpret,
+                   rto, toIn, store,                   -- restore input specification
+                   rto, sourceID, store,
+                   rto, inputLineLength, store,
+                   rto, inputLine, store, semi]
 
 -- | Insert the field contents of given word
 putField :: Cell cell => WordId -> DataField cell (FM cell ()) -> FM cell ()
