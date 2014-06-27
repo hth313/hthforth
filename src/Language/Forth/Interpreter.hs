@@ -96,17 +96,17 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   branch0 loc = dpop >>= \n -> if | isZero n -> ipdo loc
                                   | otherwise  -> next
   -- variables
-  state           = pushAdr stateWId
-  sourceId        = pushAdr sourceWId
-  toIn            = pushAdr toInWId
-  inputBuffer     = pushAdr inputBufferWId
-  inputLine       = pushAdr inputLineWId
-  inputLineLength = pushAdr inputLineLengthWId
+  state           = litAdr stateWId
+  sourceId        = litAdr sourceWId
+  toIn            = litAdr toInWId
+  inputBuffer     = litAdr inputBufferWId
+  inputLine       = litAdr inputLineWId
+  inputLineLength = litAdr inputLineLengthWId
 
   -- Compiling words
   create = docol [word, create', semi]
-  colon = docol [push (Val (-1)), state, store, create, semi]
-  semicolon = docol [compile (XT semi), push (Val 0), state, store, smudge, semi]
+  colon = docol [lit (Val (-1)), state, store, create, semi]
+  semicolon = docol [compile (XT semi), lit (Val 0), state, store, smudge, semi]
   compileComma = dpop >>= compile
   smudge = smudge'
 
@@ -135,21 +135,21 @@ mainLoop = do
     Just input ->
         let line = C.pack input
         in ipdo [ putField inputBufferWId (textBuffer inputBufferWId line) >> next,
-                  push (Val 0), toIn, store,
-                  pushAdr inputBufferWId, inputLine, store,
-                  push (Val $ fromIntegral $ C.length line), inputLineLength, store,
+                  lit (Val 0), toIn, store,
+                  litAdr inputBufferWId, inputLine, store,
+                  lit (Val $ fromIntegral $ C.length line), inputLineLength, store,
                   interpret, liftIO (putStrLn "ok") >> next, mainLoop]
 
 interpret' :: Cell cell => FM cell ()
 interpret' = docol begin
   where begin = word : dup : cfetch : zerop : branch0 lab1 : drop : semi : lab1
         lab1 = find : dup : zerop : branch0 lab2 : drop : parseNumber : state : fetch : branch0 begin : compileComma : branch begin : lab2
-        lab2 = push (Val 1) : minus : zerop : branch0 lab3 : execute : branch begin : lab3
+        lab2 = lit (Val 1) : minus : zerop : branch0 lab3 : execute : branch begin : lab3
         lab3 = state : fetch : zerop : branch0 skip1 : execute : branch begin : skip1
         skip1 = [compileComma, branch begin]
         parseNumber = dpop >>= countedText >>= parse where
           parse bs = case readDec text of
-                       [(x,"")] -> push $ Val x
+                       [(x,"")] -> lit $ Val x
                        otherwise -> abortMessage $ text ++ " ?"
                        where text = C.unpack bs
 
@@ -157,19 +157,13 @@ interpret' = docol begin
 putField :: Cell cell => WordId -> DataField cell (FM cell ()) -> FM cell ()
 putField wid field = modify $ \s -> s { variables = IntMap.insert (unWordId wid) field  (variables s) }
 
--- | Push a value on data stack
-push :: Cell cell => CV cell -> FM cell ()
-push x = do
-  modify $ \s -> s { stack = x : stack s }
-  next
-
 -- | Push the field address of a word on stack
-pushAdr :: Cell cell => WordId -> FM cell ()
-pushAdr wid = push $ Address (Just $ Addr wid 0)
+litAdr :: Cell cell => WordId -> FM cell ()
+litAdr wid = lit $ Address (Just $ Addr wid 0)
 
 abort :: Cell cell => FM cell ()
 abort = docol [modify (\s -> s { stack = [], defining = Nothing }) >> next,
-               push (Val 0), state, store, quit]
+               lit (Val 0), state, store, quit]
 
 abort0 :: Cell cell => FM cell (CV cell)
 abort0 = abort >> return (Val 0)
