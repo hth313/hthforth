@@ -74,6 +74,15 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   rot = updateState $ \s -> case stack s of
                               s0 : s1 : s2 : ss -> newState s { stack = s2 : s0 : s1 : ss }
                               otherwise -> emptyStack s
+  tor = updateState $ \s -> case stack s of
+                              s0 : ss -> newState s { stack = ss, rstack = s0 : rstack s }
+                              otherwise -> emptyStack s
+  rto = updateState $ \s -> case rstack s of
+                              r0 : rs -> newState s { rstack = rs, stack = r0 : stack s }
+                              otherwise -> emptyStack s
+  rfetch = updateState $ \s -> case rstack s of
+                                 r0 : _ -> newState s { stack = r0 : stack s }
+                                 otherwise -> emptyStack s
   cfetch = cfetch'
   fetch = fetch'
   store = store'

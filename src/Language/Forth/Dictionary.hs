@@ -49,6 +49,9 @@ newDictionary extras = execState build (Dictionary wordsIds Nothing)
       addWord "OVER" over
       addWord "DUP"  dup
       addWord "ROT"  rot
+      addWord "R>"   rto
+      addWord ">R"   tor
+      addWord "R@"   rfetch
       addWord "+"    plus
       addWord "-"    minus
       addWord "*"    star
