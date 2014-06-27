@@ -57,9 +57,9 @@ newDictionary extras = execState build (Dictionary wordsIds Nothing)
       addWord "-"    minus
       addWord "*"    star
       addWord "/"    slash
-      addWord "and"  and
-      addWord "or"   or
-      addWord "xor"  xor
+      addWord "AND"  and
+      addWord "OR"   or
+      addWord "XOR"  xor
       addWord "FALSE" false
       addWord "TRUE" true
       addWord "0="   zerop
