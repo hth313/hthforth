@@ -8,7 +8,8 @@
 module Language.Forth.Dictionary (newDictionary, Dictionary(..),
                                   sourceWId, stateWId, toInWId,
                                   inputBufferWId, inputLineWId,
-                                  inputLineLengthWId, wordBufferWId) where
+                                  inputLineLengthWId, wordBufferWId,
+                                  addWord, makeImmediate) where
 
 import Control.Monad
 import Control.Monad.Trans.Class
@@ -36,11 +37,11 @@ data Dictionary a = Dictionary
 (sourceWId : stateWId : toInWId : inputBufferWId : inputLineWId :
  inputLineLengthWId : wordBufferWId : wordsIds) = map WordId [0..]
 
-newDictionary :: Primitive c a => Dictionary a
-newDictionary = execState build (Dictionary wordsIds Nothing)
+-- Create a new basic dictionary.
+newDictionary :: Primitive c a => State (Dictionary a) WordId -> Dictionary a
+newDictionary extras = execState build (Dictionary wordsIds Nothing)
   where
     build = do
-      addWord "\\"   backslash >> makeImmediate
       addWord "(;)"  semi
       addWord "SWAP" swap
       addWord "DROP" drop
@@ -72,11 +73,12 @@ newDictionary = execState build (Dictionary wordsIds Nothing)
       addWord "SMUDGE" smudge
       addWord "CREATE" create
       addWord "COMPILE," compileComma
-      addWord "BYE" bye
-    addWord name doer =
-      StateT $ \s ->
-        let i:is = wids s
-        in  return (i, s { wids = is,
-                           latest = Just $ ForthWord name False (latest s) i doer })
-    makeImmediate = modify $ \s -> s { latest = fmap imm (latest s) }
-                      where imm word = word { immediate = True }
+      extras
+
+addWord name doer =
+  StateT $ \s ->
+    let i:is = wids s
+    in  return (i, s { wids = is,
+                       latest = Just $ ForthWord name False (latest s) i doer })
+makeImmediate = modify $ \s -> s { latest = fmap imm (latest s) }
+                  where imm word = word { immediate = True }

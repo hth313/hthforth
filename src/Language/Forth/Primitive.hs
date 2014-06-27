@@ -19,7 +19,6 @@ module Language.Forth.Primitive (Primitive(..)) where
      CellVal with both type variables.
 -}
 class Primitive c a | a -> c where
-  backslash :: a
   semi :: a
   execute :: a
   lit :: c -> a
@@ -28,7 +27,7 @@ class Primitive c a | a -> c where
   store, plusStore :: a
   plus, minus, star, slash, and, or, xor :: a
   zerop :: a
-  quit, bye :: a
+  quit :: a
   interpret :: a
   branch :: [a] -> a
   branch0 :: [a] -> a

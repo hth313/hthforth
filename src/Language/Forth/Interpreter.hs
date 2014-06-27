@@ -34,7 +34,7 @@ import Util.Memory
 import Prelude hiding (drop)
 
 initialState :: Cell cell => Target cell -> FState cell
-initialState target = FState [] [] [] target newDictionary IntMap.empty Nothing
+initialState target = FState [] [] [] target interpreterDictionary IntMap.empty Nothing
 
 initialVarStorage :: Cell cell => FM cell ()
 initialVarStorage = gets target >>=
@@ -44,9 +44,14 @@ initialVarStorage = gets target >>=
         in mapM_ f [(sourceWId, 0), (stateWId, 0), (toInWId, 0),
                     (inputLineWId, 0), (inputLineLengthWId, 0)]
 
+interpreterDictionary :: Cell cell => Dictionary (FM cell ())
+interpreterDictionary = newDictionary extras
+  where extras = do
+          addWord "\\"   backslash >> makeImmediate
+          addWord "BYE" (liftIO exitSuccess)
+
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
-  backslash = backslash'
   semi = rpop >>= \case
            IP ip' -> do
              modify $ \s -> s { ip = ip' }
@@ -89,7 +94,6 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
                                 otherwise            -> emptyStack s
   quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next),
                 sourceId, store, mainLoop ]
-  bye = liftIO exitSuccess
   interpret = interpret'
   docol xs = modify (\s -> s { rstack = IP (ip s) : rstack s, ip = xs }) >> next
   branch = ipdo
@@ -339,8 +343,8 @@ smudge' = updateState $ \s ->
       in newState s { defining = Nothing,
                       dict = dict' }
 
-backslash' :: Cell cell => FM cell ()
-backslash' = docol body
+backslash :: Cell cell => FM cell ()
+backslash = docol body
   where body = toIn : fetch : inputLine : fetch : over : plus : inputLineLength : fetch : rot : minus : loop
         loop = lit (Val 1) : minus : dup : branch0 eol : over : cfetch : lit (Val 10) : minus : branch0 found : swap : lit (Val 1) : plus : swap : branch loop : eol
         eol = drop : drop : inputLineLength : fetch : toIn : store : semi : found
