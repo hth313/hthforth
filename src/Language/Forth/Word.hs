@@ -14,7 +14,7 @@ import qualified Data.Vector.Storable.ByteString.Char8 as B
 -- | A Forth word
 data ForthWord a = ForthWord
   { name :: ByteString
-  , immediate :: Bool
+  , immediateFlag :: Bool
   , link :: LinkField a
   , wid :: WordId
   , doer :: a

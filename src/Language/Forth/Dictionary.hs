@@ -9,7 +9,7 @@ module Language.Forth.Dictionary (newDictionary, Dictionary(..),
                                   sourceWId, stateWId, toInWId,
                                   inputBufferWId, inputLineWId,
                                   inputLineLengthWId, wordBufferWId, sourceIDWid,
-                                  addWord, makeImmediate) where
+                                  addWord, makeImmediate, setLatestImmediate) where
 
 import Control.Monad
 import Control.Monad.Trans.Class
@@ -81,6 +81,7 @@ newDictionary extras = execState build (Dictionary wordsIds Nothing)
       addWord "SMUDGE" smudge
       addWord "CREATE" create
       addWord "COMPILE," compileComma
+      addWord "IMMEDIATE" immediate
       extras
 
 addWord name doer =
@@ -88,5 +89,6 @@ addWord name doer =
     let i:is = wids s
     in  return (i, s { wids = is,
                        latest = Just $ ForthWord name False (latest s) i doer })
-makeImmediate = modify $ \s -> s { latest = fmap imm (latest s) }
-                  where imm word = word { immediate = True }
+makeImmediate = modify setLatestImmediate
+setLatestImmediate s = s { latest = fmap imm (latest s) }
+  where imm word = word { immediateFlag = True }

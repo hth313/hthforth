@@ -130,6 +130,7 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   semicolon = docol [compile (XT semi), lit (Val 0), state, store, smudge, semi]
   compileComma = dpop >>= compile
   smudge = smudge'
+  immediate = updateState $ \s -> newState s { dict = setLatestImmediate (dict s) }
 
 binary op = updateState $ \s -> case stack s of
                                   op1 : op2 : ss -> newState s { stack = op2 `op` op1 : ss }
@@ -300,7 +301,7 @@ find = do
   modify $ \s ->
       case mword of
         Just word
-            | immediate word -> s { stack = Val 1 : XT (doer word) : (stack s) }
+            | immediateFlag word -> s { stack = Val 1 : XT (doer word) : (stack s) }
             | otherwise -> s { stack = Val (-1) : XT (doer word) : (stack s) }
         Nothing -> s { stack = Val 0 : caddr : stack s }
   next

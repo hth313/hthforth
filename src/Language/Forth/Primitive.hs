@@ -40,4 +40,4 @@ class Primitive c a | a -> c where
   inputLine :: a              -- ^ INPUT-LINE
   inputLineLength :: a        -- ^ #INPUT-LINE
   sourceID :: a               -- ^ SOURCE-ID
-  create, colon, semicolon, smudge, compileComma :: a
+  create, colon, semicolon, smudge, compileComma, immediate :: a
