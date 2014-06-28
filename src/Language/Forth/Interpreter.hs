@@ -110,6 +110,11 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
                                 Address Nothing : ss -> newState s { stack = trueVal : ss }
                                 Address{} : ss       -> newState s { stack = falseVal : ss }
                                 otherwise            -> emptyStack s
+  lt0 = updateState $ \s -> case stack s of
+                              (Val n) : ss -> let flag | n < 0 = trueVal
+                                                       | otherwise = falseVal
+                                              in newState s { stack = flag : ss }
+                              otherwise -> emptyStack s
   quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next),
                 sourceId, store, mainLoop ]
   interpret = interpret'

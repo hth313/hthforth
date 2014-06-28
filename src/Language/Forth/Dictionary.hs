@@ -63,6 +63,7 @@ newDictionary extras = execState build (Dictionary wordsIds Nothing)
       addWord "FALSE" false
       addWord "TRUE" true
       addWord "0="   zerop
+      addWord "0<"   lt0
       addWord "!"    store
       addWord "+!"   plusStore
       addWord "@"    fetch

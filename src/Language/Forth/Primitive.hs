@@ -27,7 +27,7 @@ class Primitive c a | a -> c where
   fetch, cfetch :: a
   store, plusStore :: a
   plus, minus, star, slash, and, or, xor :: a
-  zerop :: a
+  zerop, lt0 :: a
   quit :: a
   interpret :: a
   branch :: [a] -> a
