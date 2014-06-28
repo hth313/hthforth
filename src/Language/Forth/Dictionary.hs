@@ -82,6 +82,9 @@ newDictionary extras = execState build (Dictionary wordsIds Nothing)
       addWord "CREATE" create
       addWord "COMPILE," compileComma
       addWord "IMMEDIATE" immediate
+      addWord "IF" xif >> makeImmediate
+      addWord "ELSE" xelse >> makeImmediate
+      addWord "THEN" xthen >> makeImmediate
       extras
 
 addWord name doer =

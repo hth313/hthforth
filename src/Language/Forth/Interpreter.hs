@@ -34,6 +34,7 @@ import Language.Forth.Target
 import Language.Forth.Word
 import Util.Memory
 import Prelude hiding (drop)
+import qualified Prelude as Prelude
 
 initialState :: Cell cell => Target cell -> FState cell
 initialState target = FState [] [] [] target interpreterDictionary IntMap.empty [] Nothing
@@ -51,6 +52,7 @@ interpreterDictionary :: Cell cell => Dictionary (FM cell ())
 interpreterDictionary = newDictionary extras
   where extras = do
           addWord "\\"   backslash >> makeImmediate
+          addWord "HERE" here
           addWord "BYE" (liftIO exitSuccess)
           addWord "LOAD-SOURCE" loadSource
 
@@ -131,6 +133,11 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   compileComma = dpop >>= compile
   smudge = smudge'
   immediate = updateState $ \s -> newState s { dict = setLatestImmediate (dict s) }
+
+  -- Control structures
+  xif   = docol [here, compileBranch branch0, semi]
+  xelse = docol [here, compileBranch branch, here, rot, backpatch, semi]
+  xthen = docol [here, swap, backpatch, semi]
 
 binary op = updateState $ \s -> case stack s of
                                   op1 : op2 : ss -> newState s { stack = op2 `op` op1 : ss }
@@ -333,15 +340,17 @@ word = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, s
            otherwise -> abortWith "parseName failed" s
 
 compile :: Cell cell => CV cell -> FM cell ()
-compile cv = updateState $ \s ->
+compile adr@Address{} = tackOn $ WrapA $ lit adr
+compile val@Val{} = tackOn $ WrapA $ lit val
+compile (XT a) = tackOn $ WrapA $ a
+
+compileBranch :: Cell cell => ([FM cell ()] -> FM cell ()) -> FM cell ()
+compileBranch = tackOn . WrapB
+
+tackOn x = updateState $ \s ->
   case defining s of
     Nothing -> abortWith "not defining" s
-    Just d  -> case cv of
-                 adr@Address{} -> tack $ lit adr
-                 val@Val{}     -> tack $ lit val
-                 XT a          -> tack a
-      where tack a = newState s { defining = Just (d { compileList = V.snoc ( compileList d) a } ) }
-
+    Just d -> newState s { defining = Just (d { compileList = V.snoc (compileList d) x } ) }
 
 -- Helper for create. Open up for defining a word assuming that the name of the
 -- word can be found on top of stack.
@@ -370,11 +379,35 @@ smudge' = updateState $ \s ->
     Nothing -> abortWith "not defining" s
     Just defining  ->
       let dict' = (dict s) { latest = Just word }
-          word = (definingWord defining) { doer = codeField }
-          codeVector = compileList defining
-          codeField = docol $ V.toList codeVector
+          word = (definingWord defining) { doer = docol cs }
+          vs = compileList defining
+          -- Compile the branch instructions using the patch list provided by
+          -- backpatch function. We rely on lazy evaluation here and insert
+          -- branch destinations where lazy functions that will end up dropping
+          -- 'dest' elements from final colon list.
+          cs = map unWrapA $ V.toList $ (V.//) vs (map f $ patchList defining)
+          f (loc, dest) =
+            let branchInstr | WrapB b <- (V.!) vs loc = WrapA $ b (Prelude.drop dest cs)
+            in  (loc, branchInstr)
       in newState s { defining = Nothing,
                       dict = dict' }
+
+here :: Cell cell => FM cell ()
+here = updateState $ \s ->
+         case defining s of
+           Nothing  -> abortWith "HERE only partially implemented" s
+           Just def -> newState s { stack = HereColon wid (V.length (compileList def)) : stack s }
+             where wid = wordId $ definingWord def
+
+backpatch :: Cell cell => FM cell ()
+backpatch = updateState $ \s ->
+         case defining s of
+           Nothing  -> abortWith "not defining" s
+           Just def -> case stack s of
+                         HereColon _ loc : HereColon _ dest : ss ->
+                           let def' = def { patchList = (loc, dest) : patchList def }
+                           in newState s { defining = Just def',
+                                           stack = ss }
 
 backslash :: Cell cell => FM cell ()
 backslash = docol body

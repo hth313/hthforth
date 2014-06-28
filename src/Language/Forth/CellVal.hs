@@ -12,6 +12,7 @@ import Data.Ord
 import Data.Map (Map)
 import Data.Word
 import Language.Forth.Cell
+import Language.Forth.Word
 import Data.Vector.Storable.ByteString (ByteString)
 import Language.Forth.Interpreter.Address
 
@@ -24,6 +25,7 @@ data CellVal cell a =
   | XT a                    -- ^ Execution token
   | IP [a]                  -- ^ Pushed interpretive pointer
   | Text ByteString         -- ^ Some text buffer
+  | HereColon WordId Int    -- ^ Pointer inside word being defined
   | Bot String
 
 instance Eq cell => Eq (CellVal cell a) where

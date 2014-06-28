@@ -5,6 +5,7 @@
 -}
 
 module Language.Forth.Interpreter.Monad (FM, FState(..), CV, Defining(..),
+                                         DefiningWrapper(..), unWrapA,
                                          module Control.Monad.Trans.State ) where
 
 import Control.Monad.Trans.State hiding (state)
@@ -38,7 +39,13 @@ data FState cell = FState
 -- | The defining state. We collect words into a Vector together with
 --   information about locations to change when we have collected all.
 data Defining cell = Defining
-  { compileList :: Vector (FM cell ())
-  , patchList :: [(Int, Int)]               -- ^ (pos, loc) list to patch
+  { compileList :: Vector (DefiningWrapper cell)
+  , patchList :: [(Int, Int)]               -- ^ (loc, dest) list to patch
   , definingWord :: ForthWord (FM cell ())
   }
+
+-- | Wrapper for words being compile. This is used to keep track of branches
+--   that are waiting to have their address fixed.
+data DefiningWrapper cell = WrapA (FM cell ()) | WrapB ([FM cell ()] -> FM cell ())
+
+unWrapA (WrapA a) = a
