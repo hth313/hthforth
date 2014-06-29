@@ -41,4 +41,5 @@ class Primitive c a | a -> c where
   inputLineLength :: a        -- ^ #INPUT-LINE
   sourceID :: a               -- ^ SOURCE-ID
   create, colon, semicolon, smudge, compileComma, immediate :: a
+  constant :: a
   xif, xelse, xthen :: a

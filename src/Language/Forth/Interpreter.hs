@@ -132,13 +132,13 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   sourceID        = litAdr sourceIDWid
 
   -- Compiling words
-  create = docol [word, create', semi]
+  create = docol [word, create' docol, semi]
   colon = docol [lit (Val (-1)), state, store, create, semi]
   semicolon = docol [compile (XT semi), lit (Val 0), state, store, smudge, semi]
   compileComma = dpop >>= compile
   smudge = smudge'
   immediate = updateState $ \s -> newState s { dict = setLatestImmediate (dict s) }
-
+  constant = docol [word, create' head, compileComma, smudge, semi]
   -- Control structures
   xif   = docol [here, compileBranch branch0, semi]
   xelse = docol [here, compileBranch branch, here, rot, backpatch, semi]
@@ -360,8 +360,8 @@ tackOn x = updateState $ \s ->
 -- Helper for create. Open up for defining a word assuming that the name of the
 -- word can be found on top of stack.
 -- ( caddr -- )  of word name to be created
-create' :: Cell cell => FM cell ()
-create' = updateState $ \s ->
+create' :: Cell cell => ([FM cell ()] -> FM cell ()) -> FM cell ()
+create' finalizer = updateState $ \s ->
   case defining s of
     Just{}  -> abortWith "already compiling" s
     Nothing -> case stack s of
@@ -373,7 +373,7 @@ create' = updateState $ \s ->
                            name = B.drop (1 + off) $ chunk cmem
                        in newState s { stack = ss,
                                        dict = dict',
-                                       defining = Just $ Defining V.empty []
+                                       defining = Just $ Defining V.empty [] finalizer
                                                              (ForthWord name False linkhead wid abort) }
                  otherwise -> abortWith "missing word name" s
 
@@ -384,7 +384,7 @@ smudge' = updateState $ \s ->
     Nothing -> abortWith "not defining" s
     Just defining  ->
       let dict' = (dict s) { latest = Just word }
-          word = (definingWord defining) { doer = docol cs }
+          word = (definingWord defining) { doer = (defineFinalizer defining) cs }
           vs = compileList defining
           -- Compile the branch instructions using the patch list provided by
           -- backpatch function. We rely on lazy evaluation here and insert

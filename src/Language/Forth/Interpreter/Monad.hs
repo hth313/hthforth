@@ -41,6 +41,7 @@ data FState cell = FState
 data Defining cell = Defining
   { compileList :: Vector (DefiningWrapper cell)
   , patchList :: [(Int, Int)]               -- ^ (loc, dest) list to patch
+  , defineFinalizer :: [FM cell ()] -> FM cell ()
   , definingWord :: ForthWord (FM cell ())
   }
 
