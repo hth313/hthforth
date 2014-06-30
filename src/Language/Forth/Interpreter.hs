@@ -55,6 +55,14 @@ interpreterDictionary = newDictionary extras
           addWord "HERE" here
           addWord "BYE" (liftIO exitSuccess)
           addWord "LOAD-SOURCE" loadSource
+          addWord "DO" xdo >> makeImmediate
+          addWord "(DO)" pdo
+          addWord "LOOP" loop >> makeImmediate
+          addWord "(LOOP)" ploop
+          addWord "+LOOP" plusLoop >> makeImmediate
+          addWord "(+LOOP)" pplusLoop
+          addWord "LEAVE" leave
+          addWord "I" rfetch
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
@@ -139,10 +147,40 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   smudge = smudge'
   immediate = updateState $ \s -> newState s { dict = setLatestImmediate (dict s) }
   constant = docol [word, create' head, compileComma, smudge, semi]
+
   -- Control structures
   xif   = docol [here, compileBranch branch0, semi]
   xelse = docol [here, compileBranch branch, here, rot, backpatch, semi]
   xthen = docol [here, swap, backpatch, semi]
+
+  xdo = docol [compile (XT pdo), here, semi]
+  loop = xloop ploop
+  plusLoop = xloop pplusLoop
+  leave = updateState $ \s -> case rstack s of
+                                _ : rs@(limit : _) -> newState s { rstack = limit : rs }
+                                otherwise -> emptyStack s
+
+-- Helper function that compile the ending loop word
+xloop a = docol [compile (XT a), here, compileBranch branch0, backpatch, semi]
+
+-- Runtime words for DO-LOOPs
+pdo, ploop, pplusLoop :: Cell cell => FM cell ()
+pdo = updateState $ \s -> case stack s of
+                            s0 : s1 : ss -> newState s { stack = ss,
+                                                         rstack  = s0 : s1 : rstack s }
+                            otherwise -> emptyStack s
+ploop = updateState $ rloopHelper (Val 1 +)
+pplusLoop = updateState $ \s -> case stack s of
+                                  n : ss -> rloopHelper (n+) (s { stack = ss })
+rloopHelper f s = case rstack s of
+                    i : r2@(limit : rs) ->
+                        let i' = f i
+                        in newState $ if i' < limit
+                                      then s { rstack = i' : r2,
+                                               stack = falseVal : stack s }
+                                      else s { rstack = rs,
+                                               stack = trueVal : stack s }
+                    otherwise -> emptyStack s
 
 binary op = updateState $ \s -> case stack s of
                                   op1 : op2 : ss -> newState s { stack = op2 `op` op1 : ss }

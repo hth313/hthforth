@@ -34,6 +34,12 @@ instance Eq cell => Eq (CellVal cell a) where
   Text t1    == Text t2    = t1 == t2
   _ == _ = False
 
+instance Ord cell => Ord (CellVal cell a) where
+  Address (Just (Addr wid1 off1)) <= Address (Just (Addr wid2 off2))
+    | wid1 == wid2 = off1 <= off2
+  Val n1 <= Val n2  = n1 <= n2
+  _ <= _ = False
+
 illegalValue = Bot "illegal value"
 
 -- | Make 'CellVal cell' part of Num class. This allows us to use functions such as (+)

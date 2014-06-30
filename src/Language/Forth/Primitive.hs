@@ -43,3 +43,4 @@ class Primitive c a | a -> c where
   create, colon, semicolon, smudge, compileComma, immediate :: a
   constant :: a
   xif, xelse, xthen :: a
+  xdo, loop, plusLoop, leave :: a
