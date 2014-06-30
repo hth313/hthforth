@@ -60,6 +60,7 @@ interpreterDictionary = newDictionary extras
           addWord ";" semicolon >> makeImmediate
           addWord "SMUDGE" smudge
           addWord "CREATE" create
+          addWord "," compileComma
           addWord "COMPILE," compileComma
           addWord "IMMEDIATE" immediate
           addWord "HERE" here
@@ -79,6 +80,7 @@ interpreterDictionary = newDictionary extras
           addWord "I" rfetch
           addWord "EMIT" emit
           addWord "MOVE" move
+          addWord "FIND" find
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
