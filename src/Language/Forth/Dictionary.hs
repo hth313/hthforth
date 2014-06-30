@@ -65,6 +65,7 @@ newDictionary extras = execState build (Dictionary wordsIds Nothing)
       addWord "0="   zerop
       addWord "0<"   lt0
       addWord "!"    store
+      addWord "C!"   cstore
       addWord "@"    fetch
       addWord "C@"   cfetch
       addWord "STATE" state

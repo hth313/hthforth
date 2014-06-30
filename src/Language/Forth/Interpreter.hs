@@ -54,6 +54,7 @@ interpreterDictionary = newDictionary extras
   where extras = do
           addWord "\\"   backslash >> makeImmediate
           addWord "QUIT" quit
+          addWord "ABORT" abort
           addWord "INTERPRET" interpret
           addWord ":" colon
           addWord ";" semicolon >> makeImmediate
@@ -116,6 +117,7 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
                                  otherwise -> emptyStack s
   cfetch = cfetch'
   fetch = fetch'
+  cstore = cstore'
   store = store'
   plus  = binary (+)
   minus = binary (-)
@@ -325,6 +327,18 @@ cfetch' = updateState $ \s ->
           Just DataField{} -> abortWith "C@ - data field not implemented" s
       [] -> emptyStack s
       x -> abortWith "bad C@ address" s
+
+cstore' :: Cell cell => FM cell ()
+cstore' = do
+  action <- updateStateVal (return ()) $ \s ->
+    case stack s of
+      Address (Just adr@(Addr wid i)) : Val val : rest
+          | Just (BufferField bm) <- IntMap.lookup (unWordId wid) (variables s) ->
+              return (Right (write8 (fromIntegral val) adr bm), s { stack = rest })
+      [] -> emptyStack s
+      [x] -> abortWith "no value to C! to" s
+      x:_ -> abortWith "cannot C! to non-address" s
+  liftIO action
 
 fetch' :: Cell cell => FM cell ()
 fetch' = updateState $ \s ->
