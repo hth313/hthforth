@@ -25,11 +25,9 @@ class Primitive c a | a -> c where
   false, true :: a
   swap, drop, dup, rot, over, rto, tor, rfetch :: a
   fetch, cfetch :: a
-  store, plusStore :: a
+  store :: a
   plus, minus, star, slash, and, or, xor :: a
   zerop, lt0 :: a
-  quit :: a
-  interpret :: a
   branch :: [a] -> a
   branch0 :: [a] -> a
   docol :: [a] -> a
@@ -40,7 +38,4 @@ class Primitive c a | a -> c where
   inputLine :: a              -- ^ INPUT-LINE
   inputLineLength :: a        -- ^ #INPUT-LINE
   sourceID :: a               -- ^ SOURCE-ID
-  create, colon, semicolon, smudge, compileComma, immediate :: a
   constant :: a
-  xif, xelse, xthen :: a
-  xdo, loop, plusLoop, leave :: a

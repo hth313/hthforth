@@ -52,9 +52,21 @@ interpreterDictionary :: Cell cell => Dictionary (FM cell ())
 interpreterDictionary = newDictionary extras
   where extras = do
           addWord "\\"   backslash >> makeImmediate
+          addWord "QUIT" quit
+          addWord "INTERPRET" interpret
+          addWord ":" colon
+          addWord ";" semicolon >> makeImmediate
+          addWord "SMUDGE" smudge
+          addWord "CREATE" create
+          addWord "COMPILE," compileComma
+          addWord "IMMEDIATE" immediate
           addWord "HERE" here
           addWord "BYE" (liftIO exitSuccess)
           addWord "LOAD-SOURCE" loadSource
+          addWord "+!"   plusStore
+          addWord "IF" xif >> makeImmediate
+          addWord "ELSE" xelse >> makeImmediate
+          addWord "THEN" xthen >> makeImmediate
           addWord "DO" xdo >> makeImmediate
           addWord "(DO)" pdo
           addWord "LOOP" loop >> makeImmediate
@@ -103,7 +115,6 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   cfetch = cfetch'
   fetch = fetch'
   store = store'
-  plusStore = docol [dup, fetch, rot, plus, swap, store, semi]
   plus  = binary (+)
   minus = binary (-)
   star  = binary (*)
@@ -123,9 +134,6 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
                                                        | otherwise = falseVal
                                               in newState s { stack = flag : ss }
                               otherwise -> emptyStack s
-  quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next),
-                sourceId, store, mainLoop ]
-  interpret = interpret'
   docol xs = modify (\s -> s { rstack = IP (ip s) : rstack s, ip = xs }) >> next
   branch = ipdo
   branch0 loc = dpop >>= \n -> if | isZero n -> ipdo loc
@@ -140,31 +148,41 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   sourceID        = litAdr sourceIDWid
 
   -- Compiling words
-  create = docol [word, create' docol, semi]
-  colon = docol [lit (Val (-1)), state, store, create, semi]
-  semicolon = docol [compile (XT semi), lit (Val 0), state, store, smudge, semi]
-  compileComma = dpop >>= compile
-  smudge = smudge'
-  immediate = updateState $ \s -> newState s { dict = setLatestImmediate (dict s) }
   constant = docol [word, create' head, compileComma, smudge, semi]
 
-  -- Control structures
-  xif   = docol [here, compileBranch branch0, semi]
-  xelse = docol [here, compileBranch branch, here, rot, backpatch, semi]
-  xthen = docol [here, swap, backpatch, semi]
+-- Forward declarations of Forth words implemented by the interpreter
+xif, xelse, xthen, xdo, loop, plusLoop, leave, quit :: Cell cell => FM cell ()
+interpret, plusStore, create, colon, semicolon :: Cell cell => FM cell ()
+compileComma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
+here, backpatch, backslash, loadSource :: Cell cell => FM cell ()
 
-  xdo = docol [compile (XT pdo), here, semi]
-  loop = xloop ploop
-  plusLoop = xloop pplusLoop
-  leave = updateState $ \s -> case rstack s of
-                                _ : rs@(limit : _) -> newState s { rstack = limit : rs }
-                                otherwise -> emptyStack s
+-- Control structures
+xif   = docol [here, compileBranch branch0, semi]
+xelse = docol [here, compileBranch branch, here, rot, backpatch, semi]
+xthen = docol [here, swap, backpatch, semi]
+
+xdo = docol [compile (XT pdo), here, semi]
+loop = xloop ploop
+plusLoop = xloop pplusLoop
+leave = updateState $ \s -> case rstack s of
+                              _ : rs@(limit : _) -> newState s { rstack = limit : rs }
+                              otherwise -> emptyStack s
+
+quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next),
+              sourceId, store, mainLoop ]
+
+plusStore = docol [dup, fetch, rot, plus, swap, store, semi]
+
+create = docol [word, create' docol, semi]
+colon = docol [lit (Val (-1)), state, store, create, semi]
+semicolon = docol [compile (XT semi), lit (Val 0), state, store, smudge, semi]
+compileComma = dpop >>= compile
+immediate = updateState $ \s -> newState s { dict = setLatestImmediate (dict s) }
 
 -- Helper function that compile the ending loop word
 xloop a = docol [compile (XT a), here, compileBranch branch0, backpatch, semi]
 
 -- Runtime words for DO-LOOPs
-pdo, ploop, pplusLoop :: Cell cell => FM cell ()
 pdo = updateState $ \s -> case stack s of
                             s0 : s1 : ss -> newState s { stack = ss,
                                                          rstack  = s0 : s1 : rstack s }
@@ -212,8 +230,7 @@ mainLoop = do
                   lit (Val $ fromIntegral $ C.length line), inputLineLength, store,
                   interpret, liftIO (putStrLn "ok") >> next, mainLoop]
 
-interpret' :: Cell cell => FM cell ()
-interpret' = docol begin
+interpret = docol begin
   where begin = word : dup : cfetch : zerop : branch0 lab1 : drop : semi : lab1
         lab1 = find : dup : zerop : branch0 lab2 : drop : parseNumber : state : fetch : branch0 begin : compileComma : branch begin : lab2
         lab2 = lit (Val 1) : minus : zerop : branch0 lab3 : execute : branch begin : lab3
@@ -416,8 +433,7 @@ create' finalizer = updateState $ \s ->
                  otherwise -> abortWith "missing word name" s
 
 -- Helper for smudge, terminate defining of a word and make it available.
-smudge' :: Cell cell => FM cell ()
-smudge' = updateState $ \s ->
+smudge = updateState $ \s ->
   case defining s of
     Nothing -> abortWith "not defining" s
     Just defining  ->
@@ -435,14 +451,12 @@ smudge' = updateState $ \s ->
       in newState s { defining = Nothing,
                       dict = dict' }
 
-here :: Cell cell => FM cell ()
 here = updateState $ \s ->
          case defining s of
            Nothing  -> abortWith "HERE only partially implemented" s
            Just def -> newState s { stack = HereColon wid (V.length (compileList def)) : stack s }
              where wid = wordId $ definingWord def
 
-backpatch :: Cell cell => FM cell ()
 backpatch = updateState $ \s ->
          case defining s of
            Nothing  -> abortWith "not defining" s
@@ -452,14 +466,12 @@ backpatch = updateState $ \s ->
                            in newState s { defining = Just def',
                                            stack = ss }
 
-backslash :: Cell cell => FM cell ()
 backslash = docol body
   where body = toIn : fetch : inputLine : fetch : over : plus : inputLineLength : fetch : rot : minus : loop
         loop = lit (Val 1) : minus : dup : branch0 eol : over : cfetch : lit (Val 10) : minus : branch0 found : swap : lit (Val 1) : plus : swap : branch loop : eol
         eol = drop : drop : inputLineLength : fetch : toIn : store : semi : found
         found = [inputLineLength, fetch, swap, minus, toIn, store, drop, semi]
 
-loadSource :: Cell cell => FM cell ()
 loadSource = docol [word, makeTempBuffer, evaluate, releaseTempBuffer, semi] where
   makeTempBuffer = do
     filename <- updateStateVal "" (

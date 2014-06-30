@@ -65,7 +65,6 @@ newDictionary extras = execState build (Dictionary wordsIds Nothing)
       addWord "0="   zerop
       addWord "0<"   lt0
       addWord "!"    store
-      addWord "+!"   plusStore
       addWord "@"    fetch
       addWord "C@"   cfetch
       addWord "STATE" state
@@ -75,18 +74,7 @@ newDictionary extras = execState build (Dictionary wordsIds Nothing)
       addWord "INPUT-LINE" inputLine
       addWord "#INPUT-LINE" inputLineLength
       addWord "SOURCE-ID" sourceID
-      addWord "QUIT" quit
-      addWord "INTERPRET" interpret
-      addWord ":" colon
-      addWord ";" semicolon >> makeImmediate
-      addWord "SMUDGE" smudge
-      addWord "CREATE" create
-      addWord "COMPILE," compileComma
-      addWord "IMMEDIATE" immediate
       addWord "CONSTANT" constant
-      addWord "IF" xif >> makeImmediate
-      addWord "ELSE" xelse >> makeImmediate
-      addWord "THEN" xthen >> makeImmediate
       extras
 
 addWord name doer =
@@ -94,6 +82,9 @@ addWord name doer =
     let i:is = wids s
     in  return (i, s { wids = is,
                        latest = Just $ ForthWord name False (latest s) i doer })
+
+makeImmediate :: State (Dictionary a)  ()
 makeImmediate = modify setLatestImmediate
+
 setLatestImmediate s = s { latest = fmap imm (latest s) }
   where imm word = word { immediateFlag = True }
