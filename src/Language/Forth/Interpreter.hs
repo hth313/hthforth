@@ -78,6 +78,7 @@ interpreterDictionary = newDictionary extras
           addWord "LEAVE" leave
           addWord "I" rfetch
           addWord "EMIT" emit
+          addWord "MOVE" move
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
@@ -522,3 +523,18 @@ loadSource = docol [word, makeTempBuffer, evaluate, releaseTempBuffer, semi] whe
 
 emit = dpop >>= emit1 >> next where
     emit1 (Val n) = liftIO $ putStr [chr $ fromIntegral n]
+
+move :: Cell cell => FM cell ()
+move = do
+  mtuple <- updateStateVal Nothing $ \s ->
+    case stack s of
+      Val count : Address (Just adrTo@(Addr widTo iTo)) : Address (Just adrFrom@(Addr widFrom iFrom)) : rest
+          | Just (BufferField bmTo) <- IntMap.lookup (unWordId widTo) (variables s),
+            Just (BufferField bmFrom) <- IntMap.lookup (unWordId widFrom) (variables s) ->
+                return (Right (Just (count, adrFrom, bmFrom, adrTo, bmTo)), s { stack = rest })
+      xs | length xs < 3 -> emptyStack s
+         | otherwise -> abortWith "illegal arguments to MOVE" s
+  case mtuple of
+    Nothing -> return ()
+    Just (count, adrFrom, bmFrom, adrTo, bmTo) ->
+        liftIO $ blockMove (fromIntegral count) adrFrom bmFrom adrTo bmTo
