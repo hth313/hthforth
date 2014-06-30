@@ -14,6 +14,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import qualified Data.Bits as Bits
+import Data.Char
 import Data.Vector.Storable.ByteString.Char8 (ByteString)
 import qualified Data.IntMap as IntMap
 import qualified Data.Vector as V
@@ -75,6 +76,7 @@ interpreterDictionary = newDictionary extras
           addWord "(+LOOP)" pplusLoop
           addWord "LEAVE" leave
           addWord "I" rfetch
+          addWord "EMIT" emit
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
@@ -154,7 +156,7 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
 xif, xelse, xthen, xdo, loop, plusLoop, leave, quit :: Cell cell => FM cell ()
 interpret, plusStore, create, colon, semicolon :: Cell cell => FM cell ()
 compileComma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
-here, backpatch, backslash, loadSource :: Cell cell => FM cell ()
+here, backpatch, backslash, loadSource, emit :: Cell cell => FM cell ()
 
 -- Control structures
 xif   = docol [here, compileBranch branch0, semi]
@@ -503,3 +505,6 @@ loadSource = docol [word, makeTempBuffer, evaluate, releaseTempBuffer, semi] whe
                                               newState s { variables = IntMap.delete (unWordId handle) (variables s),
                                                            rstack = rs,
                                                            oldHandles = handle : oldHandles s }
+
+emit = dpop >>= emit1 >> next where
+    emit1 (Val n) = liftIO $ putStr [chr $ fromIntegral n]
