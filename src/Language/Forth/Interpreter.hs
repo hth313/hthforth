@@ -155,7 +155,7 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   sourceID        = litAdr sourceIDWid
 
   -- Compiling words
-  constant = docol [word, create' head, compileComma, smudge, semi]
+  constant = docol [xword, create' head, compileComma, smudge, semi]
 
 -- Forward declarations of Forth words implemented by the interpreter
 xif, xelse, xthen, xdo, loop, plusLoop, leave, quit :: Cell cell => FM cell ()
@@ -180,7 +180,7 @@ quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next
 
 plusStore = docol [dup, fetch, rot, plus, swap, store, semi]
 
-create = docol [word, create' docol, semi]
+create = docol [xword, create' docol, semi]
 colon = docol [lit (Val (-1)), state, store, create, semi]
 semicolon = docol [compile (XT semi), lit (Val 0), state, store, smudge, semi]
 compileComma = dpop >>= compile
@@ -238,7 +238,7 @@ mainLoop = do
                   interpret, liftIO (putStrLn "ok") >> next, mainLoop]
 
 interpret = docol begin
-  where begin = word : dup : cfetch : zerop : branch0 lab1 : drop : semi : lab1
+  where begin = xword : dup : cfetch : zerop : branch0 lab1 : drop : semi : lab1
         lab1 = find : dup : zerop : branch0 lab2 : drop : parseNumber : state : fetch : branch0 begin : compileComma : branch begin : lab2
         lab2 = lit (Val 1) : minus : zerop : branch0 lab3 : execute : branch begin : lab3
         lab3 = state : fetch : zerop : branch0 skip1 : execute : branch begin : skip1
@@ -394,8 +394,8 @@ find = do
 
 -- | Copy word from given address with delimiter to a special transient area.
 --   ( "<chars>ccc<char>" -- c-addr )
-word :: Cell cell => FM cell ()
-word = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, semi]
+xword :: Cell cell => FM cell ()
+xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, semi]
   where
     parseName =   -- ( "<spaces>ccc<space>" -- ctransbuf n )
       updateState  $ \s ->
@@ -491,7 +491,7 @@ backslash = docol body
         eol = drop : drop : inputLineLength : fetch : toIn : store : semi : found
         found = [inputLineLength, fetch, swap, minus, toIn, store, drop, semi]
 
-loadSource = docol [word, makeTempBuffer, evaluate, releaseTempBuffer, semi] where
+loadSource = docol [xword, makeTempBuffer, evaluate, releaseTempBuffer, semi] where
   makeTempBuffer = do
     filename <- updateStateVal "" (
                   \s -> case stack s of
