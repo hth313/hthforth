@@ -45,9 +45,12 @@ initialVarStorage = gets target >>=
   \t -> let f (wid, val) =
               let field@(DataField cm) = newDataField t wid (bytesPerCell t)
               in  putField wid (DataField $ writeCell val (Addr wid 0) cm)
-        in mapM_ f [(sourceWId, 0), (stateWId, 0), (toInWId, 0),
-                    (inputLineWId, 0), (inputLineLengthWId, 0),
-                    (sourceIDWid, 0)]
+            g (wid, sz) = putField wid (newBuffer wid sz)
+        in do
+          mapM_ f [(sourceWId, 0), (stateWId, 0), (toInWId, 0),
+                   (inputLineWId, 0), (inputLineLengthWId, 0),
+                   (sourceIDWid, 0)]
+          mapM_ g [(tregWid, 100)]
 
 interpreterDictionary :: Cell cell => Dictionary (FM cell ())
 interpreterDictionary = newDictionary extras
@@ -81,6 +84,7 @@ interpreterDictionary = newDictionary extras
           addWord "EMIT" emit
           addWord "MOVE" move
           addWord "FIND" find
+          addWord "TREG" treg
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
@@ -161,7 +165,9 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
 xif, xelse, xthen, xdo, loop, plusLoop, leave, quit :: Cell cell => FM cell ()
 interpret, plusStore, create, colon, semicolon :: Cell cell => FM cell ()
 compileComma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
-here, backpatch, backslash, loadSource, emit :: Cell cell => FM cell ()
+here, backpatch, backslash, loadSource, emit, treg :: Cell cell => FM cell ()
+
+treg = litAdr tregWid
 
 -- Control structures
 xif   = docol [here, compileBranch branch0, semi]

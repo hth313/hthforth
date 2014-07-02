@@ -7,7 +7,7 @@
 
 module Language.Forth.Dictionary (newDictionary, Dictionary(..),
                                   sourceWId, stateWId, toInWId,
-                                  inputBufferWId, inputLineWId,
+                                  inputBufferWId, inputLineWId, tregWid,
                                   inputLineLengthWId, wordBufferWId, sourceIDWid,
                                   addWord, makeImmediate, setLatestImmediate) where
 
@@ -35,7 +35,7 @@ data Dictionary a = Dictionary
 -- Some words (typically variables) that are needed early get theie word
 -- identity preallocated here and we use the tail for the rest of words.
 (sourceWId : stateWId : toInWId : inputBufferWId : inputLineWId :
- inputLineLengthWId : wordBufferWId : sourceIDWid : wordsIds) = map WordId [0..]
+ inputLineLengthWId : wordBufferWId : sourceIDWid : tregWid : wordsIds) = map WordId [0..]
 
 -- Create a new basic dictionary.
 newDictionary :: Primitive c a => State (Dictionary a) WordId -> Dictionary a

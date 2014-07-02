@@ -92,14 +92,14 @@
 : ?ABORT  ( flag -- )
     IF ABORT THEN ;
 
-\ Copy string to HERE, max 31 characters
-: >HERE  ( caddr u -- ccaddr )
+\ Copy string to transient region (TREG), max 31 characters
+: >TREG  ( caddr u -- ccaddr )
     31 OVER U< ?ABORT
-    HERE >R R@ 2DUP C!
+    TREG >R R@ 2DUP C!
     1+ SWAP MOVE R> ;
 
 : WORD  ( char "<chars>name<char> -- counted-c-addr )
-    DUP SKIP PARSE >HERE ;
+    DUP SKIP PARSE >TREG ;
 
 : COMPILE,  ( xt -- )                                           ( core-ext )
     , ;
@@ -263,4 +263,3 @@ CREATE _INPUT-BUFFER 80 CHARS ALLOT ( may do this internally? )
 	    STATE @
 	UNTIL ." ok "  ( exhausted input in interpretation mode )
     AGAIN ;
-
