@@ -416,7 +416,9 @@ xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, 
                        | otherwise = (n, bs)
                      name = C.takeWhile (> ' ') nameStart
                      nameLength = C.length name
-                     inAdjust = skipCount + nameLength
+                     pastdelim | name /= nameStart = 1  -- trailing delimiter present
+                               | otherwise = 0
+                     inAdjust = skipCount + nameLength + pastdelim
                      countedField = textBuffer wordBufferWId (B.cons (fromIntegral nameLength) name)
                  in newState s { stack = Val (fromIntegral inAdjust) : Address (Just $ Addr wordBufferWId 0) : ss,
                                  variables = IntMap.insert (unWordId wordBufferWId) countedField (variables s) }
