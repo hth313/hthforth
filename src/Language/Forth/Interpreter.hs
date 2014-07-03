@@ -348,6 +348,7 @@ cstore' = do
       [x] -> abortWith "no value to C! to" s
       x:_ -> abortWith "cannot C! to non-address" s
   liftIO action
+  next
 
 fetch' :: Cell cell => FM cell ()
 fetch' = updateState $ \s ->
@@ -543,3 +544,4 @@ move = do
     Nothing -> return ()
     Just (count, adrFrom, bmFrom, adrTo, bmTo) ->
         liftIO $ blockMove (fromIntegral count) adrFrom bmFrom adrTo bmTo
+  next
