@@ -409,12 +409,9 @@ xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, 
            Address (Just (Addr wid off)) : ss
              | Just (BufferField cmem) <- IntMap.lookup (unWordId wid) (variables s) ->
                  let start = B.drop off (chunk cmem)
-                     (skipCount, nameStart) = skipSpaces start
-                     skipSpaces bs
-                       | B.null bs = (0, bs)
-                       | otherwise = skipSpaces1 0 bs where
-                     skipSpaces1 n bs
-                       | C.head bs <= ' ' = skipSpaces1 (n + 1) (B.tail bs)
+                     (skipCount, nameStart) = skipSpaces 0 start
+                     skipSpaces n bs
+                       | not (C.null bs), C.head bs <= ' ' = skipSpaces (n + 1) (B.tail bs)
                        | otherwise = (n, bs)
                      name = C.takeWhile (> ' ') nameStart
                      nameLength = C.length name
