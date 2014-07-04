@@ -9,9 +9,12 @@ module Language.Forth.Interpreter.Monad (FM, FState(..), CV, Defining(..),
                                          module Control.Monad.Trans.State ) where
 
 import Control.Monad.Trans.State hiding (state)
-import Data.IntMap
+import Data.IntMap (IntMap)
+import Data.Map (Map)
 import Data.Vector (Vector)
+import Data.Vector.Storable.ByteString.Char8 (ByteString)
 import System.Console.Haskeline
+import Language.Forth.Interpreter.Address
 import Language.Forth.Interpreter.DataField
 import Language.Forth.CellVal
 import Language.Forth.Dictionary
@@ -33,6 +36,7 @@ data FState cell = FState
   , dict   :: Dictionary (FM cell ())      -- ^ Dictionary of Forth words
   , variables :: IntMap (DataField cell (FM cell ()))
   , oldHandles :: [WordId]                 -- ^ Unused handles after reading source files
+  , stringLiterals :: Map ByteString Addr
   , defining :: Maybe (Defining cell)      -- ^ Collector when compiling
   }
 

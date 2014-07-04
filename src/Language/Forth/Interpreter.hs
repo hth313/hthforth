@@ -15,6 +15,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import qualified Data.Bits as Bits
 import Data.Char
+import qualified Data.Map as Map
 import Data.Vector.Storable.ByteString.Char8 (ByteString)
 import qualified Data.IntMap as IntMap
 import qualified Data.Vector as V
@@ -38,7 +39,7 @@ import Prelude hiding (drop)
 import qualified Prelude as Prelude
 
 initialState :: Cell cell => Target cell -> FState cell
-initialState target = FState [] [] [] target interpreterDictionary IntMap.empty [] Nothing
+initialState target = FState [] [] [] target interpreterDictionary IntMap.empty [] Map.empty Nothing
 
 initialVarStorage :: Cell cell => FM cell ()
 initialVarStorage = gets target >>=
@@ -85,6 +86,7 @@ interpreterDictionary = newDictionary extras
           addWord "MOVE" move
           addWord "FIND" find
           addWord "TREG" treg
+          addWord "STRING," compileString
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
@@ -95,6 +97,10 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
            otherwise -> abortMessage "IP not on rstack"
   execute = call =<< dpop
   evaluate = evaluate'
+  lit (Text text) = modify (\s ->
+                       let u = fromIntegral $ C.length text
+                           (caddr, s') = addrString text s
+                       in  s' { stack = Val u : caddr : stack s' }) >> next
   lit val = dpush val >> next
   false = lit falseVal
   true = lit trueVal
@@ -427,6 +433,7 @@ xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, 
 compile :: Cell cell => CV cell -> FM cell ()
 compile adr@Address{} = tackOn $ WrapA $ lit adr
 compile val@Val{} = tackOn $ WrapA $ lit val
+compile val@Text{} = tackOn $ WrapA $ lit val
 compile (XT a) = tackOn $ WrapA $ a
 
 compileBranch :: Cell cell => ([FM cell ()] -> FM cell ()) -> FM cell ()
@@ -528,6 +535,34 @@ loadSource = docol [xword, makeTempBuffer, evaluate, releaseTempBuffer, semi] wh
                                               newState s { variables = IntMap.delete (unWordId handle) (variables s),
                                                            rstack = rs,
                                                            oldHandles = handle : oldHandles s }
+
+-- | Compile a string literal. We expect to get a string pointer (caddr u) on
+--   the stack pointing to some character buffer. Compile a string literal
+--   that has the execution semantics to push the string back on stack.
+--   For the interpreter we simply wrap it in a literal.
+compileString :: Cell cell => FM cell ()
+compileString = compile =<< liftM Text stringlit
+  where stringlit = updateStateVal "" $ \s ->
+                      case stack s of
+                        Val n : Address (Just (Addr wid i)) : rest
+                          | Just (BufferField bm) <- IntMap.lookup (unWordId wid) (variables s) ->
+                              let text = B.take (fromIntegral n) (B.drop i (chunk bm))
+                              in return (Right text, s { stack = rest } )
+                          | otherwise -> abortWith "no text to compile" s
+                        otherwise -> emptyStack s
+
+-- | Make a string literal addressable on the fly.
+addrString text s =
+    case Map.lookup text (stringLiterals s) of
+      Just addr -> (Address (Just addr), s)
+      Nothing ->
+          let (k:ks) = wids (dict s)
+              addr = Addr k 0
+              dict' = (dict s) { wids = ks }
+              in (Address (Just addr), s { dict = dict',
+                                           stringLiterals = Map.insert text addr
+                                                            (stringLiterals s),
+                                           variables = IntMap.insert (unWordId k) (textBuffer k text) (variables s) })
 
 emit = dpop >>= emit1 >> next where
     emit1 (Val n) = liftIO $ putStr [chr $ fromIntegral n]
