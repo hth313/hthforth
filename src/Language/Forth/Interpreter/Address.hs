@@ -13,4 +13,4 @@ instance Show Addr where
 
 instance Address Addr where
     addAddress (Addr wid disp) n = Addr wid (disp + n)
-    offsetOf (Addr _ disp) _ = disp
+    offsetOf (Addr _ disp1) (Addr _ disp2) = disp1 + disp2
