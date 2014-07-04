@@ -50,35 +50,43 @@
 : ?DELIM  \ ( char delimiter -- flag )
     DUP BL = IF 1+ < ELSE = THEN ;
 
+\ Setup loop for current parse buffer, flag tells whether
+\ we are fit to loop (false means skip loop)
+: SRC-SPAN  \ ( -- limit start flag )
+    SOURCE + PARSE-POS 2DUP - ;
+
 \ Parse ccc delimited by delimiter char.
 \ Parse is part of the core words here as it is used as a building
 \ block for WORD.
+\ This word is part of core ext, but it is very nice for parsing
+\ and used here anyway.
 : PARSE  \ ( char "ccc<char>" -- c-addr u )                     ( core ext )
-    0 SWAP    \ 0 counter if needed
-    SOURCE + PARSE-POS
-    DO
-      I C@ OVER ?DELIM
-        IF DROP I SOURCE + - SWAP LEAVE THEN
-    LOOP
-    DROP
-    PARSE-POS SWAP DUP >IN +! ;
+    PARSE-POS 0 ROT SWAP
+    SRC-SPAN IF
+      DO
+        OVER I C@ SWAP ?DELIM
+        IF 1 >IN +! LEAVE ELSE 1+ THEN
+      LOOP
+    THEN
+    SWAP DROP DUP >IN +! ;
 
 \ Comments
 : (
-    SOURCE + PARSE-POS
-    DO
-      I C@ 41 = IF LEAVE THEN
-      1 >IN +!
-    LOOP
+    SRC-SPAN IF
+      DO
+        I C@ 41 = IF LEAVE THEN
+        1 >IN +!
+      LOOP
+    THEN
 ; IMMEDIATE
 
 \ Skip delimiter characters from the input stream.
 : SKIP  ( char "<chars>" -- )
-    SOURCE + PARSE-POS
-    DO
-      I C@ OVER ?DELIM 0= IF LEAVE THEN
-      1 >IN +!
-    LOOP
+    SRC-SPAN IF
+      DO
+        I C@ OVER ?DELIM 0= IF LEAVE ELSE 1 >IN +! THEN
+      LOOP
+    THEN
     DROP ( delimiter )
     ;
 
