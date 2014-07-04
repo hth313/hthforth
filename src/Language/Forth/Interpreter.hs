@@ -87,6 +87,7 @@ interpreterDictionary = newDictionary extras
           addWord "FIND" find
           addWord "TREG" treg
           addWord "STRING," compileString
+          addWord "XT-LIT," xtLit
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
@@ -171,7 +172,7 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
 xif, xelse, xthen, xdo, loop, plusLoop, leave, quit :: Cell cell => FM cell ()
 interpret, plusStore, create, colon, semicolon :: Cell cell => FM cell ()
 compileComma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
-here, backpatch, backslash, loadSource, emit, treg :: Cell cell => FM cell ()
+here, backpatch, backslash, loadSource, emit, treg, xtLit :: Cell cell => FM cell ()
 
 treg = litAdr tregWid
 
@@ -196,6 +197,7 @@ create = docol [xword, create' docol, semi]
 colon = docol [lit (Val (-1)), state, store, create, semi]
 semicolon = docol [compile (XT semi), lit (Val 0), state, store, smudge, semi]
 compileComma = dpop >>= compile
+xtLit = dpop >>= compileXT
 immediate = updateState $ \s -> newState s { dict = setLatestImmediate (dict s) }
 
 -- Helper function that compile the ending loop word
@@ -436,6 +438,8 @@ compile val@Val{} = tackOn $ WrapA $ lit val
 compile val@Text{} = tackOn $ WrapA $ lit val
 compile (XT a) = tackOn $ WrapA $ a
 
+compileXT xt@XT{} = tackOn $ WrapA $ lit xt
+
 compileBranch :: Cell cell => ([FM cell ()] -> FM cell ()) -> FM cell ()
 compileBranch = tackOn . WrapB
 
@@ -571,14 +575,14 @@ move :: Cell cell => FM cell ()
 move = do
   mtuple <- updateStateVal Nothing $ \s ->
     case stack s of
-      Val count : Address (Just adrTo@(Addr widTo iTo)) : Address (Just adrFrom@(Addr widFrom iFrom)) : rest
-          | Just (BufferField bmTo) <- IntMap.lookup (unWordId widTo) (variables s),
-            Just (BufferField bmFrom) <- IntMap.lookup (unWordId widFrom) (variables s) ->
-                return (Right (Just (count, adrFrom, bmFrom, adrTo, bmTo)), s { stack = rest })
+      Val count : Address (Just adrTo@(Addr widTo _iTo)) : Address (Just adrFrom@(Addr widFrom _iFrom)) : rest
+          | Just (BufferField memTo) <- IntMap.lookup (unWordId widTo) (variables s),
+            Just (BufferField memFrom) <- IntMap.lookup (unWordId widFrom) (variables s) ->
+                return (Right (Just (count, adrFrom, memFrom, adrTo, memTo)), s { stack = rest })
       xs | length xs < 3 -> emptyStack s
          | otherwise -> abortWith "illegal arguments to MOVE" s
   case mtuple of
     Nothing -> return ()
-    Just (count, adrFrom, bmFrom, adrTo, bmTo) ->
-        liftIO $ blockMove (fromIntegral count) adrFrom bmFrom adrTo bmTo
+    Just (count, adrFrom, memFrom, adrTo, memTo) ->
+        liftIO $ blockMove (fromIntegral count) adrFrom memFrom adrTo memTo
   next
