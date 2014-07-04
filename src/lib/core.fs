@@ -112,6 +112,9 @@
 : COMPILE,  ( xt -- )                                           ( core-ext )
     , ;
 
+: '  ( "<spaces>name" -- xt )
+    BL WORD FIND IF STATE @ IF XT-LIT, THEN ELSE ABORT THEN ; IMMEDIATE
+
 : POSTPONE
     BL WORD FIND
     IF COMPILE, ELSE ABORT THEN ; IMMEDIATE
