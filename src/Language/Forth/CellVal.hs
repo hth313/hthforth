@@ -48,7 +48,7 @@ instance Cell cell => Num (CellVal cell a) where
     (Val a) + (Val b) = Val (a + b)
     (Address (Just (Addr w off))) + (Val b) = Address (Just (Addr w (off + (fromIntegral b))))
     (Val b) + (Address (Just (Addr w off))) = Address (Just (Addr w (off +  (fromIntegral b))))
-    a + b = illegalValue
+    _ + _ = illegalValue
 
     (Val a) - (Val b) = Val (a - b)
     (Address (Just (Addr w off))) - (Val b) =
@@ -60,16 +60,16 @@ instance Cell cell => Num (CellVal cell a) where
         | otherwise = illegalValue
 
     (Val a) * (Val b) = Val (a * b)
-    a * b = illegalValue
+    _ * _ = illegalValue
 
     abs (Val a) = Val (abs a)
-    abs a = illegalValue
+    abs _ = illegalValue
 
     negate (Val a) = Val (negate a)
-    negate a = illegalValue
+    negate _ = illegalValue
 
     signum (Val a) = Val (signum a)
-    signum a = illegalValue
+    signum _ = illegalValue
 
     fromInteger n = Val (fromInteger n)
 
