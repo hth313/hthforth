@@ -2,6 +2,7 @@ module Util.Memory (Memory(..), newMemory, bufferMemory,
                     read8, read32, write8, blockMove) where
 
 import Foreign.ForeignPtr (withForeignPtr)
+import Foreign.Ptr (plusPtr)
 import Data.Word
 import Data.Vector.Storable.ByteString (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
@@ -55,6 +56,6 @@ blockMove count adrFrom memFrom adrTo memTo =
         decode adr mem =
             let (fp, offset, len) = toForeignPtr $ chunk mem
             in (fp, offset + offsetOf adr (baseAddress mem))
-    in withForeignPtr fpFrom $ \from ->
+    in withForeignPtr fpFrom  $ \from ->
          withForeignPtr fpTo $ \to ->
-             memcpy from to (fromIntegral count)
+             memcpy (to `plusPtr` offsetTo) (from `plusPtr` offsetFrom) (fromIntegral count)
