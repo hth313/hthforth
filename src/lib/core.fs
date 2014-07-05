@@ -112,18 +112,23 @@
 : COMPILE,  ( xt -- )                                           ( core-ext )
     , ;
 
-: '  ( "<spaces>name" -- xt )
-    BL WORD FIND IF STATE @ IF XT-LIT, THEN ELSE ABORT THEN ; IMMEDIATE
+: '    ( "<spaces>name" -- xt )
+    BL WORD FIND IF STATE @ IF LIT, THEN ELSE ABORT THEN ;
+
+: [']  ( "<spaces>name" -- xt )
+    '  ; IMMEDIATE
+
+: LITERAL   LIT, ; IMMEDIATE
 
 : POSTPONE
     BL WORD FIND
-    IF XT-LIT, ' COMPILE, COMPILE, ELSE ABORT THEN ; IMMEDIATE
+    IF LIT, ['] COMPILE, COMPILE, ELSE ABORT THEN ; IMMEDIATE
 
 : ABORT"
     34 PARSE STRING, POSTPONE TYPE POSTPONE ABORT ; IMMEDIATE
 
 : ?PAIRS  - IF ABORT" unmatched conditionals" THEN ;
-
+@@
 \ Conditionals
 : IF    HERE POSTPONE JUMP-FALSE 0 COMPILE, 2 ; IMMEDIATE
 : ELSE  2 ?PAIRS HERE POSTPONE JUMP 0 COMPILE, HERE ROT BACKPATCH 2 ; IMMEDIATE

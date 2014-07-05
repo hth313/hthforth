@@ -87,7 +87,7 @@ interpreterDictionary = newDictionary extras
           addWord "FIND" find
           addWord "TREG" treg
           addWord "STRING," compileString
-          addWord "XT-LIT," xtLit
+          addWord "LIT," litComma
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
@@ -172,7 +172,7 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
 xif, xelse, xthen, xdo, loop, plusLoop, leave, quit :: Cell cell => FM cell ()
 interpret, plusStore, create, colon, semicolon :: Cell cell => FM cell ()
 compileComma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
-here, backpatch, backslash, loadSource, emit, treg, xtLit :: Cell cell => FM cell ()
+here, backpatch, backslash, loadSource, emit, treg, litComma :: Cell cell => FM cell ()
 
 treg = litAdr tregWid
 
@@ -197,7 +197,6 @@ create = docol [xword, create' docol, semi]
 colon = docol [lit (Val (-1)), state, store, create, semi]
 semicolon = docol [compile (XT semi), lit (Val 0), state, store, smudge, semi]
 compileComma = dpop >>= compile
-xtLit = dpop >>= compileXT
 immediate = updateState $ \s -> newState s { dict = setLatestImmediate (dict s) }
 
 -- Helper function that compile the ending loop word
@@ -438,7 +437,7 @@ compile val@Val{} = tackOn $ WrapA $ lit val
 compile val@Text{} = tackOn $ WrapA $ lit val
 compile (XT a) = tackOn $ WrapA $ a
 
-compileXT xt@XT{} = tackOn $ WrapA $ lit xt
+litComma = dpop >>= tackOn . WrapA . lit
 
 compileBranch :: Cell cell => ([FM cell ()] -> FM cell ()) -> FM cell ()
 compileBranch = tackOn . WrapB
