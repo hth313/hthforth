@@ -87,6 +87,15 @@ instance Cell cell => Bits (CellVal cell a) where
     bitSize (Val a) = bitSize a
     isSigned (Val a) = isSigned a
     isSigned _ = False
+    shiftL (Val a) n = Val $ shiftL a n
+    shiftR (Val a) n = Val $ shiftR a n
+    bitSizeMaybe (Val a) = bitSizeMaybe a
+    testBit (Val a) i = testBit a i
+    popCount (Val a) = popCount a
+    -- The following are not really implemented, just added to prevent
+    -- GHC from warning
+    rotate _ _ = illegalValue
+    bit a = illegalValue
 
 -- | Boolean truth values.
 trueVal, falseVal :: Cell cell => CellVal cell a
