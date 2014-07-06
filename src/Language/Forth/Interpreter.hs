@@ -64,7 +64,7 @@ interpreterDictionary = newDictionary extras
           addWord ";" semicolon >> makeImmediate
           addWord "SMUDGE" smudge
           addWord "CREATE" create
-          addWord "," compileComma
+          addWord "," comma
           addWord "COMPILE," compileComma
           addWord "IMMEDIATE" immediate
           addWord "HERE" here
@@ -166,12 +166,12 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   sourceID        = litAdr sourceIDWid
 
   -- Compiling words
-  constant = docol [xword, create' head, compileComma, smudge, semi]
+  constant = docol [xword, create' head False, compileComma, smudge, semi]
 
 -- Forward declarations of Forth words implemented by the interpreter
 xif, xelse, xthen, xdo, loop, plusLoop, leave, quit :: Cell cell => FM cell ()
 interpret, plusStore, create, colon, semicolon :: Cell cell => FM cell ()
-compileComma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
+compileComma, comma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
 here, backpatch, backslash, loadSource, emit, treg, litComma :: Cell cell => FM cell ()
 
 treg = litAdr tregWid
@@ -193,11 +193,23 @@ quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next
 
 plusStore = docol [dup, fetch, rot, plus, swap, store, semi]
 
-create = docol [xword, create' docol, semi]
-colon = docol [lit (Val (-1)), state, store, create, semi]
+create = docol [xword, create' docol True, semi]
+colon = docol [lit (Val (-1)), state, store, xword, create' docol False, semi]
 semicolon = docol [compile (XT semi), lit (Val 0), state, store, smudge, semi]
 compileComma = dpop >>= compile
 immediate = updateState $ \s -> newState s { dict = setLatestImmediate (dict s) }
+
+comma = updateState $ \s ->
+  case defining s of
+    Nothing -> abortWith "not defining" s
+    Just def | definingCreate def,
+               wid <- wordId (definingWord def),
+               Just (DataField mem) <- IntMap.lookup (unWordId wid) (variables s),
+               c:cs <- stack s ->
+        let (offset, mem1) = updateDataPointer (bytesPerCell (target s) +) mem
+            adr = Addr wid offset
+            mem2 = writeCell c adr mem1
+        in newState s { variables = IntMap.insert (unWordId wid) (DataField mem2) (variables s) }
 
 -- Helper function that compile the ending loop word
 xloop a = docol [compile (XT a), here, compileBranch branch0, backpatch, semi]
@@ -450,8 +462,8 @@ tackOn x = updateState $ \s ->
 -- Helper for create. Open up for defining a word assuming that the name of the
 -- word can be found on top of stack.
 -- ( caddr -- )  of word name to be created
-create' :: Cell cell => ([FM cell ()] -> FM cell ()) -> FM cell ()
-create' finalizer = updateState $ \s ->
+create' :: Cell cell => ([FM cell ()] -> FM cell ()) -> Bool -> FM cell ()
+create' finalizer creating = updateState $ \s ->
   case defining s of
     Just{}  -> abortWith "already compiling" s
     Nothing -> case stack s of
@@ -464,7 +476,7 @@ create' finalizer = updateState $ \s ->
                        in newState s { stack = ss,
                                        dict = dict',
                                        defining = Just $ Defining V.empty [] finalizer
-                                                             (ForthWord name False linkhead wid abort) }
+                                                             (ForthWord name False linkhead wid abort) False }
                  otherwise -> abortWith "missing word name" s
 
 -- Helper for smudge, terminate defining of a word and make it available.

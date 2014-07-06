@@ -6,7 +6,8 @@
 -}
 
 module Language.Forth.Interpreter.CellMemory (CellMemory, newCellMemory,
-                                              readCell, writeCell) where
+                                              readCell, writeCell,
+                                              updateDataPointer) where
 
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
@@ -17,16 +18,17 @@ import Language.Forth.Target
 import Util.Address
 import Util.Endian
 
-data CellMemory cell a = CellMemory {
-      contents :: IntMap (StorageUnit cell a),
-      memSize :: Int,
-      target :: Target cell
-    }
+data CellMemory cell a = CellMemory
+  { contents :: IntMap (StorageUnit cell a)
+  , memSize :: Int
+  , target :: Target cell
+  , dpOffset :: Int
+  }
 
 data StorageUnit cell a = Part Int (CellVal cell a) | Byte Word8
 
 newCellMemory :: Target cell -> Int -> CellMemory cell a
-newCellMemory target size = CellMemory IntMap.empty size target
+newCellMemory target size = CellMemory IntMap.empty size target 0
 
 readCell :: Addr -> CellMemory cell a -> Maybe (CellVal cell a)
 readCell (Addr _ i) mem =
@@ -36,3 +38,8 @@ readCell (Addr _ i) mem =
 writeCell :: CellVal cell a -> Addr -> CellMemory cell a -> CellMemory cell a
 writeCell val (Addr _ i) mem =
     mem { contents = IntMap.insert i (Part 0 val) (contents mem) }
+
+-- | Apply a function to the datapointer to advance it, return the
+--   previous value of it
+updateDataPointer :: (Int -> Int) -> CellMemory cell a -> (Int, CellMemory cell a)
+updateDataPointer f mem = (dpOffset mem, mem { dpOffset = f (dpOffset mem) })

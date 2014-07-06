@@ -109,9 +109,6 @@
 : WORD  ( char "<chars>name<char> -- counted-c-addr )
     DUP SKIP PARSE >TREG ;
 
-: COMPILE,  ( xt -- )                                           ( core-ext )
-    , ;
-
 : '    ( "<spaces>name" -- xt )
     BL WORD FIND IF STATE @ IF LIT, THEN ELSE ABORT THEN ;
 
