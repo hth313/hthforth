@@ -65,6 +65,7 @@ interpreterDictionary = newDictionary extras
           addWord "SMUDGE" smudge
           addWord "CREATE" create
           addWord "," comma
+          addWord "DOES>" does
           addWord "COMPILE," compileComma
           addWord "IMMEDIATE" immediate
           addWord "HERE" here
@@ -170,7 +171,7 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
 
 -- Forward declarations of Forth words implemented by the interpreter
 xif, xelse, xthen, xdo, loop, plusLoop, leave, quit :: Cell cell => FM cell ()
-interpret, plusStore, create, colon, semicolon :: Cell cell => FM cell ()
+interpret, plusStore, create, does, colon, semicolon :: Cell cell => FM cell ()
 compileComma, comma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
 here, backpatch, backslash, loadSource, emit, treg, litComma :: Cell cell => FM cell ()
 
@@ -193,7 +194,7 @@ quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next
 
 plusStore = docol [dup, fetch, rot, plus, swap, store, semi]
 
-create = docol [xword, create' docol True, semi]
+create = docol [xword, create' dodoes True, semi]
 colon = docol [lit (Val (-1)), state, store, xword, create' docol False, semi]
 semicolon = docol [compile (XT semi), lit (Val 0), state, store, smudge, semi]
 compileComma = dpop >>= compile
@@ -201,7 +202,7 @@ immediate = updateState $ \s -> newState s { dict = setLatestImmediate (dict s) 
 
 comma = updateState $ \s ->
   case defining s of
-    Nothing -> abortWith "not defining" s
+    Nothing -> notDefining s
     Just def | definingCreate def,
                wid <- wordId (definingWord def),
                Just (DataField mem) <- IntMap.lookup (unWordId wid) (variables s),
@@ -209,7 +210,31 @@ comma = updateState $ \s ->
         let (offset, mem1) = updateDataPointer (bytesPerCell (target s) +) mem
             adr = Addr wid offset
             mem2 = writeCell c adr mem1
-        in newState s { variables = IntMap.insert (unWordId wid) (DataField mem2) (variables s) }
+        in newState s { variables = IntMap.insert (unWordId wid) (DataField mem2) (variables s),
+                        stack = cs }
+             | otherwise -> abortWith "comma in bad context" s
+
+-- A dodoes means that we have a CREATE without DOES>, insert a DOES> at
+-- the position immediately before the final semi.
+dodoes xs = docol $ init xs ++ [does, semi]
+
+-- The rest of the current word being executed is appended to the word being defined,
+-- continue without executing that part.
+does = updateState $ \s ->
+  case defining s of
+    Nothing -> notDefining s
+    Just def
+      | IP ip' : rs <- rstack s ->
+          let compileList' = (V.++) (compileList def)
+                 (V.fromList (map WrapA $ litAdr (wordId (definingWord def)) : ip s))
+              def' = def { compileList = compileList',
+                           defineFinalizer = docol }
+          in newState $ closeDefining def' $ s { defining = Just def',
+                                                 ip = ip',
+                                                 rstack = rs }
+
+      | null (rstack s) -> emptyStack s
+      | otherwise -> abortWith "IP not on rstack" s
 
 -- Helper function that compile the ending loop word
 xloop a = docol [compile (XT a), here, compileBranch branch0, backpatch, semi]
@@ -340,6 +365,7 @@ updateStateVal x f = StateT f >>= \case
 newState s = return (Right (), s)
 
 emptyStack = abortWith "empty stack"
+notDefining = abortWith "not defining"
 abortWith msg s = return (Left msg, s)
 abortMessage msg = liftIO (putStrLn msg) >> abort
 
@@ -456,14 +482,14 @@ compileBranch = tackOn . WrapB
 
 tackOn x = updateState $ \s ->
   case defining s of
-    Nothing -> abortWith "not defining" s
+    Nothing -> notDefining s
     Just d -> newState s { defining = Just (d { compileList = V.snoc (compileList d) x } ) }
 
 -- Helper for create. Open up for defining a word assuming that the name of the
 -- word can be found on top of stack.
 -- ( caddr -- )  of word name to be created
 create' :: Cell cell => ([FM cell ()] -> FM cell ()) -> Bool -> FM cell ()
-create' finalizer creating = updateState $ \s ->
+create' finalizer usingCreate = updateState $ \s ->
   case defining s of
     Just{}  -> abortWith "already compiling" s
     Nothing -> case stack s of
@@ -473,30 +499,36 @@ create' finalizer creating = updateState $ \s ->
                            wid : wids' = wids (dict s)
                            linkhead = latest (dict s)
                            name = B.drop (1 + off) $ chunk cmem
+                           variables'
+                             | usingCreate = IntMap.insert (unWordId wid) (newDataField (target s) (unWordId wid) 0) (variables s)
+                             | otherwise = variables s
                        in newState s { stack = ss,
                                        dict = dict',
+                                       variables = variables',
                                        defining = Just $ Defining V.empty [] finalizer
-                                                             (ForthWord name False linkhead wid abort) False }
+                                                             (ForthWord name False linkhead wid abort) usingCreate }
                  otherwise -> abortWith "missing word name" s
 
 -- Helper for smudge, terminate defining of a word and make it available.
 smudge = updateState $ \s ->
   case defining s of
-    Nothing -> abortWith "not defining" s
-    Just defining  ->
-      let dict' = (dict s) { latest = Just word }
-          word = (definingWord defining) { doer = (defineFinalizer defining) cs }
-          vs = compileList defining
-          -- Compile the branch instructions using the patch list provided by
-          -- backpatch function. We rely on lazy evaluation here and insert
-          -- branch destinations where lazy functions that will end up dropping
-          -- 'dest' elements from final colon list.
-          cs = map unWrapA $ V.toList $ (V.//) vs (map f $ patchList defining)
-          f (loc, dest) =
-            let branchInstr | WrapB b <- (V.!) vs loc = WrapA $ b (Prelude.drop dest cs)
-            in  (loc, branchInstr)
-      in newState s { defining = Nothing,
-                      dict = dict' }
+    Nothing -> notDefining s
+    Just defining  -> newState $ closeDefining defining s
+
+closeDefining defining s =
+  let dict' = (dict s) { latest = Just word }
+      word = (definingWord defining) { doer = (defineFinalizer defining) cs }
+      vs = compileList defining
+      -- Compile the branch instructions using the patch list provided by
+      -- backpatch function. We rely on lazy evaluation here and insert
+      -- branch destinations where lazy functions that will end up dropping
+      -- 'dest' elements from final colon list.
+      cs = map unWrapA $ V.toList $ (V.//) vs (map f $ patchList defining)
+      f (loc, dest) =
+        let branchInstr | WrapB b <- (V.!) vs loc = WrapA $ b (Prelude.drop dest cs)
+        in  (loc, branchInstr)
+  in s { defining = Nothing,
+         dict = dict' }
 
 here = updateState $ \s ->
          case defining s of
@@ -506,7 +538,7 @@ here = updateState $ \s ->
 
 backpatch = updateState $ \s ->
          case defining s of
-           Nothing  -> abortWith "not defining" s
+           Nothing  -> notDefining s
            Just def -> case stack s of
                          HereColon _ loc : HereColon _ dest : ss ->
                            let def' = def { patchList = (loc, dest) : patchList def }
