@@ -125,6 +125,11 @@
     34 PARSE STRING, POSTPONE TYPE POSTPONE ABORT ; IMMEDIATE
 
 : ?PAIRS  - IF ABORT" unmatched conditionals" THEN ;
+
+: ."  ( "ccc<quote> -- )
+    34 PARSE STRING, POSTPONE TYPE ; IMMEDIATE
+
+
 @@
 \ Conditionals
 : IF    HERE POSTPONE JUMP-FALSE 0 COMPILE, 2 ; IMMEDIATE
