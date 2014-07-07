@@ -47,7 +47,6 @@ data Defining cell = Defining
   , patchList :: [(Int, Int)]               -- ^ (loc, dest) list to patch
   , defineFinalizer :: [FM cell ()] -> FM cell ()
   , definingWord :: ForthWord (FM cell ())
-  , definingCreate :: Bool
   }
 
 -- | Wrapper for words being compile. This is used to keep track of branches

@@ -194,47 +194,36 @@ quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next
 
 plusStore = docol [dup, fetch, rot, plus, swap, store, semi]
 
-create = docol [xword, create' dodoes True, semi]
+create = docol [xword, create' docol True, semi]
 colon = docol [lit (Val (-1)), state, store, xword, create' docol False, semi]
 semicolon = docol [compile (XT semi), lit (Val 0), state, store, smudge, semi]
 compileComma = dpop >>= compile
 immediate = updateState $ \s -> newState s { dict = setLatestImmediate (dict s) }
 
 comma = updateState $ \s ->
-  case defining s of
-    Nothing -> notDefining s
-    Just def | definingCreate def,
-               wid <- wordId (definingWord def),
-               Just (DataField mem) <- IntMap.lookup (unWordId wid) (variables s),
-               c:cs <- stack s ->
-        let (offset, mem1) = updateDataPointer (bytesPerCell (target s) +) mem
-            adr = Addr wid offset
-            mem2 = writeCell c adr mem1
-        in newState s { variables = IntMap.insert (unWordId wid) (DataField mem2) (variables s),
-                        stack = cs }
-             | otherwise -> abortWith "comma in bad context" s
+  case stack s of
+    c:ss ->
+      let Just word = latest (dict s)
+          wid = wordId word
+          Just (DataField mem) = IntMap.lookup (unWordId wid) (variables s)
+          (offset, mem1) = updateDataPointer (bytesPerCell (target s) +) mem
+          adr = Addr wid offset
+          mem2 = writeCell c adr mem1
+      in newState s { variables = IntMap.insert (unWordId wid) (DataField mem2) (variables s),
+                      stack = ss }
+    otherwise -> emptyStack s
 
--- A dodoes means that we have a CREATE without DOES>, insert a DOES> at
--- the position immediately before the final semi.
-dodoes xs = docol $ init xs ++ [does, semi]
-
--- The rest of the current word being executed is appended to the word being defined,
--- continue without executing that part.
 does = updateState $ \s ->
-  case defining s of
-    Nothing -> notDefining s
-    Just def
-      | IP ip' : rs <- rstack s ->
-          let compileList' = (V.++) (compileList def)
-                 (V.fromList (map WrapA $ litAdr (wordId (definingWord def)) : ip s))
-              def' = def { compileList = compileList',
-                           defineFinalizer = docol }
-          in newState $ closeDefining def' $ s { defining = Just def',
-                                                 ip = ip',
-                                                 rstack = rs }
-
-      | null (rstack s) -> emptyStack s
-      | otherwise -> abortWith "IP not on rstack" s
+  case rstack s of
+    IP ip' : rs ->
+      let Just word = latest (dict s)
+          word' = word { doer = docol (litAdr (wordId word) : ip s) }
+          dict' = (dict s) { latest = Just word' }
+      in newState s { ip = ip',
+                      dict = dict',
+                      rstack = rs }
+    [] -> emptyStack s
+    otherwise -> abortWith "IP not on rstack" s
 
 -- Helper function that compile the ending loop word
 xloop a = docol [compile (XT a), here, compileBranch branch0, backpatch, semi]
@@ -499,14 +488,15 @@ create' finalizer usingCreate = updateState $ \s ->
                            wid : wids' = wids (dict s)
                            linkhead = latest (dict s)
                            name = B.drop (1 + off) $ chunk cmem
-                           variables'
-                             | usingCreate = IntMap.insert (unWordId wid) (newDataField (target s) (unWordId wid) 0) (variables s)
-                             | otherwise = variables s
-                       in newState s { stack = ss,
-                                       dict = dict',
-                                       variables = variables',
-                                       defining = Just $ Defining V.empty [] finalizer
-                                                             (ForthWord name False linkhead wid abort) usingCreate }
+                           (variables', code, cl)
+                             | usingCreate = (IntMap.insert (unWordId wid) (newDataField (target s) (unWordId wid) 0) (variables s), V.fromList (map WrapA [litAdr wid, semi]), closeDefining defining)
+                             | otherwise = (variables s, V.empty, id)
+                           defining = Defining code [] finalizer
+                                        (ForthWord name False linkhead wid abort)
+                       in newState (cl (s { stack = ss,
+                                            dict = dict',
+                                            variables = variables',
+                                            defining = Just defining } ))
                  otherwise -> abortWith "missing word name" s
 
 -- Helper for smudge, terminate defining of a word and make it available.
@@ -515,6 +505,7 @@ smudge = updateState $ \s ->
     Nothing -> notDefining s
     Just defining  -> newState $ closeDefining defining s
 
+closeDefining :: Cell cell => Defining cell -> FState cell -> FState cell
 closeDefining defining s =
   let dict' = (dict s) { latest = Just word }
       word = (definingWord defining) { doer = (defineFinalizer defining) cs }
