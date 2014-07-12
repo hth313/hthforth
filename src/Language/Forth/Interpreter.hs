@@ -87,6 +87,7 @@ interpreterDictionary = newDictionary extras
           addWord "MOVE" move
           addWord "FIND" find
           addWord "TREG" treg
+          addWord "PAD" pad
           addWord "STRING," compileString
           addWord "LIT," litComma
           addWord "ALLOT" allot
@@ -174,10 +175,11 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
 xif, xelse, xthen, xdo, loop, plusLoop, leave, quit :: Cell cell => FM cell ()
 interpret, plusStore, create, does, colon, semicolon :: Cell cell => FM cell ()
 compileComma, comma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
-here, backpatch, backslash, loadSource, emit, treg, litComma :: Cell cell => FM cell ()
+here, backpatch, backslash, loadSource, emit, treg, pad, litComma :: Cell cell => FM cell ()
 allot :: Cell cell => FM cell ()
 
 treg = litAdr tregWid
+pad = docol [treg, lit (Val 64), plus, semi]
 
 -- Control structures
 xif   = docol [here, compileBranch branch0, semi]
