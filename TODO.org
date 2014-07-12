@@ -1,3 +1,4 @@
+#+STARTUP: indent
 #+PROPERTY: Effort_ALL 0 0:10 0:30 1:00 2:00 3:00 4:00 5:00 6:00 7:00 8:00 10:00 12:00 14:00 16:00
 #+COLUMNS: %60ITEM(Task) %8Effort(Estimated Effort){:} %CLOCKSUM
 
@@ -8,13 +9,62 @@
 * Forth
 ** DONE implement some kind of load relative screen facility
 *** TODO need to update BLK with the block being loaded (load in Forth.Machine)
-*** TODO FH is a colon word, so now EXECUTE need to be able to execute such\
-** TODO consider moving away from the Parsec parser. The benefit would be that we gain access to the input stream which several words want (see what words relate to this, hint >IN).
+*** TODO FH is a colon word, so now EXECUTE need to be able to execute such
+** DONE Investigate if it is possible to use ideas from tagless-final to encode Forth words.
+*** DONE Prototype in a small setting to see if the idea could be expressed.
+*** DONE What should be in XT?
+*** DONE Rename FMonad to FM
+*** DONE Addresssr.hs, CellMemory.hs, DataField.hs, Input.hs can be moved in under Interpreter/
+*** DONE Make fundep work with mainLopo and back to the instance
+*** DONE Try to use the lens package to simplify updates to FState
+*** DONE Is it possible to use some suitable monad to model abortions of the computation?
+*** DONE A word could have its DO-form as a class function, a DO-COLON could probably be modeled with a simple list. The IP would be the list, stepping forward is just cdr, a branch embeds part of the list so that the head is the next instruction to execute.
+*** DONE Each element in a colon list need to encode the word somehow
+** DONE Revise 'next', let primitives call it when done
+** DONE Check changes in the corrupt version, I think the .fs file was changed as well?
+** DONE '(execute :: FM cell ())  >> interpret' is clumsy, is there a better way of saying that I want it to have ()?
+** DONE Implement compile, part is commented away, and the actual compile is 'return ()'
+** DONE Make it possible to start loading the core.fs file again
+** DONE When aborting, close any pending defining (compiling) state
+** DONE What is the Language.Forth.Input module for? (does not seem to be used)
+** DONE ': QQ' <RET> causes out of bounds in Vector.!
+** DONE Compilation cannot bIne split safely over multiple input lines
+** DONE Rename xword to word
+** DONE Can we merge Word and WordId into the same module?
+** DONE Interpret is not good
+*** DONE try to rewrite it to be simpler and more Forth-like
+*** DONE interpret need to use a proper loop, will kill the rstack as it is now
+** DONE Uses of push can probably be replaced with lit
+** DONE Make IF word properly (probably need to handle the backpatching code)
+** TODO Load more of core.fs
+** TODO Prototype with a Cortex-M target, to see if tagless style also works fine with code generation
+*** TODO Target gnu or clang assembler
+*** TODO Take some inspiration from riscy pygmess forth for ARM
+*** TODO Code generate to suitable instructions, can probably be some more highlevel generic macros to make up colon definitions.
+*** TODO Extend the high level instructions with actual thumb2 assembler
+*** TODO Is it possible to keep the instructions in tagless final style?
+**** TODO Benefits woult be easy extensions from a generic core set to actual taget instructions
+**** TODO We probably only need to print the disassembler output thouh
+*** TODO Make use of monoid and switch to Data.Text to print out the assembler code
+** TODO Set up for Travis CI
+** DONE Should +! be outside Primitive? Consider if words that are to be implemented using colon definitions, such as INTERPRET, QUIT and perhaps others should be outside as well
+** TODO Many core words have different implementation in the interpreter compared to what can be expected on a target. WORD, IF and DO are examples. Figure out what to do with them. A mechanism to do conditional compilation is probably needed here.
+*** TODO Need a second core.fs file with things the target like, or some conditional compilation. We do not want to redefine control words for the interpreter. See [IF] on tools-ext
+*** TODO WORD can be handled using some mechanism to define a transient area (like HERE or offseted from HERE). I think some early Forth systems rely on that WORD put the name in a place suitable to a WORD header being created?
+** DONE Move Forth module up one level
+** DONE consider moving away from the Parsec parser. The benefit would be that we gain access to the input stream which several words want (see what words relate to this, hint >IN).
 Idea: input is represented by InputSource which holds a ByteString, which is the block contents (or input buffer text). An address (BufferAdr) can point inside it as well. This is paired with a capacity which is an ordinary Val.
 ** DONE Constant does not have a proper runtime behavior, it acts as a variable, need to be fixed
-** TODO figure out how to deal with compile-time and run-tume behavior (CREATE DOES>), figured out but need to be implement in the compiler
-** TODO consider small constants as words, 0 1 2 4 -1
-** TODO what about XTS, execution token size, is there some well defined name for it in the standard like it is for CELLS and CHARS? Changed to INSTR at the moment, WORD would be better except for that it is (probably) taken for other use.
+** DONE How to put words that require arguments into the dictionary? As it is now, they are not in dictionary as it causes a type mismatch. A special helper word could be used to help compile them, and maybe that word should have the name of the word being compiled?
+** DONE How to compile branches. We build a body using a Vector of words. A branch have a dummy place holder in the Vector and there is a [(Int, (branch . (drop N)))]' where snd is to be applied to the vector converted to list and inserted at the fst index in the vector:
+  let cs = V.toList $ (V.//) vectorbody [(3,branch (drop 2 cs))]
+** TODO Looping with SRC-SPAN, is there a better way?
+** DONE figure out how to deal with compile-time and run-tume behavior (CREATE DOES>), figured out but need to be implement in the compiler
+*** DONE Need to SMUDGE to get the word online when DOES> is executed
+*** DONE Comma need to write a value to the next cell of a datafield with dealing with a CREATE word
+*** DONE CREATE should add a lit-adr to the colon list of the word being created. DOES> stops execution and appends the rest to word being created. dodoes is not needed as we can put the action to pushadr upfront when doing CREATE
+** TODO consider small constants as words, 0 1 2 4 -1 (are they in the standard anymore?)
+** DONE what about XTS, execution token size, is there some well defined name for it in the standard like it is for CELLS and CHARS? Changed to INSTR at the moment, WORD would be better except for that it is (probably) taken for other use.
 ** DONE implement (LIT) (or call it _LIT) to load a literal, it probably need to be different in Haskell compared to target
 ** TODO check M* vs UM*, should they really be the same function?
 ** DONE unary/binary need to be rather flexible on inputs, as (+) accept Address mixed with Val, but that flexibility is not always valid, how do we deal with bad cases?
