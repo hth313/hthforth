@@ -11,10 +11,17 @@ subset of the standard by implementing the core set of words, probably
 including core-ext words as well.
 
 This Forth can be used standalone, just build it using Haskell
-cabal. Later it is hoped it can also be used as an embedded scripting
-language in Haskell.
-Even further down the road the idea is to also make it into Forth
-cross compiler for embedded systems development.
+cabal. Another use would be as an embedded scripting language in
+a Haskell application.
+However, the main idea is to make it act as a cross compiler for
+embedded systems development.
+
+Forth works differently from many other languages in that it basically
+lacks syntax and is not suitable to parse using typical parsing techniques.
+Instead, one have to build a Forth system from another Forth which acts as
+a bootstrapper, a technique that is called meta compiling in the Forth
+world. This Forth is meant to be such meta compiler, or perhaps more
+correctly, a cross compiler, as the intended target will be different.
 
 To build hthforth, you will need to have Haskell installed. The
 current version of GHC used is 7.8.2.
@@ -35,7 +42,10 @@ To exit hthforth, type BYE or press Ctrl-C.
 Haskeline is used, so you have full command line history and editing
 available.
 
-June 2014, Håkan Thörngren, hth313@gmail.com
+July 2014, Håkan Thörngren, hth313@gmail.com
 
 There is also a Trello board for this project available at
-https://trello.com/b/HNLHA3en/hthforth
+https://trello.com/b/HNLHA3en/hthforth which is currently
+not kept so well updated. Most project planning and ideas
+take place in the TODO.org (which is not always up to date in
+the repository), a file to be opened with Emacs org mode.
