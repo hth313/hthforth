@@ -2,6 +2,11 @@
 
   Data field definition.
 
+  There are two variants here. Text buffers are stored in a BufferField which
+  basically is a ByteString that we manipulate. In other words, raw bits.
+  Symbolic cell values are stored into a CellMemory which can handle symbolic
+  values.
+
 -}
 
 module Language.Forth.Interpreter.DataField (DataField(..), newDataField, newBuffer,
