@@ -287,7 +287,9 @@ interpret = docol begin
         parseNumber = dpop >>= countedText >>= parse where
           parse bs = case readDec text of
                        [(x,"")] -> lit $ Val x
-                       otherwise -> abortMessage $ text ++ " ?"
+                       otherwise -> case readSigned readDec text of
+                                      [(x,"")] -> lit $ Val (-x)
+                                      _ -> abortMessage $ text ++ " ?"
                        where text = C.unpack bs
 
 evaluate' :: Cell cell => FM cell ()
