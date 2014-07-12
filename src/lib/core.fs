@@ -128,8 +128,8 @@
 : ."  ( "ccc<quote> -- )
     34 PARSE STRING, POSTPONE TYPE ; IMMEDIATE
 
-\ CELL related. These need adjustment depending on cell size.
-\ For not we assume 32-bit.s.
+( CELL related. These need adjustment depending on cell size. )
+( For now we assume 32-bits. )
 : CELLS  ( n1 -- n2 )
     2* 2* ;
 : CELL+  ( a-addr1 -- a-addr2 )
