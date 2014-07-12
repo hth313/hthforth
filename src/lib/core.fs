@@ -29,7 +29,8 @@
 : NEGATE  INVERT 1+ ;
 : 2*  DUP + ;
 
-: +!   DUP @ ROT + SWAP ! ;
+: +!  \  ( n a-addr -- )
+    DUP @ ROT + SWAP ! ;
 
 \ Comparison
 : =  - 0= ;
@@ -148,6 +149,13 @@
 \ Variables
 VARIABLE BASE
 : DECIMAL 10 BASE ! ;   : HEX 16 BASE ! ;
+
+: 2!   ( x1 x2 a-addr -- )
+    SWAP OVER ! CELL+ ! ;
+: 2@   ( a-addr -- x1 x2 )
+    DUP CELL+ @ SWAP @ ;
+: COUNT   ( c-addr1 -- c-addr2 u )
+    DUP CHAR+ SWAP C@ ;
 
 @@
 : ?PAIRS  - IF ABORT" unmatched conditionals" THEN ;
