@@ -89,6 +89,7 @@ interpreterDictionary = newDictionary extras
           addWord "TREG" treg
           addWord "STRING," compileString
           addWord "LIT," litComma
+          addWord "ALLOT" allot
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
@@ -174,6 +175,7 @@ xif, xelse, xthen, xdo, loop, plusLoop, leave, quit :: Cell cell => FM cell ()
 interpret, plusStore, create, does, colon, semicolon :: Cell cell => FM cell ()
 compileComma, comma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
 here, backpatch, backslash, loadSource, emit, treg, litComma :: Cell cell => FM cell ()
+allot :: Cell cell => FM cell ()
 
 treg = litAdr tregWid
 
@@ -621,3 +623,15 @@ move = do
     Just (count, adrFrom, memFrom, adrTo, memTo) ->
         liftIO $ blockMove (fromIntegral count) adrFrom memFrom adrTo memTo
   next
+
+allot = updateState $ \s ->
+  case stack s of
+    Val n:ss ->
+      let Just word = latest (dict s)
+          wid = wordId word
+          Just (DataField mem) = IntMap.lookup (unWordId wid) (variables s)
+          (offset, mem1) = updateDataPointer (fromIntegral n +) mem
+      in newState s { variables = IntMap.insert (unWordId wid) (DataField mem1) (variables s),
+                      stack = ss }
+    [] -> emptyStack s
+    otherwise -> abortWith "ALLOT requires integer value" s

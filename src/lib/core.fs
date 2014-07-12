@@ -27,6 +27,7 @@
 : 1-  1 - ;
 : INVERT  TRUE XOR ;
 : NEGATE  INVERT 1+ ;
+: 2*  DUP + ;
 
 : +!   DUP @ ROT + SWAP ! ;
 
@@ -127,6 +128,19 @@
 : ."  ( "ccc<quote> -- )
     34 PARSE STRING, POSTPONE TYPE ; IMMEDIATE
 
+\ CELL related. These need adjustment depending on cell size.
+\ For not we assume 32-bit.s.
+: CELLS  ( n1 -- n2 )
+    2* 2* ;
+: CELL+  ( a-addr1 -- a-addr2 )
+    4 + ;
+
+: VARIABLE  ( "<spaces>name"-- )
+    CREATE 1 CELLS ALLOT ;
+
+\ Variables
+VARIABLE BASE
+: DECIMAL 10 BASE ! ;   : HEX 16 BASE ! ;
 
 @@
 : ?PAIRS  - IF ABORT" unmatched conditionals" THEN ;
