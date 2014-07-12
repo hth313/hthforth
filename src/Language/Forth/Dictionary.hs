@@ -55,7 +55,6 @@ newDictionary extras = execState build (Dictionary wordsIds Nothing)
       addWord "R@"   rfetch
       addWord "+"    plus
       addWord "-"    minus
-      addWord "*"    star
       addWord "/"    slash
       addWord "AND"  and
       addWord "OR"   or
@@ -76,6 +75,7 @@ newDictionary extras = execState build (Dictionary wordsIds Nothing)
       addWord "#INPUT-LINE" inputLineLength
       addWord "SOURCE-ID" sourceID
       addWord "CONSTANT" constant
+      addWord "UM*" umstar
       extras
 
 addWord name doer =

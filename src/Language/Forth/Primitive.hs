@@ -26,7 +26,7 @@ class Primitive c a | a -> c where
   swap, drop, dup, rot, over, rto, tor, rfetch :: a
   fetch, cfetch :: a
   store, cstore :: a
-  plus, minus, star, slash, and, or, xor :: a
+  plus, minus, slash, and, or, xor :: a
   zerop, lt0 :: a
   branch :: [a] -> a
   branch0 :: [a] -> a
@@ -39,3 +39,4 @@ class Primitive c a | a -> c where
   inputLineLength :: a        -- ^ #INPUT-LINE
   sourceID :: a               -- ^ SOURCE-ID
   constant :: a
+  umstar :: a                 -- ^ UM*

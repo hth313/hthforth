@@ -15,6 +15,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import qualified Data.Bits as Bits
 import Data.Char
+import Data.Word
 import qualified Data.Map as Map
 import Data.Vector.Storable.ByteString.Char8 (ByteString)
 import qualified Data.IntMap as IntMap
@@ -138,7 +139,6 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   store = store'
   plus  = binary (+)
   minus = binary (-)
-  star  = binary (*)
   slash = binary divide
   and   = binary (Bits..&.)
   or    = binary (Bits..|.)
@@ -171,12 +171,14 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   -- Compiling words
   constant = docol [xword, create' head False, compileComma, smudge, semi]
 
+  umstar = umstar'
+
 -- Forward declarations of Forth words implemented by the interpreter
 xif, xelse, xthen, xdo, loop, plusLoop, leave, quit :: Cell cell => FM cell ()
 interpret, plusStore, create, does, colon, semicolon :: Cell cell => FM cell ()
 compileComma, comma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
 here, backpatch, backslash, loadSource, emit, treg, pad, litComma :: Cell cell => FM cell ()
-allot :: Cell cell => FM cell ()
+allot, umstar' :: Cell cell => FM cell ()
 
 treg = litAdr tregWid
 pad = docol [treg, lit (Val 64), plus, semi]
@@ -639,3 +641,14 @@ allot = updateState $ \s ->
                       stack = ss }
     [] -> emptyStack s
     otherwise -> abortWith "ALLOT requires integer value" s
+
+umstar' = updateState $ \s ->
+  case stack s of
+    tos@(Val n1) : Val n2 : ss ->
+      let (prod :: Word64) = fromIntegral n1 * fromIntegral n2
+          Just bitsize = Bits.bitSizeMaybe tos
+          low = mask prod
+          high = mask $ prod `Bits.shiftR` bitsize
+          mask x =  fromIntegral $ x Bits..&. ((1 `Bits.shiftL` bitsize) - 1)
+      in newState s { stack = Val high : Val low : ss }
+    otherwise -> emptyStack s

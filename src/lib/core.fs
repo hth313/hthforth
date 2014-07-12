@@ -28,6 +28,7 @@
 : INVERT  TRUE XOR ;
 : NEGATE  INVERT 1+ ;
 : 2*  DUP + ;
+: *  UM* DROP ;
 
 : +!  \  ( n a-addr -- )
     DUP @ ROT + SWAP ! ;
