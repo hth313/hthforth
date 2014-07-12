@@ -135,6 +135,13 @@
 : CELL+  ( a-addr1 -- a-addr2 )
     4 + ;
 
+( Character related, here we assume a character occupy a single )
+( address unit )
+: CHARS  ( n1 -- n2 )  ;
+: CHAR+  ( c-addr1 -- c-addr2 )  1+ ;
+: CHAR  ( "<spaces>name" -- char )
+    BL WORD DUP C@ IF CHAR+ C@ THEN ;
+
 : VARIABLE  ( "<spaces>name"-- )
     CREATE 1 CELLS ALLOT ;
 
