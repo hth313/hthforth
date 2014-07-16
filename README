@@ -24,7 +24,11 @@ world. This Forth is meant to be such meta compiler, or perhaps more
 correctly, a cross compiler, as the intended target will be different.
 
 To build hthforth, you will need to have Haskell installed. The
-current version of GHC used is 7.8.2.
+current version of GHC used is 7.8.3.
+
+In order to build hthforth with GHC 7.8.x you need to download
+vector-bytestring (https://github.com/basvandijk/vector-bytestring)
+and modify it to accept base < 4.8
 
 With a suitable GHC, do the following in the top level directory:
 % cabal configure
