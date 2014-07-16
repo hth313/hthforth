@@ -36,7 +36,7 @@ import Language.Forth.StreamFile
 import Language.Forth.Target
 import Language.Forth.Word
 import Util.Memory
-import Prelude hiding (drop)
+import Prelude hiding (drop, until)
 import qualified Prelude as Prelude
 
 initialState :: Cell cell => Target cell -> FState cell
@@ -84,6 +84,9 @@ interpreterDictionary = newDictionary extras
           addWord "(+LOOP)" pplusLoop
           addWord "LEAVE" leave
           addWord "I" rfetch
+          addWord "BEGIN" begin >> makeImmediate
+          addWord "UNTIL" until >> makeImmediate
+          addWord "AGAIN" again >> makeImmediate
           addWord "EMIT" emit
           addWord "MOVE" move
           addWord "FIND" find
@@ -174,8 +177,8 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   umstar = umstar'
 
 -- Forward declarations of Forth words implemented by the interpreter
-xif, xelse, xthen, xdo, loop, plusLoop, leave, quit :: Cell cell => FM cell ()
-interpret, plusStore, create, does, colon, semicolon :: Cell cell => FM cell ()
+xif, xelse, xthen, xdo, loop, plusLoop, leave, begin, until, again :: Cell cell => FM cell ()
+interpret, plusStore, create, does, colon, semicolon, quit :: Cell cell => FM cell ()
 compileComma, comma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
 here, backpatch, backslash, loadSource, emit, treg, pad, litComma :: Cell cell => FM cell ()
 allot, umstar' :: Cell cell => FM cell ()
@@ -194,6 +197,9 @@ plusLoop = xloop pplusLoop
 leave = updateState $ \s -> case rstack s of
                               _ : rs@(limit : _) -> newState s { rstack = limit : rs }
                               otherwise -> emptyStack s
+begin = here
+until = docol [here, compileBranch branch0, backpatch, semi]
+again = docol [here, compileBranch branch, backpatch, semi]
 
 quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next),
               sourceId, store, mainLoop ]
