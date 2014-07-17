@@ -76,6 +76,7 @@ newDictionary extras = execState build (Dictionary wordsIds Nothing)
       addWord "SOURCE-ID" sourceID
       addWord "CONSTANT" constant
       addWord "UM*" umstar
+      addWord "UM/MOD" ummod
       extras
 
 addWord name doer =

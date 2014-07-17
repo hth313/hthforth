@@ -40,3 +40,4 @@ class Primitive c a | a -> c where
   sourceID :: a               -- ^ SOURCE-ID
   constant :: a
   umstar :: a                 -- ^ UM*
+  ummod :: a                  -- ^ UM/MOD

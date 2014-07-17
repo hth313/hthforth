@@ -175,13 +175,14 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   constant = docol [xword, create' head False, compileComma, smudge, semi]
 
   umstar = umstar'
+  ummod = ummod'
 
 -- Forward declarations of Forth words implemented by the interpreter
 xif, xelse, xthen, xdo, loop, plusLoop, leave, begin, until, again :: Cell cell => FM cell ()
 interpret, plusStore, create, does, colon, semicolon, quit :: Cell cell => FM cell ()
 compileComma, comma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
 here, backpatch, backslash, loadSource, emit, treg, pad, litComma :: Cell cell => FM cell ()
-allot, umstar' :: Cell cell => FM cell ()
+allot, umstar', ummod' :: Cell cell => FM cell ()
 
 treg = litAdr tregWid
 pad = docol [treg, lit (Val 64), plus, semi]
@@ -655,4 +656,17 @@ umstar' = updateState $ \s ->
           high = mask $ prod `Bits.shiftR` bitsize
           mask x =  fromIntegral $ x Bits..&. ((1 `Bits.shiftL` bitsize) - 1)
       in newState s { stack = Val high : Val low : ss }
-    otherwise -> emptyStack s
+    otherwise -> abortWith "bad imput to UM*" s
+
+ummod' = updateState $ \s ->
+  case stack s of
+    tos@(Val divisor) : Val hi : Val lo : ss ->
+      let dividend = (mask lo) Bits..|. ((mask hi) `Bits.shiftL` bitsize)
+          mask x =
+            let (u :: Word64) = fromIntegral x
+            in u Bits..&. bitmask
+          bitmask = (1 `Bits.shiftL` bitsize) - 1
+          Just bitsize = Bits.bitSizeMaybe tos
+          (quot, rem) = dividend `divMod` (mask divisor)
+      in newState s { stack = Val (fromIntegral quot) : Val (fromIntegral rem) : ss }
+    otherwise -> abortWith "bad input to UM/MOD" s
