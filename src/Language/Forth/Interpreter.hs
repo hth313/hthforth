@@ -49,7 +49,7 @@ initialVarStorage = gets target >>=
               in  putField wid (DataField $ writeCell val (Addr wid 0) cm)
             g (wid, sz) = putField wid (newBuffer wid sz)
         in do
-          mapM_ f [(sourceWId, 0), (stateWId, 0), (toInWId, 0),
+          mapM_ f [(stateWId, 0), (toInWId, 0),
                    (inputLineWId, 0), (inputLineLengthWId, 0),
                    (sourceIDWid, 0)]
           mapM_ g [(tregWid, 100)]
@@ -57,6 +57,17 @@ initialVarStorage = gets target >>=
 interpreterDictionary :: Cell cell => Dictionary (FM cell ())
 interpreterDictionary = newDictionary extras
   where extras = do
+          addWord "ROT" rot
+          addWord "EVALUATE" evaluate
+          addWord "FALSE" false
+          addWord "TRUE" true
+          addWord "/" slash
+          addWord "STATE" state
+          addWord ">IN" toIn
+          addWord "#INBUF" inputBuffer
+          addWord "INPUT-LINE" inputLine
+          addWord "#INPUT-LINE" inputLineLength
+          addWord "SOURCE-ID" sourceID
           addWord "\\"   backslash >> makeImmediate
           addWord "QUIT" quit
           addWord "ABORT" abort
@@ -104,14 +115,11 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
              next
            otherwise -> abortMessage "IP not on rstack"
   execute = call =<< dpop
-  evaluate = evaluate'
   lit (Text text) = modify (\s ->
                        let u = fromIntegral $ C.length text
                            (caddr, s') = addrString text s
                        in  s' { stack = Val u : caddr : stack s' }) >> next
   lit val = dpush val >> next
-  false = lit falseVal
-  true = lit trueVal
   swap = updateState $ \s -> case stack s of
                                s0 : s1 : ss -> newState s { stack = s1 : s0 : ss }
                                otherwise -> emptyStack s
@@ -124,9 +132,6 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   over = updateState $ \s -> case stack s of
                                ss@(_ : s1 : _) -> newState s { stack = s1 : ss }
                                otherwise -> emptyStack s
-  rot = updateState $ \s -> case stack s of
-                              s0 : s1 : s2 : ss -> newState s { stack = s2 : s0 : s1 : ss }
-                              otherwise -> emptyStack s
   tor = updateState $ \s -> case stack s of
                               s0 : ss -> newState s { stack = ss, rstack = s0 : rstack s }
                               otherwise -> emptyStack s
@@ -142,7 +147,6 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   store = store'
   plus  = binary (+)
   minus = binary (-)
-  slash = binary divide
   and   = binary (Bits..&.)
   or    = binary (Bits..|.)
   xor   = binary Bits.xor
@@ -162,15 +166,6 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   branch = ipdo
   branch0 loc = dpop >>= \n -> if | isZero n -> ipdo loc
                                   | otherwise  -> next
-  -- variables
-  state           = litAdr stateWId
-  sourceId        = litAdr sourceWId
-  toIn            = litAdr toInWId
-  inputBuffer     = litAdr inputBufferWId
-  inputLine       = litAdr inputLineWId
-  inputLineLength = litAdr inputLineLengthWId
-  sourceID        = litAdr sourceIDWid
-
   -- Compiling words
   constant = docol [xword, create' head False, compileComma, smudge, semi]
 
@@ -182,7 +177,25 @@ xif, xelse, xthen, xdo, loop, plusLoop, leave, begin, until, again :: Cell cell 
 interpret, plusStore, create, does, colon, semicolon, quit :: Cell cell => FM cell ()
 compileComma, comma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
 here, backpatch, backslash, loadSource, emit, treg, pad, litComma :: Cell cell => FM cell ()
-allot, umstar', ummod' :: Cell cell => FM cell ()
+allot, umstar', ummod', rot, evaluate, false, true, slash :: Cell cell => FM cell ()
+state, sourceID, toIn, inputBuffer, inputLine, inputLineLength :: Cell cell => FM cell ()
+
+-- variables
+state           = litAdr stateWId
+toIn            = litAdr toInWId
+inputBuffer     = litAdr inputBufferWId
+inputLine       = litAdr inputLineWId
+inputLineLength = litAdr inputLineLengthWId
+sourceID        = litAdr sourceIDWid
+
+
+false = lit falseVal
+true = lit trueVal
+
+rot = updateState $ \s ->
+        case stack s of
+          s0 : s1 : s2 : ss -> newState s { stack = s2 : s0 : s1 : ss }
+          otherwise -> emptyStack s
 
 treg = litAdr tregWid
 pad = docol [treg, lit (Val 64), plus, semi]
@@ -203,7 +216,7 @@ until = docol [here, compileBranch branch0, backpatch, semi]
 again = docol [here, compileBranch branch, backpatch, semi]
 
 quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next),
-              sourceId, store, mainLoop ]
+              sourceID, store, mainLoop ]
 
 plusStore = docol [dup, fetch, rot, plus, swap, store, semi]
 
@@ -259,9 +272,12 @@ rloopHelper f s = case rstack s of
                                                stack = trueVal : stack s }
                     otherwise -> emptyStack s
 
+binary :: Cell cell => (CV cell -> CV cell -> CV cell) -> FM cell ()
 binary op = updateState $ \s -> case stack s of
                                   op1 : op2 : ss -> newState s { stack = op2 `op` op1 : ss }
                                   otherwise -> emptyStack s
+
+slash = binary divide
 
 divide :: Cell cell => CV cell -> CV cell -> CV cell
 divide (Val a) (Val b) = Val (a `div` b)
@@ -301,20 +317,19 @@ interpret = docol begin
                        otherwise -> abortMessage $ text ++ " ?"
                        where text = C.unpack bs
 
-evaluate' :: Cell cell => FM cell ()
-evaluate' = docol [inputLine, fetch, tor,              -- save input specification
-                   inputLineLength, fetch, tor,
-                   sourceID, fetch, tor,
-                   toIn, fetch, tor,
-                   lit (Val (-1)), sourceID, store,    -- set SOURCE-ID to -1
-                   inputLineLength, store,             -- set new SOURCE specification
-                   inputLine, store,
-                   lit (Val 0), toIn, store,           -- clear >IN
-                   interpret,
-                   rto, toIn, store,                   -- restore input specification
-                   rto, sourceID, store,
-                   rto, inputLineLength, store,
-                   rto, inputLine, store, semi]
+evaluate = docol [inputLine, fetch, tor,              -- save input specification
+                  inputLineLength, fetch, tor,
+                  sourceID, fetch, tor,
+                  toIn, fetch, tor,
+                  lit (Val (-1)), sourceID, store,    -- set SOURCE-ID to -1
+                  inputLineLength, store,             -- set new SOURCE specification
+                  inputLine, store,
+                  lit (Val 0), toIn, store,           -- clear >IN
+                  interpret,
+                  rto, toIn, store,                   -- restore input specification
+                  rto, sourceID, store,
+                  rto, inputLineLength, store,
+                  rto, inputLine, store, semi]
 
 -- | Insert the field contents of given word
 putField :: Cell cell => WordId -> DataField cell (FM cell ()) -> FM cell ()

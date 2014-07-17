@@ -20,24 +20,16 @@ module Language.Forth.Primitive (Primitive(..)) where
 -}
 class Primitive c a | a -> c where
   semi :: a
-  evaluate, execute :: a
+  execute :: a
   lit :: c -> a
-  false, true :: a
-  swap, drop, dup, rot, over, rto, tor, rfetch :: a
+  swap, drop, dup, over, rto, tor, rfetch :: a
   fetch, cfetch :: a
   store, cstore :: a
-  plus, minus, slash, and, or, xor :: a
+  plus, minus, and, or, xor :: a
   zerop, lt0 :: a
   branch :: [a] -> a
   branch0 :: [a] -> a
   docol :: [a] -> a
-  state :: a                  -- ^ STATE (compilation state)
-  sourceId :: a               -- ^ SOURCE-ID (current input source)
-  toIn :: a                   -- ^ >IN
-  inputBuffer :: a            -- ^ Input buffer
-  inputLine :: a              -- ^ INPUT-LINE
-  inputLineLength :: a        -- ^ #INPUT-LINE
-  sourceID :: a               -- ^ SOURCE-ID
   constant :: a
   umstar :: a                 -- ^ UM*
   ummod :: a                  -- ^ UM/MOD

@@ -6,7 +6,7 @@
 -}
 
 module Language.Forth.Dictionary (newDictionary, Dictionary(..),
-                                  sourceWId, stateWId, toInWId,
+                                  stateWId, toInWId,
                                   inputBufferWId, inputLineWId, tregWid,
                                   inputLineLengthWId, wordBufferWId, sourceIDWid,
                                   addWord, makeImmediate, setLatestImmediate) where
@@ -32,9 +32,9 @@ data Dictionary a = Dictionary
 -- Word identities are used to identify a particular word in a unique way.
 -- They are used to find mutable datafields, which are stored separately in
 -- the Forth state of the interpreter.
--- Some words (typically variables) that are needed early get theie word
+-- Some words (typically variables) that are needed early get their word
 -- identity preallocated here and we use the tail for the rest of words.
-(sourceWId : stateWId : toInWId : inputBufferWId : inputLineWId :
+(stateWId : toInWId : inputBufferWId : inputLineWId :
  inputLineLengthWId : wordBufferWId : sourceIDWid : tregWid : wordsIds) = map WordId [0..]
 
 -- Create a new basic dictionary.
@@ -43,37 +43,25 @@ newDictionary extras = execState build (Dictionary wordsIds Nothing)
   where
     build = do
       addWord "EXIT"  semi
-      addWord "EVALUATE" evaluate
       addWord "EXECUTE" execute
       addWord "SWAP" swap
       addWord "DROP" drop
       addWord "OVER" over
       addWord "DUP"  dup
-      addWord "ROT"  rot
       addWord "R>"   rto
       addWord ">R"   tor
       addWord "R@"   rfetch
       addWord "+"    plus
       addWord "-"    minus
-      addWord "/"    slash
       addWord "AND"  and
       addWord "OR"   or
       addWord "XOR"  xor
-      addWord "FALSE" false
-      addWord "TRUE" true
       addWord "0="   zerop
       addWord "0<"   lt0
       addWord "!"    store
       addWord "C!"   cstore
       addWord "@"    fetch
       addWord "C@"   cfetch
-      addWord "STATE" state
-      addWord "SOURCE-ID" sourceId
-      addWord ">IN" toIn
-      addWord "#INBUF" inputBuffer
-      addWord "INPUT-LINE" inputLine
-      addWord "#INPUT-LINE" inputLineLength
-      addWord "SOURCE-ID" sourceID
       addWord "CONSTANT" constant
       addWord "UM*" umstar
       addWord "UM/MOD" ummod
