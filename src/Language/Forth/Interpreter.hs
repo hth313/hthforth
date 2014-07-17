@@ -295,11 +295,9 @@ interpret = docol begin
         lab3 = state : fetch : zerop : branch0 skip1 : execute : branch begin : skip1
         skip1 = [compileComma, branch begin]
         parseNumber = dpop >>= countedText >>= parse where
-          parse bs = case readDec text of
+          parse bs = case readSigned readDec text of
                        [(x,"")] -> lit $ Val x
-                       otherwise -> case readSigned readDec text of
-                                      [(x,"")] -> lit $ Val (-x)
-                                      _ -> abortMessage $ text ++ " ?"
+                       otherwise -> abortMessage $ text ++ " ?"
                        where text = C.unpack bs
 
 evaluate' :: Cell cell => FM cell ()
