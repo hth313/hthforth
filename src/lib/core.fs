@@ -155,9 +155,10 @@
 : VARIABLE  ( "<spaces>name"-- )
     CREATE 1 CELLS ALLOT ;
 
-\ Variables
+( Numeric base )
 VARIABLE BASE
 : DECIMAL 10 BASE ! ;   : HEX 16 BASE ! ;
+DECIMAL
 
 : 2!   ( x1 x2 a-addr -- )
     SWAP OVER ! CELL+ ! ;
