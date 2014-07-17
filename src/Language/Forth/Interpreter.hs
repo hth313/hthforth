@@ -616,7 +616,7 @@ addrString text s =
                                            variables = IntMap.insert (unWordId k) (textBuffer k text) (variables s) })
 
 emit = dpop >>= emit1 >> next where
-    emit1 (Val n) = liftIO $ putStr [chr $ fromIntegral n]
+    emit1 (Val n) | n >= 0 = liftIO $ putStr [chr $ fromIntegral n]
     emit1 _ = liftIO $ putStr "?"
 
 move :: Cell cell => FM cell ()
