@@ -167,6 +167,29 @@ DECIMAL
 : COUNT   ( c-addr1 -- c-addr2 u )
     DUP CHAR+ SWAP C@ ;
 
+( Numeric output primitives )
+VARIABLE HLD
+
+: <#  ( -- )
+    PAD HLD ! ;
+: #>  ( xd -- c-addr u )
+    2DROP HLD @ PAD OVER - ;
+: HOLD  ( c -- )
+    HLD @ 1 CHARS - DUP HLD ! C! ;
+: #  ( ud1 -- ud2 )
+    0 BASE @ UM/MOD >R BASE @ UM/MOD SWAP 9 OVER < 7 AND + 48 + HOLD R> ;
+: #S  ( ud1 -- ud2 )
+    BEGIN # 2DUP OR 0= UNTIL ;
+: SIGN  ( n -- )
+    0< IF 45 ( - ) HOLD THEN ;
+
+: U.  ( u -- )
+    0 <# #S #> TYPE SPACE ;
+
+: .  ( n -- )
+    DUP ABS 0 <# #S ROT SIGN #> TYPE SPACE ;
+
+
 @@
 : ?PAIRS  - IF ABORT" unmatched conditionals" THEN ;
 
