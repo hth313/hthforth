@@ -27,9 +27,11 @@
 : 1-  1 - ;
 : INVERT  TRUE XOR ;
 : NEGATE  INVERT 1+ ;
+: DNEGATE  INVERT SWAP NEGATE SWAP OVER 0= - ;      \ word set DOUBLE
 : *  UM* DROP ;
 : S>D  DUP 0< ;
 : ABS  S>D IF NEGATE THEN ;
+: DABS  DUP 0< IF DNEGATE THEN ;                    \ word set DOUBLE
 
 : +!  \  ( n a-addr -- )
     DUP @ ROT + SWAP ! ;
@@ -64,7 +66,7 @@
 \ block for WORD.
 \ This word is part of core ext, but it is very nice for parsing
 \ and used here anyway.
-: PARSE  \ ( char "ccc<char>" -- c-addr u )                     ( core ext )
+: PARSE  \ ( char "ccc<char>" -- c-addr u )                     \ word set CORE EXT
     PARSE-POS 0 ROT SWAP
     SRC-SPAN IF
       DO
@@ -188,6 +190,35 @@ VARIABLE HLD
 : .  ( n -- )
     DUP ABS 0 <# #S ROT SIGN #> TYPE SPACE ;
 
+: SM/REM  ( d1 n1 -- n2 n3 )
+    2DUP XOR >R   ( sign of quotient )
+    OVER >R       ( sign of remainder )
+    ABS >R DABS R>
+    UM/MOD
+    SWAP R> 0< IF NEGATE THEN
+    SWAP R> 0< IF NEGATE THEN ;
+
+: FM/MOD  ( d1 n1 -- n2 n3 )
+    DUP R>
+    SM/REM DUP 0< IF SWAP R> + SWAP 1+ ELSE R> DROP THEN ;
+
+: /MOD  ( n1 n2 -- n3 n4 )
+    >R S>D R> SM/REM ;
+
+: MOD  ( n1 n2 -- n3 )
+    /MOD DROP ;
+
+: /  ( n1 n2 -- n3)
+    /MOD SWAP DROP ;
+
+: M*  ( n1 n2 -- d )
+    2DUP XOR >R ABS SWAP ABS UM* R> 0< IF DNEGATE THEN ;
+
+: */MOD  ( n1 n2 n3 - n4 n5 )
+    >R M* R> SM/REM ;
+
+: */  ( n1 n2 n3 -- n4 )
+    */MOD SWAP DROP ;
 
 @@
 : ?PAIRS  - IF ABORT" unmatched conditionals" THEN ;
