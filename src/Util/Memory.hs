@@ -58,4 +58,4 @@ blockMove count adrFrom memFrom adrTo memTo =
             in (fp, offset + offsetOf adr (baseAddress mem))
     in withForeignPtr fpFrom  $ \from ->
          withForeignPtr fpTo $ \to ->
-             memcpy (to `plusPtr` offsetTo) (from `plusPtr` offsetFrom) (fromIntegral count)
+             memmove (to `plusPtr` offsetTo) (from `plusPtr` offsetFrom) (fromIntegral count)
