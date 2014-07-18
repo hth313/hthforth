@@ -120,27 +120,27 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
                            (caddr, s') = addrString text s
                        in  s' { stack = Val u : caddr : stack s' }) >> next
   lit val = dpush val >> next
-  swap = updateState $ \s -> case stack s of
-                               s0 : s1 : ss -> newState s { stack = s1 : s0 : ss }
-                               otherwise -> emptyStack s
-  drop = updateState $ \s -> case stack s of
-                               _ : ss -> newState s { stack = ss }
-                               otherwise -> emptyStack s
-  dup = updateState $ \s -> case stack s of
-                              ss@(s0 : _) -> newState s { stack = s0 : ss }
-                              otherwise -> emptyStack s
-  over = updateState $ \s -> case stack s of
-                               ss@(_ : s1 : _) -> newState s { stack = s1 : ss }
-                               otherwise -> emptyStack s
-  tor = updateState $ \s -> case stack s of
-                              s0 : ss -> newState s { stack = ss, rstack = s0 : rstack s }
-                              otherwise -> emptyStack s
-  rto = updateState $ \s -> case rstack s of
-                              r0 : rs -> newState s { rstack = rs, stack = r0 : stack s }
-                              otherwise -> emptyStack s
-  rfetch = updateState $ \s -> case rstack s of
-                                 r0 : _ -> newState s { stack = r0 : stack s }
-                                 otherwise -> emptyStack s
+  swap = updateState f  where
+     f s | s0 : s1 : ss <- stack s = newState s { stack = s1 : s0 : ss }
+         | otherwise = emptyStack s
+  drop = updateState f  where
+    f s | _ : ss <- stack s = newState s { stack = ss }
+        | otherwise = emptyStack s
+  dup = updateState f  where
+    f s | ss@(s0 : _) <- stack s = newState s { stack = s0 : ss }
+        | otherwise = emptyStack s
+  over = updateState f  where
+    f s | ss@(_ : s1 : _) <- stack s = newState s { stack = s1 : ss }
+        | otherwise = emptyStack s
+  tor = updateState f  where
+     f s | s0 : ss <- stack s = newState s { stack = ss, rstack = s0 : rstack s }
+         | otherwise = emptyStack s
+  rto = updateState f  where
+    f s | r0 : rs <- rstack s = newState s { rstack = rs, stack = r0 : stack s }
+        | otherwise = emptyStack s
+  rfetch = updateState f  where
+    f s | r0 : _ <- rstack s = newState s { stack = r0 : stack s }
+        | otherwise = emptyStack s
   cfetch = cfetch'
   fetch = fetch'
   cstore = cstore'
@@ -171,11 +171,12 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
                                 Address Nothing : ss -> newState s { stack = trueVal : ss }
                                 Address{} : ss       -> newState s { stack = falseVal : ss }
                                 otherwise            -> emptyStack s
-  lt0 = updateState $ \s -> case stack s of
-                              (Val n) : ss -> let flag | n < 0 = trueVal
-                                                       | otherwise = falseVal
-                                              in newState s { stack = flag : ss }
-                              otherwise -> emptyStack s
+  lt0 = updateState f  where
+    f s | (Val n) : ss <- stack s =
+            let flag | n < 0 = trueVal
+                     | otherwise = falseVal
+            in newState s { stack = flag : ss }
+        | otherwise = emptyStack s
   docol xs = modify (\s -> s { rstack = IP (ip s) : rstack s, ip = xs }) >> next
   branch = ipdo
   branch0 loc = dpop >>= \n -> if | isZero n -> ipdo loc
@@ -205,10 +206,9 @@ sourceID        = litAdr sourceIDWid
 false = lit falseVal
 true = lit trueVal
 
-rot = updateState $ \s ->
-        case stack s of
-          s0 : s1 : s2 : ss -> newState s { stack = s2 : s0 : s1 : ss }
-          otherwise -> emptyStack s
+rot = updateState f  where
+  f s | s0 : s1 : s2 : ss <- stack s = newState s { stack = s2 : s0 : s1 : ss }
+      | otherwise = emptyStack s
 
 treg = litAdr tregWid
 pad = docol [treg, lit (Val 64), plus, semi]
@@ -221,9 +221,9 @@ xthen = docol [here, swap, backpatch, semi]
 xdo = docol [compile (XT pdo), here, semi]
 loop = xloop ploop
 plusLoop = xloop pplusLoop
-leave = updateState $ \s -> case rstack s of
-                              _ : rs@(limit : _) -> newState s { rstack = limit : rs }
-                              otherwise -> emptyStack s
+leave = updateState f  where
+  f s | _ : rs@(limit : _) <- rstack s = newState s { rstack = limit : rs }
+      | otherwise = emptyStack s
 begin = here
 until = docol [here, compileBranch branch0, backpatch, semi]
 again = docol [here, compileBranch branch, backpatch, semi]
@@ -239,9 +239,8 @@ semicolon = docol [compile (XT semi), lit (Val 0), state, store, smudge, semi]
 compileComma = dpop >>= compile
 immediate = updateState $ \s -> newState s { dict = setLatestImmediate (dict s) }
 
-comma = updateState $ \s ->
-  case stack s of
-    c:ss ->
+comma = updateState f  where
+  f s | c:ss <- stack s =
       let Just word = latest (dict s)
           wid = wordId word
           Just (DataField mem) = IntMap.lookup (unWordId wid) (variables s)
@@ -250,45 +249,44 @@ comma = updateState $ \s ->
           mem2 = writeCell c adr mem1
       in newState s { variables = IntMap.insert (unWordId wid) (DataField mem2) (variables s),
                       stack = ss }
-    otherwise -> emptyStack s
+      | otherwise = emptyStack s
 
-does = updateState $ \s ->
-  case rstack s of
-    IP ip' : rs ->
+does = updateState f  where
+  f s | IP ip' : rs <- rstack s =
       let Just word = latest (dict s)
           word' = word { doer = docol (litAdr (wordId word) : ip s) }
           dict' = (dict s) { latest = Just word' }
       in newState s { ip = ip',
                       dict = dict',
                       rstack = rs }
-    [] -> emptyStack s
-    otherwise -> abortWith "IP not on rstack" s
+        | null (rstack s) = emptyStack s
+        | otherwise = abortWith "IP not on rstack" s
 
 -- Helper function that compile the ending loop word
 xloop a = docol [compile (XT a), here, compileBranch branch0, backpatch, semi]
 
 -- Runtime words for DO-LOOPs
-pdo = updateState $ \s -> case stack s of
-                            s0 : s1 : ss -> newState s { stack = ss,
-                                                         rstack  = s0 : s1 : rstack s }
-                            otherwise -> emptyStack s
+pdo = updateState f  where
+  f s | s0 : s1 : ss <- stack s = newState s { stack = ss,
+                                               rstack  = s0 : s1 : rstack s }
+      | otherwise = emptyStack s
 ploop = updateState $ rloopHelper (Val 1 +)
 pplusLoop = updateState $ \s -> case stack s of
                                   n : ss -> rloopHelper (n+) (s { stack = ss })
-rloopHelper f s = case rstack s of
-                    i : r2@(limit : rs) ->
-                        let i' = f i
-                        in newState $ if i' < limit
-                                      then s { rstack = i' : r2,
-                                               stack = falseVal : stack s }
-                                      else s { rstack = rs,
-                                               stack = trueVal : stack s }
-                    otherwise -> emptyStack s
+rloopHelper f s
+  | i : r2@(limit : rs) <- rstack s =
+    let i' = f i
+    in newState $ if i' < limit
+                  then s { rstack = i' : r2,
+                           stack = falseVal : stack s }
+                  else s { rstack = rs,
+                           stack = trueVal : stack s }
+  | otherwise = emptyStack s
 
 binary :: Cell cell => (CV cell -> CV cell -> CV cell) -> FM cell ()
-binary op = updateState $ \s -> case stack s of
-                                  op1 : op2 : ss -> newState s { stack = op2 `op` op1 : ss }
-                                  otherwise -> emptyStack s
+binary op = updateState f  where
+  f s | op1 : op2 : ss <- stack s = newState s { stack = op2 `op` op1 : ss }
+      | otherwise = emptyStack s
 
 slash = binary divide
 
@@ -381,21 +379,23 @@ dpush :: CV cell -> FM cell ()
 dpush val = modify $ \s -> s { stack = val : stack s }
 
 dpop :: Cell cell => FM cell (CV cell)
-dpop = updateStateVal (Val 0) $ \s ->
-         case stack s of
-           t:ts -> return (Right t, s { stack = ts })
-           [] -> emptyStack s
+dpop = updateStateVal (Val 0) f  where
+  f s | t:ts <- stack s = return (Right t, s { stack = ts })
+      | otherwise = emptyStack s
 
 rpop :: Cell cell => FM cell (CV cell)
-rpop = updateStateVal (Val 0) $ \s ->
-         case rstack s of
-           t:ts -> return (Right t, s { rstack = ts })
-           [] -> emptyStack s
+rpop = updateStateVal (Val 0) f  where
+  f s | t:ts <- rstack s = return (Right t, s { rstack = ts })
+      | otherwise = emptyStack s
 
+-- State updater that can handle aborts and that automatically do 'next'
 updateState f = StateT f >>= \case
                   Left msg -> abortMessage msg
                   Right () -> next
 
+-- State updater building block that can handle abort and that can
+-- be used together with other actions. The last action need to
+-- be 'next'.
 updateStateVal x f = StateT f >>= \case
                         Left msg -> abortMessage msg >> return x
                         Right y -> return y
@@ -408,17 +408,16 @@ abortWith msg s = return (Left msg, s)
 abortMessage msg = liftIO (putStrLn msg) >> abort
 
 cfetch' :: Cell cell => FM cell ()
-cfetch' = updateState $ \s ->
-    case stack s of
-      Address (Just adr@(Addr wid _)) : rest ->
-        case IntMap.lookup (unWordId wid) (variables s) of
-          Just (BufferField buf) ->
+cfetch' = updateState f  where
+  f s | Address (Just adr@(Addr wid _)) : rest <- stack s =
+          case IntMap.lookup (unWordId wid) (variables s) of
+            Just (BufferField buf) ->
               let c = Val $ fromIntegral $ read8 adr buf
               in  newState s { stack = c : rest }
-          Nothing -> abortWith "C@ - no valid address" s
-          Just DataField{} -> abortWith "C@ - data field not implemented" s
-      [] -> emptyStack s
-      x -> abortWith "bad C@ address" s
+            Nothing -> abortWith "C@ - no valid address" s
+            Just DataField{} -> abortWith "C@ - data field not implemented" s
+      | null (stack s) = emptyStack s
+      | otherwise = abortWith "bad C@ address" s
 
 cstore' :: Cell cell => FM cell ()
 cstore' = do
@@ -434,9 +433,8 @@ cstore' = do
   next
 
 fetch' :: Cell cell => FM cell ()
-fetch' = updateState $ \s ->
-    case stack s of
-      Address (Just adr@(Addr wid _)) : rest ->
+fetch' = updateState f  where
+  f s | Address (Just adr@(Addr wid _)) : rest <- stack s =
           case IntMap.lookup (unWordId wid) (variables s) of
             Just (DataField cm) ->
                 case readCell adr cm of
@@ -444,19 +442,18 @@ fetch' = updateState $ \s ->
                   otherwise -> abortWith "@ outside data field" s
             Just (BufferField mem) -> abortWith "@ in buffer field" s
             Nothing -> abortWith "no data field" s
-      [] -> emptyStack s
-      a : _ -> abortWith "bad address given to @" s
+      | null (stack s) = emptyStack s
+      | otherwise = abortWith "bad address given to @" s
 
 store' :: Cell cell => FM cell ()
-store' = updateState $ \s ->
-    case stack s of
-      Address (Just adr@(Addr wid i)) : val : rest
-          | Just (DataField cm) <- IntMap.lookup (unWordId wid) (variables s) ->
-              newState s { variables = IntMap.insert (unWordId wid) (DataField $ writeCell val adr cm)
-                                       (variables s),
-                           stack = rest }
-      [] -> emptyStack s
-      otherwise -> abortWith "Bad arguments to !" s
+store' = updateState f  where
+  f s | Address (Just adr@(Addr wid i)) : val : rest <- stack s,
+        Just (DataField cm) <- IntMap.lookup (unWordId wid) (variables s) =
+          newState s { variables = IntMap.insert (unWordId wid) (DataField $ writeCell val adr cm)
+                       (variables s),
+                       stack = rest }
+      | null (stack s) = emptyStack s
+      | otherwise = abortWith "Bad arguments to !" s
 
 -- | Given a counted string, extract the actual text as an individual ByteString.
 countedText :: Cell cell => CV cell -> FM cell ByteString
@@ -518,41 +515,37 @@ litComma = dpop >>= tackOn . WrapA . lit
 compileBranch :: Cell cell => ([FM cell ()] -> FM cell ()) -> FM cell ()
 compileBranch = tackOn . WrapB
 
-tackOn x = updateState $ \s ->
-  case defining s of
-    Nothing -> notDefining s
-    Just d -> newState s { defining = Just (d { compileList = V.snoc (compileList d) x } ) }
+tackOn x = updateState f  where
+  f s | Just d <- defining s =
+          newState s { defining = Just (d { compileList = V.snoc (compileList d) x } ) }
+      | otherwise = notDefining s
 
 -- Helper for create. Open up for defining a word assuming that the name of the
 -- word can be found on top of stack.
 -- ( caddr -- )  of word name to be created
 create' :: Cell cell => ([FM cell ()] -> FM cell ()) -> Bool -> FM cell ()
-create' finalizer usingCreate = updateState $ \s ->
-  case defining s of
-    Just{}  -> abortWith "already compiling" s
-    Nothing -> case stack s of
-                 Address (Just (Addr awid off)) : ss
-                   | Just (BufferField cmem) <- IntMap.lookup (unWordId awid) (variables s) ->
-                       let dict' = (dict s) { wids = wids' }
-                           wid : wids' = wids (dict s)
-                           linkhead = latest (dict s)
-                           name = B.drop (1 + off) $ chunk cmem
-                           (variables', code, cl)
-                             | usingCreate = (IntMap.insert (unWordId wid) (newDataField (target s) (unWordId wid) 0) (variables s), V.fromList (map WrapA [litAdr wid, semi]), closeDefining defining)
-                             | otherwise = (variables s, V.empty, id)
-                           defining = Defining code [] finalizer
-                                        (ForthWord name False linkhead wid abort)
-                       in newState (cl (s { stack = ss,
-                                            dict = dict',
-                                            variables = variables',
-                                            defining = Just defining } ))
-                 otherwise -> abortWith "missing word name" s
+create' finalizer usingCreate = updateState f  where
+  f s | Just{} <- defining s = abortWith "already compiling" s
+      | Address (Just (Addr awid off)) : ss <- stack s,
+        Just (BufferField cmem) <- IntMap.lookup (unWordId awid) (variables s) =
+        let dict' = (dict s) { wids = wids' }
+            wid : wids' = wids (dict s)
+            linkhead = latest (dict s)
+            name = B.drop (1 + off) $ chunk cmem
+            (variables', code, cl)
+              | usingCreate = (IntMap.insert (unWordId wid) (newDataField (target s) (unWordId wid) 0) (variables s), V.fromList (map WrapA [litAdr wid, semi]), closeDefining defining)
+              | otherwise = (variables s, V.empty, id)
+            defining = Defining code [] finalizer (ForthWord name False linkhead wid abort)
+        in newState (cl (s { stack = ss,
+                             dict = dict',
+                             variables = variables',
+                             defining = Just defining } ))
+      | otherwise = abortWith "missing word name" s
 
 -- Helper for smudge, terminate defining of a word and make it available.
-smudge = updateState $ \s ->
-  case defining s of
-    Nothing -> notDefining s
-    Just defining  -> newState $ closeDefining defining s
+smudge = updateState f  where
+  f s | Just defining <- defining s = newState $ closeDefining defining s
+      | otherwise = notDefining s
 
 closeDefining :: Cell cell => Defining cell -> FState cell -> FState cell
 closeDefining defining s =
@@ -570,20 +563,19 @@ closeDefining defining s =
   in s { defining = Nothing,
          dict = dict' }
 
-here = updateState $ \s ->
-         case defining s of
-           Nothing  -> abortWith "HERE only partially implemented" s
-           Just def -> newState s { stack = HereColon wid (V.length (compileList def)) : stack s }
-             where wid = wordId $ definingWord def
+here = updateState f  where
+  f s | Just def <- defining s =
+          let wid = wordId $ definingWord def
+          in newState s { stack = HereColon wid (V.length (compileList def)) : stack s }
+      | otherwise = abortWith "HERE only partially implemented" s
 
-backpatch = updateState $ \s ->
-         case defining s of
-           Nothing  -> notDefining s
-           Just def -> case stack s of
-                         HereColon _ loc : HereColon _ dest : ss ->
-                           let def' = def { patchList = (loc, dest) : patchList def }
-                           in newState s { defining = Just def',
-                                           stack = ss }
+backpatch = updateState f  where
+  f s | Just def <- defining s,
+        HereColon _ loc : HereColon _ dest : ss <- stack s =
+          let def' = def { patchList = (loc, dest) : patchList def }
+          in newState s { defining = Just def',
+                          stack = ss }
+      | otherwise = notDefining s
 
 backslash = docol body
   where body = toIn : fetch : inputLine : fetch : over : plus : inputLineLength : fetch : rot : minus : loop
@@ -671,34 +663,31 @@ move = do
         liftIO $ blockMove (fromIntegral count) adrFrom memFrom adrTo memTo
   next
 
-allot = updateState $ \s ->
-  case stack s of
-    Val n:ss ->
-      let Just word = latest (dict s)
-          wid = wordId word
-          Just (DataField mem) = IntMap.lookup (unWordId wid) (variables s)
-          (offset, mem1) = updateDataPointer (fromIntegral n +) mem
-      in newState s { variables = IntMap.insert (unWordId wid) (DataField mem1) (variables s),
-                      stack = ss }
-    [] -> emptyStack s
-    otherwise -> abortWith "ALLOT requires integer value" s
+allot = updateState f  where
+  f s | Val n:ss <- stack s =
+        let Just word = latest (dict s)
+            wid = wordId word
+            Just (DataField mem) = IntMap.lookup (unWordId wid) (variables s)
+            (offset, mem1) = updateDataPointer (fromIntegral n +) mem
+        in newState s { variables = IntMap.insert (unWordId wid) (DataField mem1) (variables s),
+                        stack = ss }
+      | null (stack s) = emptyStack s
+      | otherwise = abortWith "ALLOT requires integer value" s
 
-umstar' = updateState $ \s ->
-  case stack s of
-    tos@(Val n1) : Val n2 : ss ->
-      let (prod :: Word64) = fromIntegral n1 * fromIntegral n2
-          Just bitsize = Bits.bitSizeMaybe tos
-          low = mask prod
-          high = mask $ prod `Bits.shiftR` bitsize
-          mask x =  fromIntegral $ x Bits..&. ((1 `Bits.shiftL` bitsize) - 1)
-      in newState s { stack = Val high : Val low : ss }
-    otherwise -> abortWith "bad imput to UM*" s
+umstar' = updateState f  where
+  f s | tos@(Val n1) : Val n2 : ss <- stack s =
+        let (prod :: Word64) = fromIntegral n1 * fromIntegral n2
+            Just bitsize = Bits.bitSizeMaybe tos
+            low = mask prod
+            high = mask $ prod `Bits.shiftR` bitsize
+            mask x =  fromIntegral $ x Bits..&. ((1 `Bits.shiftL` bitsize) - 1)
+        in newState s { stack = Val high : Val low : ss }
+      | otherwise = abortWith "bad imput to UM*" s
 
-ummod' = updateState $ \s ->
-  case stack s of
-    divisor@Val{} : hi@Val{} : lo@Val{} : ss ->
+ummod' = updateState f  where
+  f s | divisor@Val{} : hi@Val{} : lo@Val{} : ss <- stack s =
       let dividend = unsigned lo Bits..|. (unsigned hi `Bits.shiftL` bitsize)
           Just bitsize = Bits.bitSizeMaybe divisor
           (quot, rem) = dividend `divMod` unsigned divisor
       in newState s { stack = Val (fromIntegral quot) : Val (fromIntegral rem) : ss }
-    otherwise -> abortWith "bad input to UM/MOD" s
+    | otherwise = abortWith "bad input to UM/MOD" s
