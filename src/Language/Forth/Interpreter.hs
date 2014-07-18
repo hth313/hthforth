@@ -106,6 +106,7 @@ interpreterDictionary = newDictionary extras
           addWord "STRING," compileString
           addWord "LIT," litComma
           addWord "ALLOT" allot
+          addWord ">BODY" toBody
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
@@ -194,6 +195,7 @@ compileComma, comma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM
 here, backpatch, backslash, loadSource, emit, treg, pad, litComma :: Cell cell => FM cell ()
 allot, umstar', ummod', rot, evaluate, false, true, slash :: Cell cell => FM cell ()
 state, sourceID, toIn, inputBuffer, inputLine, inputLineLength :: Cell cell => FM cell ()
+toBody :: Cell cell => FM cell ()
 
 -- variables
 state           = litAdr stateWId
@@ -218,7 +220,7 @@ xif   = docol [here, compileBranch branch0, semi]
 xelse = docol [here, compileBranch branch, here, rot, backpatch, semi]
 xthen = docol [here, swap, backpatch, semi]
 
-xdo = docol [compile (XT pdo), here, semi]
+xdo = docol [compile (XT Nothing pdo), here, semi]
 loop = xloop ploop
 plusLoop = xloop pplusLoop
 leave = updateState f  where
@@ -235,7 +237,7 @@ plusStore = docol [dup, fetch, rot, plus, swap, store, semi]
 
 create = docol [xword, create' docol True, semi]
 colon = docol [lit (Val (-1)), state, store, xword, create' docol False, semi]
-semicolon = docol [compile (XT semi), lit (Val 0), state, store, smudge, semi]
+semicolon = docol [compile (XT Nothing semi), lit (Val 0), state, store, smudge, semi]
 compileComma = dpop >>= compile
 immediate = updateState $ \s -> newState s { dict = setLatestImmediate (dict s) }
 
@@ -263,7 +265,7 @@ does = updateState f  where
         | otherwise = abortWith "IP not on rstack" s
 
 -- Helper function that compile the ending loop word
-xloop a = docol [compile (XT a), here, compileBranch branch0, backpatch, semi]
+xloop a = docol [compile (XT Nothing a), here, compileBranch branch0, backpatch, semi]
 
 -- Runtime words for DO-LOOPs
 pdo = updateState f  where
@@ -356,7 +358,8 @@ putField wid field = modify $ \s -> s { variables = IntMap.insert (unWordId wid)
 
 -- | Push the field address of a word on stack
 litAdr :: Cell cell => WordId -> FM cell ()
-litAdr wid = lit $ Address (Just $ Addr wid 0)
+litAdr = lit . adrcv
+adrcv wid = Address (Just $ Addr wid 0)
 
 abort :: Cell cell => FM cell ()
 abort = docol [modify (\s -> s { stack = [], defining = Nothing }) >> next,
@@ -371,7 +374,7 @@ next = do x <- StateT $ \s -> let (x:xs) = ip s
           x
 
 call :: Cell cell => CV cell -> FM cell ()
-call (XT a) = a
+call (XT _ a) = a
 call _ = abortMessage "not an execution token"
 
 -- Data stack primitives
@@ -465,6 +468,8 @@ countedText (Address (Just (Addr wid off))) = updateStateVal "" $ \s ->
       otherwise -> abortWith "expected address pointing to char buffer" s
 countedText _ = abortMessage "expected address" >> return B.empty
 
+xt word = XT (Just $ wordId word) (doer word)
+
 -- | Find the name (counted string) in the dictionary
 --   ( c-addr -- c-addr 0 | xt 1 | xt -1 )
 find :: Cell cell => FM cell ()
@@ -474,8 +479,8 @@ find = do
   modify $ \s ->
       case mword of
         Just word
-            | immediateFlag word -> s { stack = Val 1 : XT (doer word) : (stack s) }
-            | otherwise -> s { stack = Val (-1) : XT (doer word) : (stack s) }
+            | immediateFlag word -> s { stack = Val 1 : xt word : (stack s) }
+            | otherwise -> s { stack = Val (-1) : xt word : (stack s) }
         Nothing -> s { stack = Val 0 : caddr : stack s }
   next
 
@@ -508,7 +513,7 @@ compile :: Cell cell => CV cell -> FM cell ()
 compile adr@Address{} = tackOn $ WrapA $ lit adr
 compile val@Val{} = tackOn $ WrapA $ lit val
 compile val@Text{} = tackOn $ WrapA $ lit val
-compile (XT a) = tackOn $ WrapA $ a
+compile (XT _ a) = tackOn $ WrapA $ a
 
 litComma = dpop >>= tackOn . WrapA . lit
 
@@ -691,3 +696,7 @@ ummod' = updateState f  where
           (quot, rem) = dividend `divMod` unsigned divisor
       in newState s { stack = Val (fromIntegral quot) : Val (fromIntegral rem) : ss }
     | otherwise = abortWith "bad input to UM/MOD" s
+
+toBody = updateState f  where
+  f s | XT (Just wid) a : ss <- stack s = newState s { stack = adrcv wid : ss }
+      | otherwise = abortWith "bad input to >BODY" s

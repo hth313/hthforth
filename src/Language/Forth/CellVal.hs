@@ -22,7 +22,7 @@ import Language.Forth.Interpreter.Address
 data CellVal cell a =
     Address (Maybe Addr)    -- ^ An address value
   | Val cell                -- ^ A numeric value
-  | XT a                    -- ^ Execution token
+  | XT (Maybe WordId) a     -- ^ Execution token
   | IP [a]                  -- ^ Pushed interpretive pointer
   | Text ByteString         -- ^ Some text buffer
   | HereColon WordId Int    -- ^ Pointer inside word being defined
