@@ -675,9 +675,9 @@ allot = updateState f  where
       | otherwise = abortWith "ALLOT requires integer value" s
 
 umstar' = updateState f  where
-  f s | tos@(Val n1) : Val n2 : ss <- stack s =
-        let (prod :: Word64) = fromIntegral n1 * fromIntegral n2
-            Just bitsize = Bits.bitSizeMaybe tos
+  f s | n1@Val{} : n2@Val{} : ss <- stack s =
+        let prod = unsigned n1 * unsigned n2
+            Just bitsize = Bits.bitSizeMaybe n1
             low = mask prod
             high = mask $ prod `Bits.shiftR` bitsize
             mask x =  fromIntegral $ x Bits..&. ((1 `Bits.shiftL` bitsize) - 1)
