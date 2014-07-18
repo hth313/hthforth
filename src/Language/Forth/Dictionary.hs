@@ -56,6 +56,10 @@ newDictionary extras = execState build (Dictionary wordsIds Nothing)
       addWord "AND"  and
       addWord "OR"   or
       addWord "XOR"  xor
+      addWord "2*"   twoStar
+      addWord "2/"   twoSlash
+      addWord "LSHIFT" lshift
+      addWord "RSHIFT" rshift
       addWord "0="   zerop
       addWord "0<"   lt0
       addWord "!"    store

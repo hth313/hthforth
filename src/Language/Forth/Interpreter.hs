@@ -151,6 +151,20 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   or    = binary (Bits..|.)
   xor   = binary Bits.xor
 
+  twoStar = docol [dup, plus, semi]
+  twoSlash = updateState f  where
+    f s | Val x : ss <- stack s = newState s { stack = Val (x `Bits.shiftR` 1) : ss }
+        | otherwise = abortWith "bad input to 2/" s
+  lshift = updateState f  where
+    f s | Val n : Val x : ss <- stack s =
+            newState s { stack = Val (x `Bits.shiftL` (fromIntegral n)) : ss }
+        | otherwise = abortWith "bad input to LSHIFT" s
+  rshift = updateState f  where
+    f s | Val n : x@Val{} : ss <- stack s =
+            let x' = unsigned x `Bits.shiftR` (fromIntegral n)
+            in newState s { stack = Val (fromIntegral x') : ss }
+        | otherwise = abortWith "bad input to RSHIFT" s
+
   zerop = updateState $ \s -> case stack s of
                                 (Val 0) : ss         -> newState s { stack = trueVal  : ss }
                                 Val{} : ss           -> newState s { stack = falseVal : ss }
@@ -187,7 +201,6 @@ inputBuffer     = litAdr inputBufferWId
 inputLine       = litAdr inputLineWId
 inputLineLength = litAdr inputLineLengthWId
 sourceID        = litAdr sourceIDWid
-
 
 false = lit falseVal
 true = lit trueVal
@@ -282,6 +295,14 @@ slash = binary divide
 divide :: Cell cell => CV cell -> CV cell -> CV cell
 divide (Val a) (Val b) = Val (a `div` b)
 divide a b = Bot $ "non numeric divide"
+
+-- Convert a cell value to a large unsigned number
+unsigned :: Cell cell => CV cell -> Word64
+unsigned c@(Val x) =
+  let (ux :: Word64) = fromIntegral x
+      Just bitsize = Bits.bitSizeMaybe c
+      bitmask = (1 `Bits.shiftL` bitsize) - 1
+  in ux Bits..&. bitmask
 
 ipdo :: Cell cell => [FM cell ()] -> FM cell ()
 ipdo ip' = modify (\s -> s { ip = ip' }) >> next
@@ -675,13 +696,9 @@ umstar' = updateState $ \s ->
 
 ummod' = updateState $ \s ->
   case stack s of
-    tos@(Val divisor) : Val hi : Val lo : ss ->
-      let dividend = (mask lo) Bits..|. ((mask hi) `Bits.shiftL` bitsize)
-          mask x =
-            let (u :: Word64) = fromIntegral x
-            in u Bits..&. bitmask
-          bitmask = (1 `Bits.shiftL` bitsize) - 1
-          Just bitsize = Bits.bitSizeMaybe tos
-          (quot, rem) = dividend `divMod` (mask divisor)
+    divisor@Val{} : hi@Val{} : lo@Val{} : ss ->
+      let dividend = unsigned lo Bits..|. (unsigned hi `Bits.shiftL` bitsize)
+          Just bitsize = Bits.bitSizeMaybe divisor
+          (quot, rem) = dividend `divMod` unsigned divisor
       in newState s { stack = Val (fromIntegral quot) : Val (fromIntegral rem) : ss }
     otherwise -> abortWith "bad input to UM/MOD" s

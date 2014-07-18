@@ -27,7 +27,6 @@
 : 1-  1 - ;
 : INVERT  TRUE XOR ;
 : NEGATE  INVERT 1+ ;
-: 2*  DUP + ;
 : *  UM* DROP ;
 : S>D  DUP 0< ;
 : ABS  S>D IF NEGATE THEN ;
