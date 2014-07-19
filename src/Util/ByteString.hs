@@ -1,9 +1,10 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 -- | Extend vector-bytestring to allow for O(1) updates in a very
 --   unsafe way. Use with care...
-module Util.ByteString (unsafeUpdate) where
+module Util.ByteString (unsafeUpdate, memmove) where
 
-import Foreign
+import Control.Monad (void)
+import Foreign (Ptr, Word8)
 import Foreign.C.Types (CSize(..))
 import Foreign.ForeignPtr (withForeignPtr)
 import Data.Vector.Storable.ByteString (ByteString)
@@ -21,3 +22,9 @@ unsafeUpdate x v i = withForeignPtr fp update1 where
     update1 p | i < l = c_update p (fromIntegral i) x
               | otherwise = return ()
 {-# INLINE unsafeUpdate #-}
+
+foreign import ccall unsafe "string.h memmove" c_memmove
+    :: Ptr Word8 -> Ptr Word8 -> CSize -> IO (Ptr Word8)
+
+memmove :: Ptr Word8 -> Ptr Word8 -> Int -> IO ()
+memmove p q s = void $ c_memmove p q (fromIntegral s)
