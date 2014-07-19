@@ -220,6 +220,22 @@ VARIABLE HLD
 : */  ( n1 n2 n3 -- n4 )
     */MOD SWAP DROP ;
 
+: WITHIN  ( u ul uh -- f )                                \ word set CORE EXT
+    OVER - >R - R> U< ;
+
+: (NUMBER)
+    DUP 48 57 WITHIN IF 48 -
+    ELSE DUP 65 90 WITHIN IF 55 -
+    ELSE DUP 97 122 WITHIN IF 87 - ELSE 0 EXIT THEN THEN THEN
+    DUP BASE @ < ;
+
+: >NUMBER  ( ud1 c-addr1 u1 -- ud2 c-addr2 u2 )
+    2DUP >R >R 0
+    DO DUP C@ (NUMBER)
+       IF SWAP 1+ >R >R SWAP BASE @ UM* ROT + SWAP R> + SWAP R> ELSE DROP LEAVE THEN
+    LOOP
+    DUP R> - R> SWAP - ;
+
 @@
 : ?PAIRS  - IF ABORT" unmatched conditionals" THEN ;
 
