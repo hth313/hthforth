@@ -695,7 +695,7 @@ umstar' = updateState f  where
             high = mask $ prod `Bits.shiftR` bitsize
             mask x =  fromIntegral $ x Bits..&. ((1 `Bits.shiftL` bitsize) - 1)
         in newState s { stack = Val high : Val low : ss }
-      | otherwise = abortWith "bad imput to UM*" s
+      | otherwise = abortWith "bad input to UM*" s
 
 ummod' = updateState f  where
   f s | divisor@Val{} : hi@Val{} : lo@Val{} : ss <- stack s =
