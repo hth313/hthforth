@@ -26,16 +26,19 @@ correctly, a cross compiler, as the intended target will be different.
 To build hthforth, you will need to have Haskell installed. The
 current version of GHC used is 7.8.3.
 
-In order to build hthforth you will also need to download and install
-a modified vector-bytestring (https://github.com/hth313/vector-bytestring).
-It allows for using GHC 7.8 and allows for calling memmove which is
-used by MOVE to allow for non-clobbering memory block copies.
-
 With a suitable GHC, do the following in the top level directory:
 % cabal configure
 % cabal build
 
-To run:
+This may fail with vector-bytestring as the version on Hackage has
+not been updated for GHC 7.8. If this happens, you need to download
+a working copy from https://github.com/basvandijk/vector-bytestring
+and edit it to accept base 4.7. Another alternative is to copy the
+one I have modified (https://github.com/hth313/vector-bytestring).
+Just clone it, step into the directory and 'cabal install' it.
+Then go back and build hthforth again.
+
+To run hthforth:
 % dist/build/hthforth/hthforth
 
 When started, there is a very small subset of core words available. To
