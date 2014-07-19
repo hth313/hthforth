@@ -176,7 +176,8 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
             let flag | n < 0 = trueVal
                      | otherwise = falseVal
             in newState s { stack = flag : ss }
-        | otherwise = emptyStack s
+        | null (stack s) = emptyStack s
+        | otherwise = abortWith "bad input to 0<" s
   docol xs = modify (\s -> s { rstack = IP (ip s) : rstack s, ip = xs }) >> next
   branch = ipdo
   branch0 loc = dpop >>= \n -> if | isZero n -> ipdo loc
