@@ -181,7 +181,6 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   branch = ipdo
   branch0 loc = dpop >>= \n -> if | isZero n -> ipdo loc
                                   | otherwise  -> next
-  -- Compiling words
   constant = docol [xword, create' head False, compileComma, smudge, semi]
 
   umstar = umstar'
@@ -266,7 +265,7 @@ does = updateState f  where
 -- Helper function that compile the ending loop word
 xloop a = docol [compile (XT Nothing a), here, compileBranch branch0, backpatch, semi]
 
--- Runtime words for DO-LOOPs
+-- | Runtime words for DO-LOOPs
 pdo = updateState f  where
   f s | s0 : s1 : ss <- stack s = newState s { stack = ss,
                                                rstack  = s0 : s1 : rstack s }
@@ -284,6 +283,7 @@ rloopHelper f s
                            stack = trueVal : stack s }
   | otherwise = emptyStack s
 
+-- | Helper for arithmetics
 binary :: Cell cell => (CV cell -> CV cell -> CV cell) -> FM cell ()
 binary op = updateState f  where
   f s | op1 : op2 : ss <- stack s = newState s { stack = op2 `op` op1 : ss }
@@ -297,15 +297,20 @@ unsigned c@(Val x) =
       bitmask = (1 `Bits.shiftL` bitsize) - 1
   in ux Bits..&. bitmask
 
+-- | Replace what we are interpreting with given slice of code.
+--   Typically used for implementing branches and setting the
+--   main loop.
 ipdo :: Cell cell => [FM cell ()] -> FM cell ()
 ipdo ip' = modify (\s -> s { ip = ip' }) >> next
 
+-- | Search dictionary for given named word.
 searchDict :: Cell cell => ByteString -> FM cell (Maybe (ForthWord (FM cell ())))
 searchDict n = gets (f . latest . dict)
   where f jw@(Just word) | n == name word = jw
                          | otherwise = f (link word)
         f Nothing = Nothing
 
+-- | Main loop for the interpreter
 mainLoop :: Cell cell => FM cell ()
 mainLoop = do
   mline <- lift $ getInputLine ""
@@ -352,25 +357,33 @@ putField wid field = modify $ \s -> s { variables = IntMap.insert (unWordId wid)
 -- | Push the field address of a word on stack
 litAdr :: Cell cell => WordId -> FM cell ()
 litAdr = lit . adrcv
+
+-- | Addressable value, pointing to the first address of the datafield of
+--   given word.
 adrcv wid = Address (Just $ Addr wid 0)
 
+-- | Forth level error handling.
 abort :: Cell cell => FM cell ()
 abort = docol [modify (\s -> s { stack = [], defining = Nothing }) >> next,
                lit (Val 0), state, store, quit]
 
-abort0 :: Cell cell => FM cell (CV cell)
-abort0 = abort >> return (Val 0)
+emptyStack = abortWith "empty stack"
+notDefining = abortWith "not defining"
+abortWith msg s = return (Left msg, s)
+abortMessage msg = liftIO (putStrLn msg) >> abort
 
+-- | Step the colon body and execute next word in it.
 next :: Cell cell => FM cell ()
 next = do x <- StateT $ \s -> let (x:xs) = ip s
                               in return (x, s { ip = xs } )
           x
 
+-- | Invoke an execution token.
 call :: Cell cell => CV cell -> FM cell ()
 call (XT _ a) = a
 call _ = abortMessage "not an execution token"
 
--- Data stack primitives
+-- | Data stack primitives
 dpush :: CV cell -> FM cell ()
 dpush val = modify $ \s -> s { stack = val : stack s }
 
@@ -379,29 +392,25 @@ dpop = updateStateVal (Val 0) f  where
   f s | t:ts <- stack s = return (Right t, s { stack = ts })
       | otherwise = emptyStack s
 
+-- | Return stack primitives
 rpop :: Cell cell => FM cell (CV cell)
 rpop = updateStateVal (Val 0) f  where
   f s | t:ts <- rstack s = return (Right t, s { rstack = ts })
       | otherwise = emptyStack s
 
--- State updater that can handle aborts and that automatically do 'next'
+-- | State updater that can handle aborts and that automatically do 'next'
 updateState f = StateT f >>= \case
                   Left msg -> abortMessage msg
                   Right () -> next
 
--- State updater building block that can handle abort and that can
--- be used together with other actions. The last action need to
--- be 'next'.
+-- | State updater building block that can handle abort and that can
+--   be used together with other actions. The last action need to
+--   be 'next'.
 updateStateVal x f = StateT f >>= \case
                         Left msg -> abortMessage msg >> return x
                         Right y -> return y
 
 newState s = return (Right (), s)
-
-emptyStack = abortWith "empty stack"
-notDefining = abortWith "not defining"
-abortWith msg s = return (Left msg, s)
-abortMessage msg = liftIO (putStrLn msg) >> abort
 
 cfetch' :: Cell cell => FM cell ()
 cfetch' = updateState f  where
@@ -502,14 +511,18 @@ xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, 
                                  variables = IntMap.insert (unWordId wordBufferWId) countedField (variables s) }
            otherwise -> abortWith "parseName failed" s
 
+-- | Compile given cell value
 compile :: Cell cell => CV cell -> FM cell ()
 compile adr@Address{} = tackOn $ WrapA $ lit adr
-compile val@Val{} = tackOn $ WrapA $ lit val
-compile val@Text{} = tackOn $ WrapA $ lit val
-compile (XT _ a) = tackOn $ WrapA $ a
+compile val@Val{}     = tackOn $ WrapA $ lit val
+compile val@Text{}    = tackOn $ WrapA $ lit val
+compile (XT _ a)      = tackOn $ WrapA $ a
 
+-- | Compile a cell value from the stack.
 litComma = dpop >>= tackOn . WrapA . lit
 
+-- | Compile a branch instruction. Branches need special handling when
+--   the colon definition is finailized.
 compileBranch :: Cell cell => ([FM cell ()] -> FM cell ()) -> FM cell ()
 compileBranch = tackOn . WrapB
 
@@ -518,9 +531,9 @@ tackOn x = updateState f  where
           newState s { defining = Just (d { compileList = V.snoc (compileList d) x } ) }
       | otherwise = notDefining s
 
--- Helper for create. Open up for defining a word assuming that the name of the
--- word can be found on top of stack.
--- ( caddr -- )  of word name to be created
+-- | Helper for create. Open up for defining a word assuming that the name of the
+--   word can be found on top of stack.
+--   ( caddr -- )  of word name to be created
 create' :: Cell cell => ([FM cell ()] -> FM cell ()) -> Bool -> FM cell ()
 create' finalizer usingCreate = updateState f  where
   f s | Just{} <- defining s = abortWith "already compiling" s
@@ -540,11 +553,12 @@ create' finalizer usingCreate = updateState f  where
                              defining = Just defining } ))
       | otherwise = abortWith "missing word name" s
 
--- Helper for smudge, terminate defining of a word and make it available.
+-- | Smudge, terminate defining of a word and make it available.
 smudge = updateState f  where
   f s | Just defining <- defining s = newState $ closeDefining defining s
       | otherwise = notDefining s
 
+-- | Close the word being defined.
 closeDefining :: Cell cell => Defining cell -> FState cell -> FState cell
 closeDefining defining s =
   let dict' = (dict s) { latest = Just word }
