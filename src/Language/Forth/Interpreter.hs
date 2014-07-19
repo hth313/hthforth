@@ -61,7 +61,6 @@ interpreterDictionary = newDictionary extras
           addWord "EVALUATE" evaluate
           addWord "FALSE" false
           addWord "TRUE" true
-          addWord "/" slash
           addWord "STATE" state
           addWord ">IN" toIn
           addWord "#INBUF" inputBuffer
@@ -193,7 +192,7 @@ xif, xelse, xthen, xdo, loop, plusLoop, leave, begin, until, again :: Cell cell 
 interpret, plusStore, create, does, colon, semicolon, quit :: Cell cell => FM cell ()
 compileComma, comma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
 here, backpatch, backslash, loadSource, emit, treg, pad, litComma :: Cell cell => FM cell ()
-allot, umstar', ummod', rot, evaluate, false, true, slash :: Cell cell => FM cell ()
+allot, umstar', ummod', rot, evaluate, false, true :: Cell cell => FM cell ()
 state, sourceID, toIn, inputBuffer, inputLine, inputLineLength :: Cell cell => FM cell ()
 toBody :: Cell cell => FM cell ()
 
@@ -290,13 +289,7 @@ binary op = updateState f  where
   f s | op1 : op2 : ss <- stack s = newState s { stack = op2 `op` op1 : ss }
       | otherwise = emptyStack s
 
-slash = binary divide
-
-divide :: Cell cell => CV cell -> CV cell -> CV cell
-divide (Val a) (Val b) = Val (a `div` b)
-divide a b = Bot $ "non numeric divide"
-
--- Convert a cell value to a large unsigned number
+-- | Convert a cell value to a large unsigned number
 unsigned :: Cell cell => CV cell -> Word64
 unsigned c@(Val x) =
   let (ux :: Word64) = fromIntegral x
