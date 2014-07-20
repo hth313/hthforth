@@ -107,6 +107,8 @@ interpreterDictionary = newDictionary extras
           addWord "ALLOT" allot
           addWord ">BODY" toBody
           addWord "ACCEPT" accept
+          addWord "ALIGN" align
+          addWord "ALIGNED" aligned
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
@@ -195,7 +197,7 @@ compileComma, comma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM
 here, backpatch, backslash, loadSource, emit, treg, pad, litComma :: Cell cell => FM cell ()
 allot, umstar', ummod', rot, evaluate, false, true :: Cell cell => FM cell ()
 state, sourceID, toIn, inputBuffer, inputLine, inputLineLength :: Cell cell => FM cell ()
-toBody, accept :: Cell cell => FM cell ()
+toBody, accept, align, aligned :: Cell cell => FM cell ()
 
 -- variables
 state           = litAdr stateWId
@@ -739,3 +741,15 @@ copyTextBlock (Address (Just adrTo@(Addr wid _))) text =
   in do
     copyAction <- updateStateVal (return ()) f
     copyAction
+
+align = updateState f  where
+  f s | Just word <- latest (dict s),
+        Just (DataField mem) <- IntMap.lookup (unWordId (wordId word)) (variables s) =
+          let mem' = DataField $ alignDP mem (target s)
+          in newState s { variables = IntMap.insert (unWordId (wordId word)) mem' (variables s) }
+      | otherwise = abortWith "cannot ALIGN, dp no valid" s
+
+aligned = updateState f  where
+  f s | Address (Just (Addr wid off)) : ss <- stack s =
+          newState s { stack = Address (Just (Addr wid (alignOffset off (target s)))) : ss }
+      | otherwise = abortWith "ALIGNED only words on addresses" s

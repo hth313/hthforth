@@ -8,7 +8,7 @@
 module Language.Forth.Interpreter.CellMemory (CellMemory, StorageUnit(..),
                                               newCellMemory,
                                               readCell, writeCell, read8CM,
-                                              blockMoveTextCM,
+                                              blockMoveTextCM, alignDP,
                                               updateDataPointer, validAddressCM) where
 
 import Data.IntMap (IntMap)
@@ -54,3 +54,5 @@ blockMoveTextCM text (Addr _ offset) cm =
   in cm { contents = IntMap.union im' (contents cm) }
 
 validAddressCM (Addr _ offset) cm = offset < dpOffset cm && offset >= 0
+
+alignDP mem target = mem { dpOffset = alignOffset (dpOffset mem) target }

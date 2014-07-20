@@ -1,6 +1,7 @@
 
-module Language.Forth.Target (Target(..)) where
+module Language.Forth.Target (Target(..), alignOffset) where
 
+import Data.Bits
 import Util.Endian
 import Util.Memory
 
@@ -12,3 +13,8 @@ data Target cell =  Target
   , bytesPerChar :: Int                     -- ^ character size
   , endian :: Endian
   }
+
+alignOffset n target = alignOffset1 n
+  where alignOffset1 n | (mask .&. n) /= 0 = alignOffset1 (n + 1)
+                       | otherwise = n
+        mask = bytesPerCell target - 1
