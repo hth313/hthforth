@@ -20,7 +20,6 @@ import Util.Endian
 
 data CellMemory cell a = CellMemory
   { contents :: IntMap (StorageUnit cell a)
-  , memSize :: Int
   , target :: Target cell
   , dpOffset :: Int
   }
@@ -28,7 +27,7 @@ data CellMemory cell a = CellMemory
 data StorageUnit cell a = Part Int (CellVal cell a) | Byte Word8
 
 newCellMemory :: Target cell -> Int -> CellMemory cell a
-newCellMemory target size = CellMemory IntMap.empty size target 0
+newCellMemory target size = CellMemory IntMap.empty target size
 
 readCell :: Addr -> CellMemory cell a -> Maybe (CellVal cell a)
 readCell (Addr _ i) mem =
