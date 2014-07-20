@@ -735,7 +735,7 @@ copyTextBlock (Address (Just adrTo@(Addr wid _))) text =
                                     validAddressCM adrEnd cm ->
                 return (Right (putField wid (DataField $ blockMoveTextCM text adrTo cm)), s)
               otherwise -> abortWith "address outside allocated area" s
-      adrEnd = addAddress adrTo (B.length text)
+      adrEnd = addAddress adrTo (B.length text - 1)
   in do
     copyAction <- updateStateVal (return ()) f
     copyAction
