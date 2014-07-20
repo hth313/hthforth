@@ -1,4 +1,4 @@
-module Language.Forth.Interpreter.Address (Addr(..)) where
+module Language.Forth.Interpreter.Address (Addr(..), module Util.Address) where
 
 import Language.Forth.Word
 import Util.Address
@@ -13,4 +13,5 @@ instance Show Addr where
 
 instance Address Addr where
     addAddress (Addr wid disp) n = Addr wid (disp + n)
+    setOffset (Addr wid _) n = Addr wid n
     offsetOf (Addr _ disp1) (Addr _ disp2) = disp1 + disp2

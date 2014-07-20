@@ -1,5 +1,5 @@
-module Util.Memory (Memory(..), newMemory, bufferMemory,
-                    read8, read32, write8, blockMove) where
+module Util.Memory (Memory(..), newMemory, bufferMemory, validAddress,
+                    read8, read32, write8, blockMove, blockMoveText) where
 
 import Foreign.ForeignPtr (withForeignPtr)
 import Foreign.Ptr (plusPtr)
@@ -28,6 +28,9 @@ newMemory start size =
 
 bufferMemory start buf =
     Memory False start (addAddress start (B.length buf - 1)) LittleEndian buf
+
+validAddress :: Address a => a -> Memory a -> Bool
+validAddress adr mem = adr >= baseAddress mem && adr <= endAddress mem
 
 read8 :: Address a => a -> Memory a -> Word8
 read8 adr mem = B.index (chunk mem) (offsetOf adr $ baseAddress mem)
@@ -59,3 +62,12 @@ blockMove count adrFrom memFrom adrTo memTo =
     in withForeignPtr fpFrom  $ \from ->
          withForeignPtr fpTo $ \to ->
              memmove (to `plusPtr` offsetTo) (from `plusPtr` offsetFrom) (fromIntegral count)
+
+blockMoveText text adrTo memTo =
+  let n = B.length text
+      -- Create an address based on the destination address. We are providing
+      -- another memory block, which makes it work even though the address
+      -- is partly a lie (the part we lie about is not used at this level).
+      adrFrom = setOffset adrTo 0
+      memFrom = bufferMemory adrFrom text
+  in blockMove n (baseAddress memFrom) memFrom adrTo memTo

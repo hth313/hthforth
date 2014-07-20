@@ -5,12 +5,15 @@
 
 -}
 
-module Language.Forth.Interpreter.CellMemory (CellMemory, newCellMemory,
-                                              readCell, writeCell,
-                                              updateDataPointer) where
+module Language.Forth.Interpreter.CellMemory (CellMemory, StorageUnit(..),
+                                              newCellMemory,
+                                              readCell, writeCell, read8CM,
+                                              blockMoveTextCM,
+                                              updateDataPointer, validAddressCM) where
 
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
+import qualified Data.Vector.Storable.ByteString as B
 import Data.Word
 import Language.Forth.Interpreter.Address
 import Language.Forth.CellVal
@@ -38,7 +41,16 @@ writeCell :: CellVal cell a -> Addr -> CellMemory cell a -> CellMemory cell a
 writeCell val (Addr _ i) mem =
     mem { contents = IntMap.insert i (Part 0 val) (contents mem) }
 
+read8CM :: Addr -> CellMemory cell a -> Maybe (StorageUnit cell a)
+read8CM (Addr _ i) mem = IntMap.lookup i (contents mem)
+
 -- | Apply a function to the datapointer to advance it, return the
 --   previous value of it
 updateDataPointer :: (Int -> Int) -> CellMemory cell a -> (Int, CellMemory cell a)
 updateDataPointer f mem = (dpOffset mem, mem { dpOffset = f (dpOffset mem) })
+
+blockMoveTextCM text (Addr _ offset) cm =
+  let im' = IntMap.fromList $ zip [offset..] (map Byte $ B.unpack text)
+  in cm { contents = IntMap.union im' (contents cm) }
+
+validAddressCM (Addr _ offset) cm = offset < dpOffset cm && offset >= 0

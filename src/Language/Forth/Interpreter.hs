@@ -106,6 +106,7 @@ interpreterDictionary = newDictionary extras
           addWord "LIT," litComma
           addWord "ALLOT" allot
           addWord ">BODY" toBody
+          addWord "ACCEPT" accept
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
@@ -194,7 +195,7 @@ compileComma, comma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM
 here, backpatch, backslash, loadSource, emit, treg, pad, litComma :: Cell cell => FM cell ()
 allot, umstar', ummod', rot, evaluate, false, true :: Cell cell => FM cell ()
 state, sourceID, toIn, inputBuffer, inputLine, inputLineLength :: Cell cell => FM cell ()
-toBody :: Cell cell => FM cell ()
+toBody, accept :: Cell cell => FM cell ()
 
 -- variables
 state           = litAdr stateWId
@@ -421,7 +422,9 @@ cfetch' = updateState f  where
               let c = Val $ fromIntegral $ read8 adr buf
               in  newState s { stack = c : rest }
             Nothing -> abortWith "C@ - no valid address" s
-            Just DataField{} -> abortWith "C@ - data field not implemented" s
+            Just (DataField cm) | Just (Byte x) <- read8CM adr cm ->
+              newState s { stack = Val (fromIntegral x) : rest }
+            otherwise -> abortWith "C@ - no byte found in cell memory" s
       | null (stack s) = emptyStack s
       | otherwise = abortWith "bad C@ address" s
 
@@ -708,3 +711,31 @@ ummod' = updateState f  where
 toBody = updateState f  where
   f s | XT (Just wid) a : ss <- stack s = newState s { stack = adrcv wid : ss }
       | otherwise = abortWith "bad input to >BODY" s
+
+accept =
+  let f s | Val n : caddr@Address{} : ss <- stack s =
+              return (Right (fromIntegral n, caddr), s { stack = ss })
+          | otherwise = abortWith "bad arguments to ACCEPT, or nu buffer destination" s
+      g len s = newState s { stack = Val (fromIntegral len) : stack s }
+  in do
+    (n, caddr) <- updateStateVal (0, Address Nothing) f
+    text <- liftM (C.take n) (liftIO C.getLine)
+    copyTextBlock caddr text
+    updateState (g $ C.length text)
+
+-- Copy given chunk of text to given address. This will handle writing to
+-- either cell memory and buffer memory.
+copyTextBlock (Address (Just adrTo@(Addr wid _))) text =
+  let f s = case IntMap.lookup (unWordId wid) (variables s) of
+              Nothing -> abortWith "missing data field" s
+              Just (BufferField memTo) | validAddress adrTo memTo,
+                                         validAddress adrEnd memTo ->
+                return (Right (liftIO (blockMoveText text adrTo memTo)), s)
+              Just (DataField cm) | validAddressCM adrTo cm,
+                                    validAddressCM adrEnd cm ->
+                return (Right (putField wid (DataField $ blockMoveTextCM text adrTo cm)), s)
+              otherwise -> abortWith "address outside allocated area" s
+      adrEnd = addAddress adrTo (B.length text)
+  in do
+    copyAction <- updateStateVal (return ()) f
+    copyAction
