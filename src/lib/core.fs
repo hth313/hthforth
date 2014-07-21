@@ -156,7 +156,7 @@
     BL WORD DUP C@ IF CHAR+ C@ THEN ;
 
 : VARIABLE  ( "<spaces>name"-- )
-    CREATE 1 CELLS ALLOT ;
+    CREATE [ 1 CELLS ] LITERAL ALLOT ;
 
 ( Numeric base )
 VARIABLE BASE
