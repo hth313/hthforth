@@ -106,6 +106,8 @@
 : SPACES  ( n -- )
     DUP 0 > IF 0 DO SPACE LOOP ELSE DROP THEN ;
 
+: CR  ( -- )  10 EMIT ;
+
 \ If flag is set, ABORT
 \ This is useful as a way out of strange unexpected problems when we
 \ do not even bother to tell the user what was wrong.
