@@ -450,7 +450,8 @@ fetch' = updateState f  where
             Just (DataField cm) ->
                 case readCell adr cm of
                   Just x -> newState s { stack = x : rest }
-                  otherwise -> abortWith "@ outside data field" s
+                  _ | validAddressCM adr cm -> abortWith "uninitialized access in data field" s
+                    | otherwise -> abortWith "@ outside data field" s
             Just (BufferField mem) -> abortWith "@ in buffer field" s
             Nothing -> abortWith "no data field" s
       | null (stack s) = emptyStack s
