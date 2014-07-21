@@ -75,7 +75,6 @@ interpreterDictionary = newDictionary extras
           addWord ";" semicolon >> makeImmediate
           addWord "SMUDGE" smudge
           addWord "CREATE" create
-          addWord "," comma
           addWord "DOES>" does
           addWord "COMPILE," compileComma
           addWord "IMMEDIATE" immediate
@@ -193,7 +192,7 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
 -- Forward declarations of Forth words implemented by the interpreter
 xif, xelse, xthen, xdo, loop, plusLoop, leave, begin, until, again :: Cell cell => FM cell ()
 interpret, plusStore, create, does, colon, semicolon, quit :: Cell cell => FM cell ()
-compileComma, comma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
+compileComma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
 here, backpatch, backslash, loadSource, emit, treg, pad, litComma :: Cell cell => FM cell ()
 allot, umstar', ummod', rot, evaluate, false, true :: Cell cell => FM cell ()
 state, sourceID, toIn, inputBuffer, inputLine, inputLineLength :: Cell cell => FM cell ()
@@ -242,18 +241,6 @@ colon = docol [lit (Val (-1)), state, store, xword, create' docol False, semi]
 semicolon = docol [compile (XT Nothing semi), lit (Val 0), state, store, smudge, semi]
 compileComma = dpop >>= compile
 immediate = updateState $ \s -> newState s { dict = setLatestImmediate (dict s) }
-
-comma = updateState f  where
-  f s | c:ss <- stack s =
-      let Just word = latest (dict s)
-          wid = wordId word
-          Just (DataField mem) = IntMap.lookup (unWordId wid) (variables s)
-          (offset, mem1) = updateDataPointer (bytesPerCell (target s) +) mem
-          adr = Addr wid offset
-          mem2 = writeCell c adr mem1
-      in newState s { variables = IntMap.insert (unWordId wid) (DataField mem2) (variables s),
-                      stack = ss }
-      | otherwise = emptyStack s
 
 does = updateState f  where
   f s | IP ip' : rs <- rstack s =
@@ -434,9 +421,17 @@ cstore' :: Cell cell => FM cell ()
 cstore' = do
   action <- updateStateVal (return ()) $ \s ->
     case stack s of
-      Address (Just adr@(Addr wid i)) : Val val : rest
-          | Just (BufferField bm) <- IntMap.lookup (unWordId wid) (variables s) ->
-              return (Right (write8 (fromIntegral val) adr bm), s { stack = rest })
+      Address (Just adr@(Addr wid i)) : Val val : rest ->
+        case IntMap.lookup (unWordId wid) (variables s) of
+          Just (BufferField bm) ->
+            return (Right (write8 (fromIntegral val) adr bm), s { stack = rest })
+          Just (DataField df) ->
+            return (Right (return ()),
+                    s { stack = rest,
+                        variables = IntMap.insert (unWordId wid)
+                                      (DataField $ write8CM (fromIntegral val) adr df)
+                                      (variables s) })
+          otherwise -> abortWith "missing data field" s
       [] -> emptyStack s
       [x] -> abortWith "no value to C! to" s
       x:_ -> abortWith "cannot C! to non-address" s
@@ -445,7 +440,7 @@ cstore' = do
 
 fetch' :: Cell cell => FM cell ()
 fetch' = updateState f  where
-  f s | Address (Just adr@(Addr wid _)) : rest <- stack s =
+  f s | Address (Just adr@(Addr wid off)) : rest <- stack s =
           case IntMap.lookup (unWordId wid) (variables s) of
             Just (DataField cm) ->
                 case readCell adr cm of
@@ -586,6 +581,9 @@ here = updateState f  where
   f s | Just def <- defining s =
           let wid = wordId $ definingWord def
           in newState s { stack = HereColon wid (V.length (compileList def)) : stack s }
+      | Just word <- latest (dict s), wid <- wordId word,
+        Just (DataField mem) <- IntMap.lookup (unWordId wid) (variables s) =
+          newState s { stack = Address (Just (Addr wid (dpOffset mem))) : stack s }
       | otherwise = abortWith "HERE only partially implemented" s
 
 backpatch = updateState f  where

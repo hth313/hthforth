@@ -5,9 +5,9 @@
 
 -}
 
-module Language.Forth.Interpreter.CellMemory (CellMemory, StorageUnit(..),
+module Language.Forth.Interpreter.CellMemory (CellMemory, dpOffset, StorageUnit(..),
                                               newCellMemory,
-                                              readCell, writeCell, read8CM,
+                                              readCell, writeCell, read8CM, write8CM,
                                               blockMoveTextCM, alignDP,
                                               updateDataPointer, validAddressCM) where
 
@@ -36,6 +36,7 @@ readCell :: Addr -> CellMemory cell a -> Maybe (CellVal cell a)
 readCell (Addr _ i) mem =
     case IntMap.lookup i (contents mem) of
       Just (Part _ cell) -> Just cell
+      otherwise -> Nothing
 
 writeCell :: CellVal cell a -> Addr -> CellMemory cell a -> CellMemory cell a
 writeCell val (Addr _ i) mem =
@@ -43,6 +44,9 @@ writeCell val (Addr _ i) mem =
 
 read8CM :: Addr -> CellMemory cell a -> Maybe (StorageUnit cell a)
 read8CM (Addr _ i) mem = IntMap.lookup i (contents mem)
+
+write8CM :: Word8 -> Addr -> CellMemory cell a -> CellMemory cell a
+write8CM val (Addr _ i) mem = mem { contents = IntMap.insert i (Byte val) (contents mem) }
 
 -- | Apply a function to the datapointer to advance it, return the
 --   previous value of it

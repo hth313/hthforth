@@ -238,6 +238,12 @@ VARIABLE HLD
     LOOP
     DUP R> - R> SWAP - ;
 
+: ,  ( n -- )
+    HERE [ 1 CELLS ] LITERAL ALLOT ! ;
+
+: C,  ( c -- )
+    HERE [ 1 CHARS ] LITERAL ALLOT C! ;
+
 @@
 : ?PAIRS  - IF ABORT" unmatched conditionals" THEN ;
 
