@@ -108,6 +108,7 @@ interpreterDictionary = newDictionary extras
           addWord "ACCEPT" accept
           addWord "ALIGN" align
           addWord "ALIGNED" aligned
+          addWord "DEPTH" depth
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
@@ -196,7 +197,7 @@ compileComma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell (
 here, backpatch, backslash, loadSource, emit, treg, pad, litComma :: Cell cell => FM cell ()
 allot, umstar', ummod', rot, evaluate, false, true :: Cell cell => FM cell ()
 state, sourceID, toIn, inputBuffer, inputLine, inputLineLength :: Cell cell => FM cell ()
-toBody, accept, align, aligned :: Cell cell => FM cell ()
+toBody, accept, align, aligned, depth :: Cell cell => FM cell ()
 
 -- variables
 state           = litAdr stateWId
@@ -752,3 +753,6 @@ aligned = updateState f  where
   f s | Address (Just (Addr wid off)) : ss <- stack s =
           newState s { stack = Address (Just (Addr wid (alignOffset off (target s)))) : ss }
       | otherwise = abortWith "ALIGNED only words on addresses" s
+
+depth = updateState f  where
+  f s = newState s { stack = Val (fromIntegral $ length $ stack s) : stack s }
