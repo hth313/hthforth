@@ -108,6 +108,14 @@
 
 : CR  ( -- )  10 EMIT ;
 
+: FILL  ( c-addr u char -- )
+    OVER
+    IF >R OVER + SWAP R>
+      DO DUP I C! LOOP
+    ELSE 2DROP
+    THEN
+    DROP ;
+
 \ If flag is set, ABORT
 \ This is useful as a way out of strange unexpected problems when we
 \ do not even bother to tell the user what was wrong.
@@ -243,6 +251,9 @@ VARIABLE HLD
 
 : C,  ( c -- )
     HERE [ 1 CHARS ] LITERAL ALLOT C! ;
+
+: J  ( -- n )
+    R> R> R@ SWAP >R SWAP >R ;
 
 @@
 : ?PAIRS  - IF ABORT" unmatched conditionals" THEN ;
