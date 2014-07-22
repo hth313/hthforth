@@ -22,6 +22,7 @@ import qualified Data.IntMap as IntMap
 import qualified Data.Vector as V
 import System.Console.Haskeline
 import System.Exit
+import System.IO
 import qualified Data.Vector.Storable.ByteString as B
 import qualified Data.Vector.Storable.ByteString.Char8 as C
 import Language.Forth.Interpreter.Address
@@ -109,6 +110,7 @@ interpreterDictionary = newDictionary extras
           addWord "ALIGN" align
           addWord "ALIGNED" aligned
           addWord "DEPTH" depth
+          addWord "KEY" key
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
@@ -195,7 +197,7 @@ xif, xelse, xthen, xdo, loop, plusLoop, leave, begin, until, again :: Cell cell 
 interpret, plusStore, create, does, colon, semicolon, quit :: Cell cell => FM cell ()
 compileComma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
 here, backpatch, backslash, loadSource, emit, treg, pad, litComma :: Cell cell => FM cell ()
-allot, umstar', ummod', rot, evaluate, false, true :: Cell cell => FM cell ()
+allot, umstar', ummod', rot, evaluate, false, true, key :: Cell cell => FM cell ()
 state, sourceID, toIn, inputBuffer, inputLine, inputLineLength :: Cell cell => FM cell ()
 toBody, accept, align, aligned, depth :: Cell cell => FM cell ()
 
@@ -756,3 +758,21 @@ aligned = updateState f  where
 
 depth = updateState f  where
   f s = newState s { stack = Val (fromIntegral $ length $ stack s) : stack s }
+
+key =
+  let withRawInput action = do
+         buffering <- hGetBuffering stdin
+         echo <- hGetEcho stdin
+         hSetBuffering stdin NoBuffering
+         hSetEcho stdin False
+         result <- action
+         hSetBuffering stdin buffering
+         hSetEcho stdin echo
+         return result
+      readValidChar = do
+        c <- getChar
+        if valid c then return c else readValidChar
+          where valid c = c >= ' ' && c <= '~'
+  in do
+    c <- liftIO $ withRawInput readValidChar
+    updateState $ \s -> newState s { stack = Val (fromIntegral $ ord c) : stack s }
