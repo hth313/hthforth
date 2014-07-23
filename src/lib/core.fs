@@ -255,6 +255,10 @@ VARIABLE HLD
 : J  ( -- n )
     R> R> R@ SWAP >R SWAP >R ;
 
+: ENVIRONMENT?  ( c-addr u -- false | i*x true )
+    2DROP FALSE ;  ( we treat everything as unknown )
+;
+
 @@
 : ?PAIRS  - IF ABORT" unmatched conditionals" THEN ;
 
