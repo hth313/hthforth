@@ -111,6 +111,7 @@ interpreterDictionary = newDictionary extras
           addWord "ALIGNED" aligned
           addWord "DEPTH" depth
           addWord "KEY" key
+          addWord "RECURSE" recurse
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
@@ -199,7 +200,7 @@ compileComma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell (
 here, backpatch, backslash, loadSource, emit, treg, pad, litComma :: Cell cell => FM cell ()
 allot, umstar', ummod', rot, evaluate, false, true, key :: Cell cell => FM cell ()
 state, sourceID, toIn, inputBuffer, inputLine, inputLineLength :: Cell cell => FM cell ()
-toBody, accept, align, aligned, depth :: Cell cell => FM cell ()
+toBody, accept, align, aligned, depth, recurse :: Cell cell => FM cell ()
 
 -- variables
 state           = litAdr stateWId
@@ -531,10 +532,13 @@ litComma = dpop >>= tackOn . WrapA . lit
 compileBranch :: Cell cell => ([FM cell ()] -> FM cell ()) -> FM cell ()
 compileBranch = tackOn . WrapB
 
+recurse = tackOn WrapRecurse
+
 tackOn x = updateState f  where
   f s | Just d <- defining s =
           newState s { defining = Just (d { compileList = V.snoc (compileList d) x } ) }
       | otherwise = notDefining s
+
 
 -- | Helper for create. Open up for defining a word assuming that the name of the
 --   word can be found on top of stack.
@@ -573,10 +577,12 @@ closeDefining defining s =
       -- backpatch function. We rely on lazy evaluation here and insert
       -- branch destinations where lazy functions that will end up dropping
       -- 'dest' elements from final colon list.
-      cs = map unWrapA $ V.toList $ (V.//) vs (map f $ patchList defining)
+      cs = map unWrap $ V.toList $ (V.//) vs (map f $ patchList defining)
       f (loc, dest) =
         let branchInstr | WrapB b <- (V.!) vs loc = WrapA $ b (Prelude.drop dest cs)
         in  (loc, branchInstr)
+      unWrap WrapRecurse = branch cs
+      unWrap (WrapA a) = a
   in s { defining = Nothing,
          dict = dict' }
 

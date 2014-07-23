@@ -5,7 +5,7 @@
 -}
 
 module Language.Forth.Interpreter.Monad (FM, FState(..), CV, Defining(..),
-                                         DefiningWrapper(..), unWrapA,
+                                         DefiningWrapper(..),
                                          module Control.Monad.Trans.State ) where
 
 import Control.Monad.Trans.State hiding (state)
@@ -52,5 +52,4 @@ data Defining cell = Defining
 -- | Wrapper for words being compile. This is used to keep track of branches
 --   that are waiting to have their address fixed.
 data DefiningWrapper cell = WrapA (FM cell ()) | WrapB ([FM cell ()] -> FM cell ())
-
-unWrapA (WrapA a) = a
+                          | WrapRecurse
