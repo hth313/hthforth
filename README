@@ -3,21 +3,17 @@ keep pace with the development of the proposed Forth 200x standard
 (currently called Forth-2012).
 Visit http://www.forth200x.org for more information.
 
-This project is under development and is currently not complete in any
-way.
-
-At the moment the aim is to have fun implementing Forth and provide a
-subset of the standard by implementing the core set of words, probably
-including core-ext words as well.
-
 This Forth can be used standalone, just build it using Haskell
 cabal. Another use would be as an embedded scripting language in
 a Haskell application.
 However, the main idea is to make it act as a cross compiler for
 embedded systems development.
 
+Current status is that all core words are in place for the interpreter.
+The next step will be to implement a cross compiler.
+
 Forth works differently from many other languages in that it basically
-lacks syntax and is not suitable to parse using typical parsing techniques.
+lacks syntax and is not suitable to parse using normal parsing techniques.
 Instead, one have to build a Forth system from another Forth which acts as
 a bootstrapper, a technique that is called meta compiling in the Forth
 world. This Forth is meant to be such meta compiler, or perhaps more
@@ -42,7 +38,7 @@ To run hthforth:
 % dist/build/hthforth/hthforth
 
 When started, there is a very small subset of core words available. To
-bring more words in (it will currently fail a bit into the file):
+bring more words in:
 LOAD-SOURCE src/lib/core.fs
 
 To exit hthforth, type BYE or press Ctrl-C.
