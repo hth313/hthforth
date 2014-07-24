@@ -143,6 +143,10 @@
     BL WORD FIND
     IF LIT, ['] COMPILE, COMPILE, ELSE ABORT THEN ; IMMEDIATE
 
+: S"  ( "ccc<quote> -- )   \ compile time
+      ( -- c-addr u )      \ run-time
+    34 PARSE STRING, ; IMMEDIATE
+
 : ABORT"
     34 PARSE STRING, POSTPONE TYPE POSTPONE ABORT ; IMMEDIATE
 
@@ -162,6 +166,10 @@
 : CHAR+  ( c-addr1 -- c-addr2 )  1+ ;
 : CHAR  ( "<spaces>name" -- char )
     BL WORD DUP C@ IF CHAR+ C@ THEN ;
+
+: [CHAR]  ( "<spaces>name" -- )    \ compile time
+          ( -- char )              \ run-time
+    BL DUP SKIP PARSE DROP C@ LIT, ; IMMEDIATE
 
 : VARIABLE  ( "<spaces>name"-- )
     CREATE [ 1 CELLS ] LITERAL ALLOT ;
@@ -254,6 +262,9 @@ VARIABLE HLD
 
 : J  ( -- n )
     R> R> R@ SWAP >R SWAP >R ;
+
+: UNLOOP  ( -- ) ( R: loop-sys -- )
+    R> R> R> 2DROP >R ;
 
 : ENVIRONMENT?  ( c-addr u -- false | i*x true )
     2DROP FALSE ;  ( we treat everything as unknown )
