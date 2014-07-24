@@ -36,7 +36,12 @@
 *** DONE interpret need to use a proper loop, will kill the rstack as it is now
 ** DONE Uses of push can probably be replaced with lit
 ** DONE Make IF word properly (probably need to handle the backpatching code)
-** TODO Load more of core.fs
+** DONE Implement UM/MOD, what about signed vs unsigned conversion here?
+** DONE Clean up Primitives, ROT, EVALUATE, FALSE, TRUE, slash and variables are not primitive
+** DONE Consider refactoring to helper function style with pattern guards, it could make the code more concise
+** DONE Printing a negative number with EMIT cause a crash (Prelude.chr bad argument)
+** DONE Get rid of the .fth file
+** DONE Load more of core.fs
 ** TODO Prototype with a Cortex-M target, to see if tagless style also works fine with code generation
 *** TODO Target gnu or clang assembler
 *** TODO Take some inspiration from riscy pygmess forth for ARM
@@ -47,7 +52,15 @@
 **** TODO We probably only need to print the disassembler output thouh
 *** TODO Make use of monoid and switch to Data.Text to print out the assembler code
 ** TODO Set up for Travis CI
-** DONE Should +! be outside Primitive? Consider if words that are to be implemented using colon definitions, such as INTERPRET, QUIT and perhaps others should be outside as well
+** DONE MOVE should not clobber memory, maybe use memmove?
+** TODO Put in ANS numbers for words that are part of the standard.
+** TODO Add some comment at the start of core.fs saying that this is core words with additions from other word sets that seemed suitable building blocks to be used in the core set.
+** TODO dot on an address gives 'empty stack', which is not true, partially fixed, now it complains that it cannot perform 0< on a non-number
+** DONE Implement ENVIRONMENT? (by not providing any information)
+** TODO ABORT" should check at runtime for non-zero input and conditionally abort
+** TODO Should ABORT display 'ok'? Currently it does not, is that right?
+** DONE Improve HERE so that it can be used for datafield on latest word
+* DONE Should +! be outside Primitive? Consider if words that are to be implemented using colon definitions, such as INTERPRET, QUIT and perhaps others should be outside as well
 ** TODO Many core words have different implementation in the interpreter compared to what can be expected on a target. WORD, IF and DO are examples. Figure out what to do with them. A mechanism to do conditional compilation is probably needed here.
 *** TODO Need a second core.fs file with things the target like, or some conditional compilation. We do not want to redefine control words for the interpreter. See [IF] on tools-ext
 *** TODO WORD can be handled using some mechanism to define a transient area (like HERE or offseted from HERE). I think some early Forth systems rely on that WORD put the name in a place suitable to a WORD header being created?
@@ -75,9 +88,4 @@ Idea: input is represented by InputSource which holds a ByteString, which is the
 ** TODO literals can be compiled as sign extended half words, which should save space
 ** TODO need a primitive that allows to specify and load a screen file
 ** TODO add command line switch to specify command line to be executed, like "LOAD 1"
-** TODO "CREATE" and ":" need to be lambdas, should set DP to point to the open area we are writing to. (Already done for VARIABLE, CONSTANT and the current ":" word that is to be changed).
 ** DONE There could be two different addresses, Address and ColonAddress so we know what we are writing to. This is because a data field use DataField, which is based on a Map, while a colon definition is a list. This will most likely show its need when "," is executed, though that will be the colon LITERAL for which we have a lambda, maybe control words will need it later.
-** TODO "!" to colon definition need to figure out where to write it. IT will often be at the last location (which is supported now), but when compiling control words, there may be a need to write to a previous location, in case we do not keep the current compilation behavior of writing special things and fixing it later.
-** TODO I did write down some ideas on how to restart that actual project with a different approach to bootstrap the whole thing. Go through the papers (laptop?) and see if there are any notes somewhere.
-** TODO While screens should be supported, there should actually be a means of reading a file with all contents instead. The rationale is that computer screens offer so much more space today and using the small FORTH screens makes it kind of inflexible. Then a sub-system can be in a named file. Have a look in "Thinking Forth" which I think have some discussion about this to see the pros and cons.
-** TODO is Forth.Types.UndefinedValue really needed/used?
