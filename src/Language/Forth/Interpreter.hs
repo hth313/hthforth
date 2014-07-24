@@ -37,7 +37,7 @@ import Language.Forth.StreamFile
 import Language.Forth.Target
 import Language.Forth.Word
 import Util.Memory
-import Prelude hiding (drop, until)
+import Prelude hiding (drop, until, repeat)
 import qualified Prelude as Prelude
 
 initialState :: Cell cell => Target cell -> FState cell
@@ -97,6 +97,8 @@ interpreterDictionary = newDictionary extras
           addWord "BEGIN" begin >> makeImmediate
           addWord "UNTIL" until >> makeImmediate
           addWord "AGAIN" again >> makeImmediate
+          addWord "WHILE" while >> makeImmediate
+          addWord "REPEAT" repeat >> makeImmediate
           addWord "EMIT" emit
           addWord "MOVE" move
           addWord "FIND" find
@@ -195,6 +197,7 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
 
 -- Forward declarations of Forth words implemented by the interpreter
 xif, xelse, xthen, xdo, loop, plusLoop, leave, begin, until, again :: Cell cell => FM cell ()
+repeat, while :: Cell cell => FM cell ()
 interpret, plusStore, create, does, colon, semicolon, quit :: Cell cell => FM cell ()
 compileComma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
 here, backpatch, backslash, loadSource, emit, treg, pad, litComma :: Cell cell => FM cell ()
@@ -234,6 +237,8 @@ leave = updateState f  where
 begin = here
 until = docol [here, compileBranch branch0, backpatch, semi]
 again = docol [here, compileBranch branch, backpatch, semi]
+while = docol [here, compileBranch branch0, semi]
+repeat = docol [swap, here, compileBranch branch, backpatch, here, swap, backpatch, semi]
 
 quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next),
               sourceID, store, mainLoop ]
@@ -263,7 +268,7 @@ xloop a = docol [compile (XT Nothing a), here, compileBranch branch0, backpatch,
 -- | Runtime words for DO-LOOPs
 pdo = updateState f  where
   f s | s0 : s1 : ss <- stack s = newState s { stack = ss,
-                                               rstack  = s0 : s1 : rstack s }
+                                               rstack = s0 : s1 : rstack s }
       | otherwise = emptyStack s
 ploop = updateState $ rloopHelper (Val 1 +)
 pplusLoop = updateState $ \s -> case stack s of
