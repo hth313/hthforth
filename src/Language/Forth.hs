@@ -21,7 +21,8 @@ main =
         name = "hthforth"
     in do
       putStrLn $ name ++ ", version 1.1.1"
-      putStrLn "A Forth-2012 System Subset - under development"
+      putStrLn "Forth-2012 System (Subset) with Environmental Restrictions"
+      putStrLn "Providing PARSE and WITHIN from the Core Extensions word set"
       -- Configure and run Haskeline
       adir <- getAppUserDataDirectory name
       createDirectoryIfMissing False adir
