@@ -293,7 +293,7 @@ binary op = updateState f  where
 unsigned :: Cell cell => CV cell -> Word64
 unsigned c@(Val x) =
   let (ux :: Word64) = fromIntegral x
-      Just bitsize = Bits.bitSizeMaybe c
+      Just bitsize = bitSizeMaybe c
       bitmask = (1 `Bits.shiftL` bitsize) - 1
   in ux Bits..&. bitmask
 
@@ -708,7 +708,7 @@ allot = updateState f  where
 umstar' = updateState f  where
   f s | n1@Val{} : n2@Val{} : ss <- stack s =
         let prod = unsigned n1 * unsigned n2
-            Just bitsize = Bits.bitSizeMaybe n1
+            Just bitsize = bitSizeMaybe n1
             low = mask prod
             high = mask $ prod `Bits.shiftR` bitsize
             mask x =  fromIntegral $ x Bits..&. ((1 `Bits.shiftL` bitsize) - 1)
@@ -718,7 +718,7 @@ umstar' = updateState f  where
 ummod' = updateState f  where
   f s | divisor@Val{} : hi@Val{} : lo@Val{} : ss <- stack s =
       let dividend = unsigned lo Bits..|. (unsigned hi `Bits.shiftL` bitsize)
-          Just bitsize = Bits.bitSizeMaybe divisor
+          Just bitsize = bitSizeMaybe divisor
           (quot, rem) = dividend `divMod` unsigned divisor
       in newState s { stack = Val (fromIntegral quot) : Val (fromIntegral rem) : ss }
     | otherwise = abortWith "bad input to UM/MOD" s

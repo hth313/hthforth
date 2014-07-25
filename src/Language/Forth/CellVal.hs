@@ -1,10 +1,11 @@
+{-# LANGUAGE CPP #-}
 {-|
 
   Cell values.
 
 -}
 
-module Language.Forth.CellVal (CellVal(..), trueVal, falseVal, isValue, isAddress, isAny,
+module Language.Forth.CellVal (CellVal(..), bitSizeMaybe, trueVal, falseVal, isValue, isAddress, isAny,
                                isExecutionToken, isZero) where
 
 import Data.Bits
@@ -89,13 +90,20 @@ instance Cell cell => Bits (CellVal cell a) where
     isSigned _ = False
     shiftL (Val a) n = Val $ shiftL a n
     shiftR (Val a) n = Val $ shiftR a n
+#if __GLASGOW_HASKELL >= 780
     bitSizeMaybe (Val a) = bitSizeMaybe a
+#endif
     testBit (Val a) i = testBit a i
     popCount (Val a) = popCount a
     -- The following are not really implemented, just added to prevent
     -- GHC from warning
     rotate _ _ = illegalValue
     bit a = illegalValue
+
+#if __GLASGOW_HASKELL < 780
+bitSizeMaybe :: Cell cell => CellVal cell a -> Maybe Int
+bitSizeMaybe = Just . bitSize
+#endif
 
 -- | Boolean truth values.
 trueVal, falseVal :: Cell cell => CellVal cell a
