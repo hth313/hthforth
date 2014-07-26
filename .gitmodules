@@ -1,0 +1,3 @@
+[submodule "modules/vector-bytestring"]
+	path = modules/vector-bytestring
+	url = git://github.com/hth313/vector-bytestring.git
