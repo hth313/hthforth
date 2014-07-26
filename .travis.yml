@@ -1,0 +1,8 @@
+language: haskell
+ghc: 7.8
+install:
+  - "cabal install modules/vector-bytestring"
+script:
+  - "cabal install"
+notifications:
+  email: false
