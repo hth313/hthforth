@@ -719,7 +719,7 @@ ummod' = updateState f  where
   f s | divisor@Val{} : hi@Val{} : lo@Val{} : ss <- stack s =
       let dividend = unsigned lo Bits..|. (unsigned hi `Bits.shiftL` bitsize)
           Just bitsize = bitSizeMaybe divisor
-          (quot, rem) = dividend `divMod` unsigned divisor
+          (quot, rem) = dividend `quotRem` unsigned divisor
       in newState s { stack = Val (fromIntegral quot) : Val (fromIntegral rem) : ss }
     | otherwise = abortWith "bad input to UM/MOD" s
 
