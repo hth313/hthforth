@@ -139,9 +139,12 @@
 
 : LITERAL   LIT, ; IMMEDIATE
 
+( Compile normal words to compilee, immediates to user of POSTPONE )
 : POSTPONE
-    BL WORD FIND
-    IF LIT, ['] COMPILE, COMPILE, ELSE ABORT THEN ; IMMEDIATE
+    BL WORD FIND ?DUP
+      IF 0< IF ( normal word, compile to compilee ) LIT, ['] COMPILE, THEN COMPILE,
+      ELSE ABORT THEN
+; IMMEDIATE
 
 : S"  ( "ccc<quote> -- )   \ compile time
       ( -- c-addr u )      \ run-time
