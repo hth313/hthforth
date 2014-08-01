@@ -5,8 +5,8 @@
 
 -}
 
-module Language.Forth.CellVal (CellVal(..), bitSizeMaybe, trueVal, falseVal, isValue, isAddress, isAny,
-                               isExecutionToken, isZero) where
+module Language.Forth.CellVal (CellVal(..), trueVal, falseVal, isValue, isAddress, isAny,
+                               bitSizeMaybe, isExecutionToken, isZero) where
 
 import Data.Bits
 import Data.Ord
@@ -90,7 +90,7 @@ instance Cell cell => Bits (CellVal cell a) where
     isSigned _ = False
     shiftL (Val a) n = Val $ shiftL a n
     shiftR (Val a) n = Val $ shiftR a n
-#if __GLASGOW_HASKELL >= 780
+#if __GLASGOW_HASKELL__ >= 708
     bitSizeMaybe (Val a) = bitSizeMaybe a
 #endif
     testBit (Val a) i = testBit a i
@@ -100,7 +100,7 @@ instance Cell cell => Bits (CellVal cell a) where
     rotate _ _ = illegalValue
     bit a = illegalValue
 
-#if __GLASGOW_HASKELL < 780
+#if __GLASGOW_HASKELL__ < 708
 bitSizeMaybe :: Cell cell => CellVal cell a -> Maybe Int
 bitSizeMaybe = Just . bitSize
 #endif
