@@ -1,23 +1,26 @@
+{-# LANGUAGE ExistentialQuantification #-}
 {- |
 
    The monad used by the Forth interpreter.
 
 -}
 
-module Language.Forth.Interpreter.Monad (FM, FState(..), CV, Defining(..),
-                                         DefiningWrapper(..),
+module Language.Forth.Interpreter.Monad (FM, FState(..), CV,
                                          module Control.Monad.Trans.State ) where
 
+import Control.Monad
 import Control.Monad.Trans.State hiding (state)
 import Data.IntMap (IntMap)
 import Data.Map (Map)
-import Data.Vector (Vector)
-import Data.Vector.Storable.ByteString.Char8 (ByteString)
+import qualified Data.Vector.Storable.ByteString.Char8 as V (ByteString)
+import Data.ByteString.Lazy.Char8 (ByteString)
 import System.Console.Haskeline
 import Language.Forth.Interpreter.Address
 import Language.Forth.Interpreter.DataField
 import Language.Forth.CellVal
+import Language.Forth.Compiler
 import Language.Forth.Dictionary
+import Language.Forth.Primitive
 import Language.Forth.Target
 import Language.Forth.Word
 
@@ -28,7 +31,7 @@ type FM cell = StateT (FState cell) (InputT IO)
 type CV cell = CellVal cell (FM cell ())
 
 -- | Interpreter state.
-data FState cell = FState
+data FState cell = forall ca cc. Primitive cc ca => FState
   { stack  :: [CellVal cell (FM cell ())]  -- ^ Data stack
   , rstack :: [CellVal cell (FM cell ())]  -- ^ Return stack
   , ip     :: [FM cell ()]                 -- ^ Interpretive pointer
@@ -36,20 +39,9 @@ data FState cell = FState
   , dict   :: Dictionary (FM cell ())      -- ^ Dictionary of Forth words
   , variables :: IntMap (DataField cell (FM cell ()))
   , oldHandles :: [WordId]                 -- ^ Unused handles after reading source files
-  , stringLiterals :: Map ByteString Addr
-  , defining :: Maybe (Defining cell)      -- ^ Collector when compiling
+  , stringLiterals :: Map V.ByteString Addr
+  , defining :: Maybe (Defining cell (FM cell ())) -- ^ Collector when compiling
+  , compiler :: Compiler cell (FM cell ())         -- ^ Compiler functions record
+  , dumpTargetDict :: Maybe (Dictionary ca -> ByteString) -- ^ generate code for target
+  , targetDict :: Maybe (Dictionary ca)            -- ^ Cross compiler target dictionary
   }
-
--- | The defining state. We collect words into a Vector together with
---   information about locations to change when we have collected all.
-data Defining cell = Defining
-  { compileList :: Vector (DefiningWrapper cell)
-  , patchList :: [(Int, Int)]               -- ^ (loc, dest) list to patch
-  , defineFinalizer :: [FM cell ()] -> FM cell ()
-  , definingWord :: ForthWord (FM cell ())
-  }
-
--- | Wrapper for words being compile. This is used to keep track of branches
---   that are waiting to have their address fixed.
-data DefiningWrapper cell = WrapA (FM cell ()) | WrapB ([FM cell ()] -> FM cell ())
-                          | WrapRecurse

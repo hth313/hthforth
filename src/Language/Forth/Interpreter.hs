@@ -30,6 +30,8 @@ import Language.Forth.Interpreter.CellMemory
 import Language.Forth.Interpreter.DataField
 import Language.Forth.Cell
 import Language.Forth.CellVal
+import Language.Forth.Compiler
+import Language.Forth.CrossCompiler
 import Language.Forth.Dictionary
 import Language.Forth.Interpreter.Monad
 import Language.Forth.Primitive
@@ -40,8 +42,9 @@ import Util.Memory
 import Prelude hiding (drop, until, repeat)
 import qualified Prelude as Prelude
 
-initialState :: Cell cell => Target cell -> FState cell
-initialState target = FState [] [] [] target interpreterDictionary IntMap.empty [] Map.empty Nothing
+initialState target codeGenerate targetDict =
+  FState [] [] [] target interpreterDictionary IntMap.empty [] Map.empty Nothing ic codeGenerate targetDict
+    where ic = Compiler icompile ilitComma xcompileBranch xcompileBranch irecurse
 
 initialVarStorage :: Cell cell => FM cell ()
 initialVarStorage = gets target >>=
@@ -105,7 +108,7 @@ interpreterDictionary = newDictionary extras
           addWord "TREG" treg
           addWord "PAD" pad
           addWord "STRING," compileString
-          addWord "LIT," litComma
+          addWord "LIT," (dpop >>= cprim litComma)
           addWord "ALLOT" allot
           addWord ">BODY" toBody
           addWord "ACCEPT" accept
@@ -113,7 +116,8 @@ interpreterDictionary = newDictionary extras
           addWord "ALIGNED" aligned
           addWord "DEPTH" depth
           addWord "KEY" key
-          addWord "RECURSE" recurse
+          addWord "RECURSE" (cprim recurse ())
+          addWord "TARGET-CODEGEN" (targetOutput >> next)
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
@@ -196,10 +200,16 @@ xif, xelse, xthen, xdo, loop, plusLoop, leave, begin, until, again :: Cell cell 
 repeat, while :: Cell cell => FM cell ()
 interpret, plusStore, create, does, colon, semicolon, quit :: Cell cell => FM cell ()
 compileComma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
-here, backpatch, backslash, loadSource, emit, treg, pad, litComma :: Cell cell => FM cell ()
+here, backpatch, backslash, loadSource, emit, treg, pad :: Cell cell => FM cell ()
 allot, umstar', ummod', rot, evaluate, false, true, key :: Cell cell => FM cell ()
 state, sourceID, toIn, inputBuffer, inputLine, inputLineLength :: Cell cell => FM cell ()
-toBody, accept, align, aligned, depth, recurse :: Cell cell => FM cell ()
+toBody, accept, align, aligned, depth :: Cell cell => FM cell ()
+
+
+-- | Invoke a compilation primitve
+cprim cf x = updateState f  where
+  f s | Just d <- defining s = newState s { defining = Just (cf (compiler s) x d) }
+      | otherwise = notDefining s
 
 -- variables
 state           = litAdr stateWId
@@ -220,21 +230,21 @@ treg = litAdr tregWid
 pad = docol [treg, lit (Val 64), plus, exit]
 
 -- Control structures
-xif   = docol [here, compileBranch branch0, exit]
-xelse = docol [here, compileBranch branch, here, rot, backpatch, exit]
+xif   = docol [here, icompileBranch branch0, exit]
+xelse = docol [here, icompileBranch branch, here, rot, backpatch, exit]
 xthen = docol [here, swap, backpatch, exit]
 
-xdo = docol [compile (XT Nothing pdo), here, exit]
+xdo = docol [cprim compile (XT Nothing pdo), here, exit]
 loop = xloop ploop
 plusLoop = xloop pplusLoop
 leave = updateState f  where
   f s | _ : rs@(limit : _) <- rstack s = newState s { rstack = limit : rs }
       | otherwise = emptyStack s
 begin = here
-until = docol [here, compileBranch branch0, backpatch, exit]
-again = docol [here, compileBranch branch, backpatch, exit]
-while = docol [here, compileBranch branch0, exit]
-repeat = docol [swap, here, compileBranch branch, backpatch, here, swap, backpatch, exit]
+until = docol [here, icompileBranch branch0, backpatch, exit]
+again = docol [here, icompileBranch branch, backpatch, exit]
+while = docol [here, icompileBranch branch0, exit]
+repeat = docol [swap, here, icompileBranch branch, backpatch, here, swap, backpatch, exit]
 
 quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next),
               sourceID, store, mainLoop ]
@@ -243,8 +253,8 @@ plusStore = docol [dup, fetch, rot, plus, swap, store, exit]
 
 create = docol [xword, create' docol True, exit]
 colon = docol [lit (Val (-1)), state, store, xword, create' docol False, exit]
-semicolon = docol [compile (XT Nothing exit), lit (Val 0), state, store, smudge, exit]
-compileComma = dpop >>= compile
+semicolon = docol [cprim compile (XT Nothing exit), lit (Val 0), state, store, smudge, exit]
+compileComma = dpop >>= cprim compile
 immediate = updateState $ \s -> newState s { dict = setLatestImmediate (dict s) }
 
 does = updateState f  where
@@ -259,7 +269,7 @@ does = updateState f  where
         | otherwise = abortWith "IP not on rstack" s
 
 -- Helper function that compile the ending loop word
-xloop a = docol [compile (XT Nothing a), here, compileBranch branch0, backpatch, exit]
+xloop a = docol [cprim compile (XT Nothing a), here, icompileBranch branch0, backpatch, exit]
 
 -- | Runtime words for DO-LOOPs
 pdo = updateState f  where
@@ -526,27 +536,27 @@ xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, 
                                  variables = IntMap.insert (unWordId wordBufferWId) countedField (variables s) }
            otherwise -> abortWith "parseName failed" s
 
--- | Compile given cell value
-compile :: Cell cell => CV cell -> FM cell ()
-compile adr@Address{} = tackOn $ WrapA $ lit adr
-compile val@Val{}     = tackOn $ WrapA $ lit val
-compile val@Text{}    = tackOn $ WrapA $ lit val
-compile (XT _ a)      = tackOn $ WrapA $ a
+-- | Interpreter - Compile given cell value
+icompile adr@Address{} = tackOn $ WrapA $ lit adr
+icompile val@Val{}     = tackOn $ WrapA $ lit val
+icompile val@Text{}    = tackOn $ WrapA $ lit val
+icompile (XT _ a)      = tackOn $ WrapA $ a
 
--- | Compile a cell value from the stack.
-litComma = dpop >>= tackOn . WrapA . lit
+-- | Interpreter - Compile a cell value from the stack.
+ilitComma x = tackOn $ WrapA $ lit x
 
 -- | Compile a branch instruction. Branches need special handling when
 --   the colon definition is finailized.
-compileBranch :: Cell cell => ([FM cell ()] -> FM cell ()) -> FM cell ()
-compileBranch = tackOn . WrapB
-
-recurse = tackOn WrapRecurse
-
-tackOn x = updateState f  where
-  f s | Just d <- defining s =
-          newState s { defining = Just (d { compileList = V.snoc (compileList d) x } ) }
+icompileBranch :: Cell cell => ([FM cell ()] -> FM cell ()) -> FM cell ()
+icompileBranch dest = updateState f  where
+  f s | Just d <- defining s = newState s { defining = Just (tackOn (WrapB dest) d) }
       | otherwise = notDefining s
+
+xcompileBranch _ = error "do not call xcompileBranch"
+
+irecurse _ = tackOn WrapRecurse
+
+tackOn x d = d { compileList = V.snoc (compileList d) x }
 
 
 -- | Helper for create. Open up for defining a word assuming that the name of the
@@ -577,7 +587,7 @@ smudge = updateState f  where
       | otherwise = notDefining s
 
 -- | Close the word being defined.
-closeDefining :: Cell cell => Defining cell -> FState cell -> FState cell
+closeDefining :: Cell cell => Defining cell (FM cell ()) -> FState cell -> FState cell
 closeDefining defining s =
   let dict' = (dict s) { latest = Just word }
       word = (definingWord defining) { doer = (defineFinalizer defining) cs }
@@ -655,7 +665,7 @@ loadSource = docol [xword, makeTempBuffer, evaluate, releaseTempBuffer, exit] wh
 --   that has the execution semantics to push the string back on stack.
 --   For the interpreter we simply wrap it in a literal.
 compileString :: Cell cell => FM cell ()
-compileString = compile =<< liftM Text stringlit
+compileString = cprim compile =<< liftM Text stringlit
   where stringlit = updateStateVal "" $ \s ->
                       case stack s of
                         Val n : Address (Just (Addr wid i)) : rest
