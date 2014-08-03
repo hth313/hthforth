@@ -28,9 +28,6 @@ class Primitive c a | a -> c where
   plus, minus, and, or, xor :: a
   twoStar, twoSlash, lshift, rshift :: a
   zerop, lt0 :: a
-  branch :: [a] -> a
-  branch0 :: [a] -> a
-  docol :: [a] -> a
   constant :: a
   umstar :: a                 -- ^ UM*
   ummod :: a                  -- ^ UM/MOD

@@ -186,10 +186,6 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
             in newState s { stack = flag : ss }
         | null (stack s) = emptyStack s
         | otherwise = abortWith "bad input to 0<" s
-  docol xs = modify (\s -> s { rstack = IP (ip s) : rstack s, ip = xs }) >> next
-  branch = ipdo
-  branch0 loc = dpop >>= \n -> if | isZero n -> ipdo loc
-                                  | otherwise  -> next
   constant = docol [xword, create' head False, compileComma, smudge, exit]
 
   umstar = umstar'
@@ -296,6 +292,14 @@ unsigned c@(Val x) =
       Just bitsize = bitSizeMaybe c
       bitmask = (1 `Bits.shiftL` bitsize) - 1
   in ux Bits..&. bitmask
+
+-- | Call given colon definition body.
+docol, branch, branch0 :: Cell cell => [FM cell ()] -> FM cell ()
+docol xs = modify (\s -> s { rstack = IP (ip s) : rstack s, ip = xs }) >> next
+
+branch = ipdo
+branch0 loc = dpop >>= \n -> if | isZero n -> ipdo loc
+                                | otherwise  -> next
 
 -- | Replace what we are interpreting with given slice of code.
 --   Typically used for implementing branches and setting the
