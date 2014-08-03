@@ -117,7 +117,7 @@ interpreterDictionary = newDictionary extras
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
-  semi = rpop >>= \case
+  exit = rpop >>= \case
            IP ip' -> do
              modify $ \s -> s { ip = ip' }
              next
@@ -159,7 +159,7 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   or    = binary (Bits..|.)
   xor   = binary Bits.xor
 
-  twoStar = docol [dup, plus, semi]
+  twoStar = docol [dup, plus, exit]
   twoSlash = updateState f  where
     f s | Val x : ss <- stack s = newState s { stack = Val (x `Bits.shiftR` 1) : ss }
         | otherwise = abortWith "bad input to 2/" s
@@ -190,7 +190,7 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   branch = ipdo
   branch0 loc = dpop >>= \n -> if | isZero n -> ipdo loc
                                   | otherwise  -> next
-  constant = docol [xword, create' head False, compileComma, smudge, semi]
+  constant = docol [xword, create' head False, compileComma, smudge, exit]
 
   umstar = umstar'
   ummod = ummod'
@@ -221,33 +221,33 @@ rot = updateState f  where
       | otherwise = emptyStack s
 
 treg = litAdr tregWid
-pad = docol [treg, lit (Val 64), plus, semi]
+pad = docol [treg, lit (Val 64), plus, exit]
 
 -- Control structures
-xif   = docol [here, compileBranch branch0, semi]
-xelse = docol [here, compileBranch branch, here, rot, backpatch, semi]
-xthen = docol [here, swap, backpatch, semi]
+xif   = docol [here, compileBranch branch0, exit]
+xelse = docol [here, compileBranch branch, here, rot, backpatch, exit]
+xthen = docol [here, swap, backpatch, exit]
 
-xdo = docol [compile (XT Nothing pdo), here, semi]
+xdo = docol [compile (XT Nothing pdo), here, exit]
 loop = xloop ploop
 plusLoop = xloop pplusLoop
 leave = updateState f  where
   f s | _ : rs@(limit : _) <- rstack s = newState s { rstack = limit : rs }
       | otherwise = emptyStack s
 begin = here
-until = docol [here, compileBranch branch0, backpatch, semi]
-again = docol [here, compileBranch branch, backpatch, semi]
-while = docol [here, compileBranch branch0, semi]
-repeat = docol [swap, here, compileBranch branch, backpatch, here, swap, backpatch, semi]
+until = docol [here, compileBranch branch0, backpatch, exit]
+again = docol [here, compileBranch branch, backpatch, exit]
+while = docol [here, compileBranch branch0, exit]
+repeat = docol [swap, here, compileBranch branch, backpatch, here, swap, backpatch, exit]
 
 quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next),
               sourceID, store, mainLoop ]
 
-plusStore = docol [dup, fetch, rot, plus, swap, store, semi]
+plusStore = docol [dup, fetch, rot, plus, swap, store, exit]
 
-create = docol [xword, create' docol True, semi]
-colon = docol [lit (Val (-1)), state, store, xword, create' docol False, semi]
-semicolon = docol [compile (XT Nothing semi), lit (Val 0), state, store, smudge, semi]
+create = docol [xword, create' docol True, exit]
+colon = docol [lit (Val (-1)), state, store, xword, create' docol False, exit]
+semicolon = docol [compile (XT Nothing exit), lit (Val 0), state, store, smudge, exit]
 compileComma = dpop >>= compile
 immediate = updateState $ \s -> newState s { dict = setLatestImmediate (dict s) }
 
@@ -263,7 +263,7 @@ does = updateState f  where
         | otherwise = abortWith "IP not on rstack" s
 
 -- Helper function that compile the ending loop word
-xloop a = docol [compile (XT Nothing a), here, compileBranch branch0, backpatch, semi]
+xloop a = docol [compile (XT Nothing a), here, compileBranch branch0, backpatch, exit]
 
 -- | Runtime words for DO-LOOPs
 pdo = updateState f  where
@@ -325,7 +325,7 @@ mainLoop = do
                   interpret, liftIO (putStrLn "ok") >> next, mainLoop]
 
 interpret = docol begin
-  where begin = xword : dup : cfetch : zerop : branch0 lab1 : drop : semi : lab1
+  where begin = xword : dup : cfetch : zerop : branch0 lab1 : drop : exit : lab1
         lab1 = find : dup : zerop : branch0 lab2 : drop : parseNumber : state : fetch : branch0 begin : compileComma : branch begin : lab2
         lab2 = lit (Val 1) : minus : zerop : branch0 lab3 : execute : branch begin : lab3
         lab3 = state : fetch : zerop : branch0 skip1 : execute : branch begin : skip1
@@ -348,7 +348,7 @@ evaluate = docol [inputLine, fetch, tor,              -- save input specificatio
                   rto, toIn, store,                   -- restore input specification
                   rto, sourceID, store,
                   rto, inputLineLength, store,
-                  rto, inputLine, store, semi]
+                  rto, inputLine, store, exit]
 
 -- | Insert the field contents of given word
 putField :: Cell cell => WordId -> DataField cell (FM cell ()) -> FM cell ()
@@ -500,7 +500,7 @@ find = do
 -- | Copy word from given address with delimiter to a special transient area.
 --   ( "<chars>ccc<char>" -- c-addr )
 xword :: Cell cell => FM cell ()
-xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, semi]
+xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, exit]
   where
     parseName =   -- ( "<spaces>ccc<space>" -- ctransbuf n )
       updateState  $ \s ->
@@ -558,7 +558,7 @@ create' finalizer usingCreate = updateState f  where
             linkhead = latest (dict s)
             name = B.drop (1 + off) $ chunk cmem
             (variables', code, cl)
-              | usingCreate = (IntMap.insert (unWordId wid) (newDataField (target s) (unWordId wid) 0) (variables s), V.fromList (map WrapA [litAdr wid, semi]), closeDefining defining)
+              | usingCreate = (IntMap.insert (unWordId wid) (newDataField (target s) (unWordId wid) 0) (variables s), V.fromList (map WrapA [litAdr wid, exit]), closeDefining defining)
               | otherwise = (variables s, V.empty, id)
             defining = Defining code [] finalizer (ForthWord name False linkhead wid abort)
         in newState (cl (s { stack = ss,
@@ -611,10 +611,10 @@ backpatch = updateState f  where
 backslash = docol body
   where body = toIn : fetch : inputLine : fetch : over : plus : inputLineLength : fetch : rot : minus : loop
         loop = lit (Val 1) : minus : dup : branch0 eol : over : cfetch : lit (Val 10) : minus : branch0 found : swap : lit (Val 1) : plus : swap : branch loop : eol
-        eol = drop : drop : inputLineLength : fetch : toIn : store : semi : found
-        found = [inputLineLength, fetch, swap, minus, toIn, store, drop, semi]
+        eol = drop : drop : inputLineLength : fetch : toIn : store : exit : found
+        found = [inputLineLength, fetch, swap, minus, toIn, store, drop, exit]
 
-loadSource = docol [xword, makeTempBuffer, evaluate, releaseTempBuffer, semi] where
+loadSource = docol [xword, makeTempBuffer, evaluate, releaseTempBuffer, exit] where
   makeTempBuffer = do
     filename <- updateStateVal "" (
                   \s -> case stack s of

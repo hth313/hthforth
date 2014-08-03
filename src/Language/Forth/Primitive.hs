@@ -19,7 +19,7 @@ module Language.Forth.Primitive (Primitive(..)) where
      CellVal with both type variables.
 -}
 class Primitive c a | a -> c where
-  semi :: a
+  exit :: a
   execute :: a
   lit :: c -> a
   swap, drop, dup, over, rto, tor, rfetch :: a

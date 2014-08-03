@@ -42,7 +42,7 @@ newDictionary :: Primitive c a => State (Dictionary a) WordId -> Dictionary a
 newDictionary extras = execState build (Dictionary wordsIds Nothing)
   where
     build = do
-      addWord "EXIT"  semi
+      addWord "EXIT"  exit
       addWord "EXECUTE" execute
       addWord "SWAP" swap
       addWord "DROP" drop
