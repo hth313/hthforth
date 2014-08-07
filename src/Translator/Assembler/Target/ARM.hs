@@ -115,8 +115,8 @@ instance InstructionSet ARMInstr where
         disasm (MOV U c q d s)       = (m "mov"   c q, Just [showReg d, op s])
         disasm (STR c q d s)         = (m "str"   c q, Just [showReg d, op s])
 
-        disasm (BYTE vals)             = (".byte", Just (map show vals))
-        disasm (LONG vals)             = (".long", Just (map show vals))
+        disasm (BYTE vals)           = (".byte", Just (map show vals))
+        disasm (LONG vals)           = (".long", Just (map show vals))
         disasm (ASCII strings)       = (".ascii", Just (map (show . C.unpack) strings))
         arith mne f c q d s NoOperand sh = (m (fl mne f) c q, Just (showReg d : showReg s : shift sh))
         arith mne f c q d s x sh         = (m (fl mne f) c q, Just (showReg d : showReg s : op x : shift sh))
