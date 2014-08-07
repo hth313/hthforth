@@ -2,11 +2,13 @@ module Main (main) where
 
 import Control.Monad
 import Data.Int
+import qualified Data.Map as Map
 import Translator.Assembler.Generate
 import Language.Forth.Interpreter
 import Language.Forth.Interpreter.Monad
 import Language.Forth.Target
 import Language.Forth.Target.CortexM
+import Language.Forth.Target.MSP430
 import Util.Endian
 import System.Console.Haskeline
 import System.Directory
@@ -22,11 +24,10 @@ main =
     let target = Target 4 4 1 LittleEndian :: Target Int32
         name = "hthforth"
 
-        codeGenerate = Just $ emitCode . codeGenerateCortexM
-        targetDict   = Just $ dictionaryCortexM
-        -- Empty
---        codeGenerate = Nothing
---        targetDict = Nothing :: Maybe (Dictionary (FM Int32 ()))
+        targetStates = Map.fromList [ (CortexM, cortexM), (MSP430, msp430) ]
+
+        cortexM = TargetState (emitCode . codeGenerateCortexM) dictionaryCortexM
+        msp430  = TargetState (emitCode . codeGenerateMSP430)  dictionaryMSP430
 
     in do
       putStrLn $ name ++ ", version 1.1.1"
@@ -39,4 +40,4 @@ main =
       let settings = Settings { complete = noCompletion,
                                 historyFile = Just history,
                                 autoAddHistory = True }
-      runInputT settings $ evalStateT (initialVarStorage >> quit) (initialState target codeGenerate targetDict)
+      runInputT settings $ evalStateT (initialVarStorage >> quit) (initialState target targetStates)

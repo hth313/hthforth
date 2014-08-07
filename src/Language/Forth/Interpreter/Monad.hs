@@ -5,7 +5,7 @@
 
 -}
 
-module Language.Forth.Interpreter.Monad (FM, FState(..), CV,
+module Language.Forth.Interpreter.Monad (FM, FState(..), TargetState(..), CV,
                                          module Control.Monad.Trans.State ) where
 
 import Control.Monad
@@ -31,7 +31,7 @@ type FM cell = StateT (FState cell) (InputT IO)
 type CV cell = CellVal cell (FM cell ())
 
 -- | Interpreter state.
-data FState cell = forall ca cc. Primitive cc ca => FState
+data FState cell = FState
   { stack  :: [CellVal cell (FM cell ())]  -- ^ Data stack
   , rstack :: [CellVal cell (FM cell ())]  -- ^ Return stack
   , ip     :: [FM cell ()]                 -- ^ Interpretive pointer
@@ -42,6 +42,11 @@ data FState cell = forall ca cc. Primitive cc ca => FState
   , stringLiterals :: Map V.ByteString Addr
   , defining :: Maybe (Defining cell (FM cell ())) -- ^ Collector when compiling
   , compiler :: Compiler cell (FM cell ())         -- ^ Compiler functions record
-  , dumpTargetDict :: Maybe (Dictionary ca -> ByteString) -- ^ generate code for target
-  , targetDict :: Maybe (Dictionary ca)            -- ^ Cross compiler target dictionary
+  , targetStates :: Map TargetKey TargetState      -- ^ targets
+  }
+
+-- | Representation of a target
+data TargetState = forall t cc. Primitive cc t => TargetState
+  { dumpTargetDict :: Dictionary t -> ByteString -- ^ generate code for target
+  , targetDict :: Dictionary t                   -- ^ Cross compiler target dictionary
   }

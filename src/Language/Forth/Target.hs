@@ -1,5 +1,5 @@
 
-module Language.Forth.Target (Target(..), alignOffset) where
+module Language.Forth.Target (Target(..), alignOffset, TargetKey(..)) where
 
 import Data.Bits
 import Util.Endian
@@ -18,3 +18,5 @@ alignOffset n target = alignOffset1 n
   where alignOffset1 n | (mask .&. n) /= 0 = alignOffset1 (n + 1)
                        | otherwise = n
         mask = bytesPerCell target - 1
+
+data TargetKey = CortexM | MSP430 deriving (Eq, Ord, Show)

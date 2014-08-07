@@ -42,8 +42,8 @@ import Util.Memory
 import Prelude hiding (drop, until, repeat)
 import qualified Prelude as Prelude
 
-initialState target codeGenerate targetDict =
-  FState [] [] [] target interpreterDictionary IntMap.empty [] Map.empty Nothing ic codeGenerate targetDict
+initialState target targetStates =
+  FState [] [] [] target interpreterDictionary IntMap.empty [] Map.empty Nothing ic targetStates
     where ic = Compiler icompile ilitComma xcompileBranch xcompileBranch irecurse
 
 initialVarStorage :: Cell cell => FM cell ()
@@ -117,7 +117,7 @@ interpreterDictionary = newDictionary extras
           addWord "DEPTH" depth
           addWord "KEY" key
           addWord "RECURSE" (cprim recurse ())
-          addWord "TARGET-CODEGEN" (targetOutput >> next)
+          addWord "TARGET-CODEGEN" (targetOutput MSP430 >> next)
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
