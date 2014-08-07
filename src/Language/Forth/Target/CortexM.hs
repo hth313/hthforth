@@ -22,10 +22,12 @@ import Translator.Assembler.Generate
 import Translator.Assembler.Target.ARM
 
 -- Registers assigned for specific use
-ip = R9
-rstk = R11
-w = R1
-tbl = R7
+w = R0         -- scratch
+tos  = R4      -- top of data stack value
+ip = R6        -- interpretive pointer
+ftable = R7    -- base regiser for flash token table
+stack = R10    -- data stack pointer
+rstack = R11   -- return stack pointer
 
 -- | Our initial dictionary.
 dictionaryCortexM :: Dictionary (IM ARMInstr)
@@ -34,42 +36,85 @@ dictionaryCortexM = newDictionary extras
 
 -- | CortexM instantiation of the Forth tagless final style typeclass.
 instance Primitive (CellVal Int32 (IM ARMInstr)) (IM ARMInstr) where
-  exit = insRec (ldr ip (PostIndexed rstk 4)) <> insRec next <> helpers
-  execute = insRec next
-  lit c = insRec (LONG [cellToExpr c]) <> insRec next
-  swap = insRec next
-  drop = insRec next
-  dup = insRec next
-  over = insRec next
-  rto = insRec next
-  tor = insRec next
-  rfetch = insRec next
-  fetch = insRec next
-  cfetch = insRec next
-  store = insRec next
-  cstore = insRec next
-  plus = insRec next
-  minus = insRec next
-  and = insRec next
-  or = insRec next
-  xor = insRec next
-  twoStar = insRec next
-  twoSlash = insRec next
-  lshift = insRec next
-  rshift = insRec next
-  zerop = insRec next
-  lt0 = insRec next
-  constant = insRec next
-  umstar = insRec next
-  ummod = insRec next
+  exit     = popRStack ip
+  execute  = insRec (mov ip (RegOp tos)) <>
+             popStack tos
+  lit c    = pushStack tos <>
+             insRec (ldr tos (PostIndexed ip 4))
+  swap     = insRec (mov w (RegOp tos)) <>
+             insRec (ldr tos (RegIndOffset stack 0)) <>
+             insRec (str w (RegIndOffset stack 0))
+  drop     = popStack w
+  dup      = pushStack tos
+  over     = pushStack tos <>
+             insRec (ldr tos (RegIndOffset stack 4))
+  rto      = pushStack tos <>
+             popRStack tos
+  tor      = pushRStack tos <>
+             popStack tos
+  rfetch   = pushStack tos <>
+             insRec (ldr tos (RegIndOffset rstack 0))
+  fetch    = insRec (ldr tos (RegIndOffset tos 0))
+  cfetch   = insRec (ldrb tos (RegIndOffset tos 0))
+  store    = popStack w <>
+             insRec (str w (RegIndOffset tos 0)) <>
+             popStack tos
+  cstore   = popStack w <>
+             insRec (strb w (RegIndOffset tos 0)) <>
+             popStack tos
+  minus    = popStack w <>
+             insRec (subs tos w (RegOp tos))
+  plus     = binary adds
+  and      = binary ands
+  or       = binary orrs
+  xor      = binary eors
+  twoStar  = singleShift lsls
+  twoSlash = singleShift asrs
+  lshift   = multiShift  lsls
+  rshift   = multiShift  lsrs
+  zerop    = insRec (sub tos NoReg (Imm 1)) <>
+             insRec (sbcs tos tos NoOperand)
+  lt0      = insRec (add tos tos NoOperand)  <>
+             insRec (sbcs tos tos NoOperand)
+  constant = pushStack tos <>
+             insRec (ldr tos (RegIndOffset w 0))
+  umstar   = insRec (ldr w (RegIndOffset stack 0)) <>
+             insRec (umull w tos w tos) <>
+             insRec (str w (RegIndOffset stack 0))
+  ummod    = next
 
-helpers  = insLabRec "docol" (str ip (PreIndexed rstk 4)) <>
-           insRec (mov ip (RegOp R0)) <>
-           insLabRec "next" (ldrh w (PostIndexed ip 2)) <>
-           insRec (ldr w (RegRegInd tbl w (OpLSL 2))) <>
-           insRec (ldr PC (PostIndexed w 4))
+{-
+-- Given
+instance Primitive (CellVal Int32 String) String where
+  exit = "exit"
+  lit c = "lit"
+-}
 
-next = b (Mem $ E.Identifier "next")
+token lab = insRec $ WORD lab
+
+popStack = popXStack stack
+popRStack = popXStack rstack
+popXStack stk d = insRec $ ldr d (PostIndexed stk 4)
+
+pushStack = pushXStack stack
+pushRStack = pushXStack rstack
+pushXStack stk r = insRec $ str r (PreIndexed stk (-4))
+
+binary ins = popStack w <>
+             insRec (ins tos w NoOperand)
+
+singleShift ins = insRec (ins tos tos (Imm 1))
+
+multiShift ins = popStack w <>
+                 insRec (ins tos w (RegOp tos))
+
+supportCode  = insLabRec "docol" (str ip (PreIndexed rstack 4)) <>
+               insRec (mov ip (RegOp R0)) <>
+               insLabRec "next" (ldrh w (PostIndexed ip 2)) <>
+               insRec (ldr w (RegRegInd ftable w (OpLSL 2))) <>
+               insRec (ldr PC (PostIndexed w 4))
+
+next = insRec $ b (Mem $ E.Identifier "next")
 
 -- | Generate code for a dictionary for Cortex-M
 codeGenerateCortexM :: Dictionary (IM ARMInstr) -> IM ARMInstr
