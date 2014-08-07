@@ -21,7 +21,7 @@ codeGenerate ascii dict = visit (latest dict)  where
   visit Nothing = mempty
   visit (Just word) = visit (link word) <> generate word
   generate word = insRec (ascii [name word]) <>
-                  labRec (B2.pack . mangle . B.unpack $ name word) <> doer word
+                  labRec (B2.pack . mangle . B.unpack $ name word) <> doer word <> insEmpty
   toExpr = Value . fromIntegral
 
 -- Ensure the name is something the assembler accepts.

@@ -5,7 +5,7 @@
   or optimizations, just plain output.
 -}
 
-module Translator.Assembler.Generate (IM, insRec, insLabRec, labRec, emitCode) where
+module Translator.Assembler.Generate (IM, insRec, insLabRec, insEmpty, labRec, emitCode) where
 
 import Data.Monoid
 import Data.List
@@ -24,7 +24,7 @@ type IM a = DList (InsRec a)
 
 -- | Instruction records. These are typically assembler instructions that
 --   can have either a label (symbol), assembler instruction, or both.
-data InsRec i = InsRec i | InsLabRec Symbol i | LabRec Symbol
+data InsRec i = InsRec i | InsLabRec Symbol i | LabRec Symbol | EmptyRec
 
 -- | Instruction record elevated into the instruction monoid
 insRec :: a -> IM a
@@ -32,6 +32,9 @@ insRec = DL.singleton . InsRec
 
 insLabRec :: Symbol -> a -> IM a
 insLabRec sym i = DL.singleton (InsLabRec sym i)
+
+insEmpty :: IM a
+insEmpty = DL.singleton EmptyRec
 
 labRec :: Symbol -> IM a
 labRec = DL.singleton . LabRec
@@ -45,6 +48,7 @@ emitRec (LabRec lab) = fromByteString lab <> fromByteString ":" <> nl
 emitRec (InsLabRec lab i) = fromByteString lab <> fromByteString ":" <>
                             fromString (drop (1 + fromIntegral (C.length lab)) spaces14) <>
                             ppi (disassemble i) <> nl
+emitRec EmptyRec = nl
 ppi (mne, Nothing) = fromString mne
 ppi (mne, Just ops) = fromString mne <> fromString (drop (length mne) spaces14) <>
                       fromString (intercalate "," ops)
