@@ -6,7 +6,7 @@
 -}
 
 module Language.Forth.CellVal (CellVal(..), trueVal, falseVal, isValue, isAddress, isAny,
-                               bitSizeMaybe, isExecutionToken, isZero) where
+                               bitSizeMaybe, isExecutionToken, isZero, cellToExpr) where
 
 import Data.Bits
 import Data.Ord
@@ -16,6 +16,7 @@ import Language.Forth.Cell
 import Language.Forth.Word
 import Data.Vector.Storable.ByteString (ByteString)
 import Language.Forth.Interpreter.Address
+import Translator.Expression (Expr(Value))
 
 
 -- | Cell values are what we can put into a data cell.
@@ -121,3 +122,5 @@ isExecutionToken _ = False
 isZero (Val 0) = True
 isZero (Address Nothing) = True
 isZero _ = False
+
+cellToExpr (Val n) = Value $ fromIntegral n

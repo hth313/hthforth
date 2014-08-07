@@ -69,7 +69,6 @@ helpers  = insLabRec "docol" (str ip (PreIndexed rstk 4)) <>
            insRec (ldr w (RegRegInd tbl w (OpLSL 2))) <>
            insRec (ldr PC (PostIndexed w 4))
 
-cellToExpr (Val n) = E.Value $ fromIntegral n
 next = b (Mem $ E.Identifier "next")
 
 -- | Generate code for a dictionary for Cortex-M
