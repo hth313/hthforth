@@ -24,7 +24,7 @@ import Translator.Assembler.Target.ARM
 import Language.Forth.Cell
 import Language.Forth.CodeGenerate
 import Language.Forth.Dictionary
-import Language.Forth.Interpreter.Monad
+import Language.Forth.Interpreter.State
 import Language.Forth.Target (TargetKey)
 import Language.Forth.Word
 import qualified Data.ByteString.Lazy.Char8 as C

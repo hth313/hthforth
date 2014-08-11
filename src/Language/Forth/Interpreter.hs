@@ -33,7 +33,7 @@ import Language.Forth.CellVal
 import Language.Forth.Compiler
 import Language.Forth.CrossCompiler
 import Language.Forth.Dictionary
-import Language.Forth.Interpreter.Monad
+import Language.Forth.Interpreter.State
 import Language.Forth.Primitive
 import Language.Forth.StreamFile
 import Language.Forth.Target

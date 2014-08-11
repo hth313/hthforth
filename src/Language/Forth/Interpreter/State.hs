@@ -1,11 +1,11 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {- |
 
-   The monad used by the Forth interpreter.
+   The Forth interpreter state and embedding it a monad transformer.
 
 -}
 
-module Language.Forth.Interpreter.Monad (FM, FState(..), TargetState(..), CV,
+module Language.Forth.Interpreter.State (FM, FState(..), TargetState(..), CV,
                                          module Control.Monad.Trans.State ) where
 
 import Control.Monad

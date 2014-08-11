@@ -5,7 +5,7 @@ import Data.Int
 import qualified Data.Map as Map
 import Translator.Assembler.Generate
 import Language.Forth.Interpreter
-import Language.Forth.Interpreter.Monad
+import Language.Forth.Interpreter.State
 import Language.Forth.Target
 import Language.Forth.Target.CortexM
 import Language.Forth.Target.MSP430
