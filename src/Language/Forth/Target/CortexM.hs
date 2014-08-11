@@ -90,7 +90,7 @@ instance Primitive (CellVal Int32 String) String where
   lit c = "lit"
 -}
 
-token lab = insRec $ WORD lab
+token lab = insRec $ Directive $ WORD lab
 
 popStack = popXStack stack
 popRStack = popXStack rstack
@@ -118,4 +118,4 @@ next = insRec $ b (Mem $ E.Identifier "next")
 
 -- | Generate code for a dictionary for Cortex-M
 codeGenerateCortexM :: Dictionary (IM ARMInstr) -> IM ARMInstr
-codeGenerateCortexM dict = codeGenerate ASCII dict
+codeGenerateCortexM dict = codeGenerate (Directive . ASCII) dict

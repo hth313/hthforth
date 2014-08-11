@@ -143,4 +143,4 @@ pushStack r = decd W stack <>
 
 -- | Generate code for a dictionary for MSP430
 codeGenerateMSP430 :: Dictionary (IM Instr430) -> IM Instr430
-codeGenerateMSP430 dict = codeGenerate ASCII dict
+codeGenerateMSP430 dict = codeGenerate (Directive . ASCII) dict

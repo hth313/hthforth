@@ -7,6 +7,7 @@
 
 module Translator.Assembler.Target.ARM (ARMInstr(..), CondExec(..), Reg(..), OpAdr(..),
                                         Update(..), Shift(..), Suffix(..),
+                                        module Translator.Assembler.Directive,
                                         adc, adcs, add, adds, ands, asr, asrs, b, eors,
                                         ldr, ldrb, ldrh,
                                         lsl, lsls, lsr, lsrs, mov, movs, orrs,
@@ -15,10 +16,10 @@ module Translator.Assembler.Target.ARM (ARMInstr(..), CondExec(..), Reg(..), OpA
 
 import Data.Char
 import Data.Int
-import Data.Vector.Storable.ByteString.Char8 (ByteString)
-import qualified Data.Vector.Storable.ByteString.Char8 as C
 import Translator.Expression
+import Translator.Assembler.Directive
 import Translator.Assembler.InstructionSet
+
 
 -- | ARM instruction set, with Thumb and Thumb2 as well as needed pseudo instructions.
 data ARMInstr = ADD Update CondExec Suffix Reg Reg OpAdr Shift
@@ -40,10 +41,7 @@ data ARMInstr = ADD Update CondExec Suffix Reg Reg OpAdr Shift
               | STRH   CondExec Suffix Reg OpAdr
               | SUB Update CondExec Suffix Reg Reg OpAdr Shift
               | UMULL CondExec Reg Reg Reg Reg
-              | BYTE [Expr]
-              | WORD [Expr]
-              | LONG [Expr]
-              | ASCII [ByteString]
+              | Directive GNUDirective
 
 -- Constructors for common uses
 adc   = i3 ADC U
@@ -146,10 +144,7 @@ instance InstructionSet ARMInstr where
         disasm (SUB f c q d s x sh)  = arith "sub" f c q d s x sh
         disasm (UMULL c r1 r2 r3 r4) = (m "umull" c Any, Just (map showReg [r1, r2, r3, r4]))
 
-        disasm (BYTE vals)           = (".byte", Just (map show vals))
-        disasm (WORD vals)           = (".word", Just (map show vals))
-        disasm (LONG vals)           = (".long", Just (map show vals))
-        disasm (ASCII strings)       = (".ascii", Just (map (show . C.unpack) strings))
+        disasm (Directive dir)       = disassemble dir
 
         arith mne f c q d NoReg NoOperand sh = (m (fl mne f) c q, Just (showReg d : shift sh))
         arith mne f c q d s NoOperand sh = (m (fl mne f) c q, Just (showReg d : showReg s : shift sh))

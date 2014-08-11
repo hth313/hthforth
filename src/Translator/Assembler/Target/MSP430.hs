@@ -5,12 +5,13 @@
 
 -}
 
-module Translator.Assembler.Target.MSP430 (Instr430(..), Suffix(..), Reg(..), Op(..)) where
+module Translator.Assembler.Target.MSP430 (Instr430(..), Suffix(..), Reg(..), Op(..),
+                                           module Translator.Assembler.Directive) where
 
-import Data.Vector.Storable.ByteString.Char8 (ByteString)
-import qualified Data.Vector.Storable.ByteString.Char8 as C
+import qualified Translator.Assembler.Directive as G
 import Translator.Expression
 import Translator.Symbol
+import Translator.Assembler.Directive
 import Translator.Assembler.InstructionSet
 
 data Instr430 = ADD  Suffix Op Op
@@ -36,8 +37,7 @@ data Instr430 = ADD  Suffix Op Op
               | SUBC Suffix Op Op
               | TST  Suffix Op
               | XOR  Suffix Op Op
-              -- pseudo instructions
-              | ASCII [ByteString]
+              | Directive GNUDirective
 
 type Lab = String
 
@@ -84,7 +84,7 @@ instance InstructionSet Instr430 where
         disasm (TST  s op)      = dis "tst"  s op  Nothing
         disasm (XOR  s op1 op2) = dis "xor"  s op1 (Just op2)
 
-        disasm (ASCII strings)  = (".ascii", Just (map (show . C.unpack) strings))
+        disasm (Directive dir)  = disassemble dir
 
         dis mne s op  Nothing             = (n mne s, Just [show op])
         dis mne s op1 (Just (Indirect r)) = (n mne s, Just [show op1, show (Indexed 0 r)])
