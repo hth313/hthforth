@@ -25,6 +25,7 @@ import System.Exit
 import System.IO
 import qualified Data.Vector.Storable.ByteString as B
 import qualified Data.Vector.Storable.ByteString.Char8 as C
+import qualified Data.ByteString.Lazy.Char8 as L
 import Language.Forth.Interpreter.Address
 import Language.Forth.Interpreter.CellMemory
 import Language.Forth.Interpreter.DataField
@@ -117,7 +118,7 @@ interpreterDictionary = newDictionary extras
           addWord "DEPTH" depth
           addWord "KEY" key
           addWord "RECURSE" (cprim recurse ())
-          addWord "TARGET-CODEGEN" (targetOutput MSP430 >> next)
+          addWord "TARGET-CODEGEN" (targetCodegen MSP430)
 
 -- | Foundation of the Forth interpreter
 instance Cell cell => Primitive (CV cell) (FM cell ()) where
@@ -628,17 +629,21 @@ backslash = docol body
         eol = drop : drop : inputLineLength : fetch : toIn : store : exit : found
         found = [inputLineLength, fetch, swap, minus, toIn, store, drop, exit]
 
+popFilename :: Cell cell => FM cell String
+popFilename =
+  updateStateVal "" $ \s ->
+    case stack s of
+      Address (Just (Addr wid off)) : ss
+        | Just (BufferField cmem) <- IntMap.lookup (unWordId wid) (variables s),
+          not (B.null $ chunk cmem) ->
+            let len = fromIntegral $ B.head $ chunk cmem
+                name = C.take len $ C.drop (1 + off) $ chunk cmem
+            in return (Right (C.unpack name), s { stack = ss })
+        | otherwise -> abortWith "missing filename" s
+
 loadSource = docol [xword, makeTempBuffer, evaluate, releaseTempBuffer, exit] where
   makeTempBuffer = do
-    filename <- updateStateVal "" (
-                  \s -> case stack s of
-                          Address (Just (Addr wid off)) : ss
-                            | Just (BufferField cmem) <- IntMap.lookup (unWordId wid) (variables s),
-                              not (B.null $ chunk cmem) ->
-                                let len = fromIntegral $ B.head $ chunk cmem
-                                    name = C.take len $ C.drop (1 + off) $ chunk cmem
-                                in return (Right (C.unpack name), s { stack = ss })
-                            | otherwise -> abortWith "missing filename" s)
+    filename <- popFilename
     mc <- liftIO $ try $ readSourceFile filename
     case mc of
       Left (e :: IOException) -> abortMessage (show e)
@@ -659,6 +664,17 @@ loadSource = docol [xword, makeTempBuffer, evaluate, releaseTempBuffer, exit] wh
                                               newState s { variables = IntMap.delete (unWordId handle) (variables s),
                                                            rstack = rs,
                                                            oldHandles = handle : oldHandles s }
+
+-- | Generate code for a target
+targetCodegen :: Cell cell => TargetKey -> FM cell ()
+targetCodegen key = docol [xword, dump, exit]
+  where dump = do
+          outputfile <- popFilename
+          text <- targetOutput key
+          mres <- liftIO $ try $ withFile outputfile WriteMode (flip L.hPut text)
+          case mres of
+            Left (e :: IOException) -> abortMessage $ show e
+            Right () -> next
 
 -- | Compile a string literal. We expect to get a string pointer (caddr u) on
 --   the stack pointing to some character buffer. Compile a string literal

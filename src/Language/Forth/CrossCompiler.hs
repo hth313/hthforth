@@ -28,14 +28,10 @@ import Language.Forth.Interpreter.State
 import Language.Forth.Target (TargetKey)
 import Language.Forth.Word
 import qualified Data.ByteString.Lazy.Char8 as C
-import System.IO (stdout)
 
-targetOutput :: Cell cell => TargetKey -> FM cell ()
-targetOutput k =
-  let dump s = case Map.lookup k (targetStates s) of
-          Just (TargetState { dumpTargetDict = dumpTargetDict, targetDict = targetDict })  ->
-            dumpTargetDict targetDict
-          Nothing -> C.empty
-  in do
-    text <- gets dump
-    liftIO $ C.hPut stdout text
+targetOutput :: Cell cell => TargetKey -> FM cell C.ByteString
+targetOutput k = gets dump
+  where dump s = case Map.lookup k (targetStates s) of
+                   Just (TargetState { dumpTargetDict = dumpTargetDict, targetDict = targetDict })  ->
+                     dumpTargetDict targetDict
+                   Nothing -> C.empty
