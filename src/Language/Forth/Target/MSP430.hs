@@ -64,7 +64,7 @@ xor_ = binary XOR
 binary ctor s op1 op2 = insRec $ ctor s op1 op2
 unary ctor s op = insRec $ ctor s op
 
-label = labRec . C.pack
+label = labRec . C.pack . nameMangle
 
 -- | MSP430 instantiation of the Forth tagless final style typeclass.
 instance Primitive (CellVal Int16 (IM Instr430)) (IM Instr430) where
