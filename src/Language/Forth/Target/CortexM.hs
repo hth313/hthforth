@@ -118,4 +118,4 @@ next = insRec $ b (Mem $ E.Identifier "next")
 
 -- | Generate code for a dictionary for Cortex-M
 codeGenerateCortexM :: Dictionary (IM ARMInstr) -> IM ARMInstr
-codeGenerateCortexM dict = codeGenerate (Directive . ASCII) dict
+codeGenerateCortexM dict = codeGenerate Directive pad2 dict

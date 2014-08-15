@@ -10,6 +10,7 @@
 module Language.Forth.Target.MSP430 (dictionaryMSP430, codeGenerateMSP430) where
 
 import qualified Data.ByteString.Char8 as C
+import Data.Bits
 import Data.Int
 import Data.Monoid
 import Language.Forth.CellVal
@@ -143,4 +144,4 @@ pushStack r = decd W stack <>
 
 -- | Generate code for a dictionary for MSP430
 codeGenerateMSP430 :: Dictionary (IM Instr430) -> IM Instr430
-codeGenerateMSP430 dict = codeGenerate (Directive . ASCII) dict
+codeGenerateMSP430 dict = codeGenerate Directive pad2 dict
