@@ -28,8 +28,10 @@ codeGenerate dir pad dict = visit (latest dict)  where
   visit (Just word) = visit (link word) <> generate word
   generate word =
     let (bytes, chars) = nameString pad (C.unpack $ name word)
+        asciiRec | null chars = mempty
+                 | otherwise = insRec $ dir $ ASCII [C.pack chars]
     in insRec (dir $ BYTE bytes) <>
-       insRec (dir $ ASCII [C.pack chars]) <>
+       asciiRec <>
        labRec (C2.pack . nameMangle . C.unpack $ name word) <> doer word <> insEmpty
 
 -- Ensure the name is something the assembler accepts.
