@@ -148,6 +148,7 @@ instance InstructionSet ARMInstr where
 
         arith mne f c q d NoReg NoOperand sh = (m (fl mne f) c q, Just (showReg d : shift sh))
         arith mne f c q d s NoOperand sh = (m (fl mne f) c q, Just (showReg d : showReg s : shift sh))
+        arith mne f c q d NoReg x     sh = (m (fl mne f) c q, Just (showReg d : op x : shift sh))
         arith mne f c q d s x sh         = (m (fl mne f) c q, Just (showReg d : showReg s : op x : shift sh))
 
         fl name U = name
