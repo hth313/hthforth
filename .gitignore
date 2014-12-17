@@ -7,3 +7,4 @@
 *.p_hi-boot
 *.p_o-boot
 dist
+doc/Manual/_build
