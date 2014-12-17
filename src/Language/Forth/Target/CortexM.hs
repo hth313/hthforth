@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, UndecidableInstances, OverloadedStrings #-}
+{-# LANGUAGE ImpredicativeTypes #-}
 {-
   Forth target code generator for Cortex-M.
 
@@ -7,10 +8,11 @@
 
 -}
 
-module Language.Forth.Target.CortexM (dictionaryCortexM, codeGenerateCortexM) where
+module Language.Forth.Target.CortexM (bindCortexM, dictionaryCortexM, codeGenerateCortexM) where
 
 import Data.Int
 import Data.Monoid hiding (Any)
+import Data.ByteString.Lazy (ByteString)
 import Language.Forth.Cell
 import Language.Forth.CellVal
 import Language.Forth.CodeGenerate
@@ -20,6 +22,10 @@ import Language.Forth.Word
 import qualified Translator.Expression as E
 import Translator.Assembler.Generate
 import Translator.Assembler.Target.ARM
+
+-- | Bind a polymorphic target dictionary to be an CortexM specific one
+bindCortexM :: Dictionary (IM ARMInstr) -> Dictionary (IM ARMInstr)
+bindCortexM = id
 
 -- Registers assigned for specific use
 w = R0         -- scratch
@@ -117,5 +123,5 @@ supportCode  = insLabRec "docol" (str ip (PreIndexed rstack 4)) <>
 next = insRec $ b (Mem $ E.Identifier "next")
 
 -- | Generate code for a dictionary for Cortex-M
-codeGenerateCortexM :: Dictionary (IM ARMInstr) -> IM ARMInstr
-codeGenerateCortexM dict = codeGenerate Directive pad2 dict
+-- codeGenerateCortexM :: (forall t. Dictionary (IM t)) -> ByteString
+codeGenerateCortexM dict = emitCode $ codeGenerate Directive pad2 (bindCortexM dict)

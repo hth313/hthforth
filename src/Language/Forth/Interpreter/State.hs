@@ -1,11 +1,11 @@
-{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE ExistentialQuantification, FlexibleContexts, RankNTypes #-}
 {- |
 
    The Forth interpreter state and embedding it a monad transformer.
 
 -}
 
-module Language.Forth.Interpreter.State (FM, FState(..), TargetState(..), CV,
+module Language.Forth.Interpreter.State (FM, FState(..), CV,
                                          module Control.Monad.Trans.State ) where
 
 import Control.Monad
@@ -23,30 +23,26 @@ import Language.Forth.Dictionary
 import Language.Forth.Primitive
 import Language.Forth.Target
 import Language.Forth.Word
+import Translator.Assembler.Generate (IM)
+import Translator.Assembler.InstructionSet
 
 -- Interpreter monad
-type FM cell = StateT (FState cell) (InputT IO)
+type FM cell t = StateT (FState cell t) (InputT IO)
 
 -- Simpler way of specifying a cell value
-type CV cell = CellVal cell (FM cell ())
+type CV cell t = CellVal cell (FM cell t ())
 
 -- | Interpreter state.
-data FState cell = FState
-  { stack  :: [CellVal cell (FM cell ())]  -- ^ Data stack
-  , rstack :: [CellVal cell (FM cell ())]  -- ^ Return stack
-  , ip     :: [FM cell ()]                 -- ^ Interpretive pointer
+data FState cell t = FState
+  { stack  :: [CV cell t]               -- ^ Data stack
+  , rstack :: [CV cell t]               -- ^ Return stack
+  , ip     :: [FM cell t ()]            -- ^ Interpretive pointer
   , target :: Target cell
-  , dict   :: Dictionary (FM cell ())      -- ^ Dictionary of Forth words
-  , variables :: IntMap (DataField cell (FM cell ()))
+  , dict   :: Dictionary (FM cell t ()) -- ^ Dictionary of Forth words for interpreter
+  , variables :: IntMap (DataField cell (FM cell t ()))
   , oldHandles :: [WordId]                 -- ^ Unused handles after reading source files
   , stringLiterals :: Map V.ByteString Addr
-  , defining :: Maybe (Defining cell (FM cell ())) -- ^ Collector when compiling
-  , compiler :: Compiler cell (FM cell ())         -- ^ Compiler functions record
-  , targetStates :: Map TargetKey TargetState      -- ^ targets
-  }
-
--- | Representation of a target
-data TargetState = forall t cc. Primitive cc t => TargetState
-  { dumpTargetDict :: Dictionary t -> ByteString -- ^ generate code for target
-  , targetDict :: Dictionary t                   -- ^ Cross compiler target dictionary
+  , compilerFuns :: Compiler cell t (Defining (FM cell t ()))
+  , defining :: Maybe (Defining (FM cell t ()))   -- ^ Collector when compiling
+  , targetDict :: forall t1. InstructionSet t1 => Maybe (Dictionary (IM t1)) -- ^ Cross compiler dictionary
   }

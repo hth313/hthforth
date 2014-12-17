@@ -23,12 +23,6 @@ main :: IO ()
 main =
     let target = Target 4 4 1 LittleEndian :: Target Int32
         name = "hthforth"
-
-        targetStates = Map.fromList [ (CortexM, cortexM), (MSP430, msp430) ]
-
-        cortexM = TargetState (emitCode . codeGenerateCortexM) dictionaryCortexM
-        msp430  = TargetState (emitCode . codeGenerateMSP430)  dictionaryMSP430
-
     in do
       putStrLn $ name ++ ", version 1.1.1"
       putStrLn "Forth-2012 System (Subset) with Environmental Restrictions"
@@ -40,4 +34,4 @@ main =
       let settings = Settings { complete = noCompletion,
                                 historyFile = Just history,
                                 autoAddHistory = True }
-      runInputT settings $ evalStateT (initialVarStorage >> quit) (initialState target targetStates)
+      runInputT settings $ evalStateT (initialVarStorage >> quit) (initialState target)

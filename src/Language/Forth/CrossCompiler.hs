@@ -1,37 +1,42 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts, ScopedTypeVariables, OverloadedStrings #-}
 {- |
 
    The Forth cross compiler.
 
-   Using the Forth interpreter, replace the compiler primitives with variants
-   that can compile to a real target. Cross compile by using the interpreter,
-   but output to another dictionary based on the Primitive typeclass.
-   At this point, we do not specify a particular target.
-   When done, we take the created dictionary and instantiate it for
-   a particular target and use it to generate target specific output.
-   In reality, we generate assembler meant to be fed into a suitable
+   The cross compiler is based on recompiling with some compiler words
+   replaced by alternatives that write to a target dictionary.
+   This dictionary is type polymorphic and can be bound by any target
+   to generate output.
+   Here we simply apply the target specific dictionary dumper to the
+   polymorphic target dictionary to get the output.
+   For the moment, we generate assembler meant to be fed into a suitable
    cross assembler to get object code for the target.
 
 -}
 
-module Language.Forth.CrossCompiler (targetOutput) where
+module Language.Forth.CrossCompiler (crossCompiler) where
 
 import Control.Applicative
-import Control.Monad.IO.Class
 import qualified Data.Map as Map
-import Translator.Assembler.Generate
-import Translator.Assembler.Target.ARM
-import Language.Forth.Cell
-import Language.Forth.CodeGenerate
+import qualified Data.Vector as V
+import Language.Forth.CellVal
+import Language.Forth.Compiler
 import Language.Forth.Dictionary
 import Language.Forth.Interpreter.State
 import Language.Forth.Target (TargetKey)
-import Language.Forth.Word
+import Translator.Assembler.Generate (IM)
+import Translator.Expression
 import qualified Data.ByteString.Lazy.Char8 as C
 
-targetOutput :: Cell cell => TargetKey -> FM cell C.ByteString
-targetOutput k = gets dump
-  where dump s = case Map.lookup k (targetStates s) of
-                   Just (TargetState { dumpTargetDict = dumpTargetDict, targetDict = targetDict })  ->
-                     dumpTargetDict targetDict
-                   Nothing -> C.empty
+-- | The cross compiler
+crossCompiler = Compiler compile litComma compileBranch compileBranch0 recurse closeDefining  where
+  compile val = addWord [cellToExpr val]
+  litComma val = addWord [Identifier "LIT", cellToExpr val]
+  compileBranch = compileBranch0
+  compileBranch0 val def = def
+  recurse def = def
+  closeDefining (TargetDefining list) s =
+    s { defining = Nothing, targetDict = addTargetWord list <$> targetDict s }
+
+  addWord vs (TargetDefining list) = TargetDefining (foldl V.snoc list vs) -- V.concat list (V.fromList vs))
+  addTargetWord _ s =  s

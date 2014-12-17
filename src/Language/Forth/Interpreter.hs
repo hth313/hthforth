@@ -1,5 +1,6 @@
-{-# LANGUAGE FlexibleInstances, LambdaCase, MultiParamTypeClasses, TypeSynonymInstances #-}
-{-# LANGUAGE MultiWayIf, OverloadedStrings, PatternGuards, ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, LambdaCase, MultiParamTypeClasses #-}
+{-# LANGUAGE MultiWayIf, OverloadedStrings, PatternGuards, ScopedTypeVariables,  TypeSynonymInstances #-}
+{-# LANGUAGE RankNTypes, NoMonomorphismRestriction #-}
 {- |
 
    The Forth interpreter.
@@ -10,6 +11,7 @@ module Language.Forth.Interpreter (initialState, initialVarStorage, quit) where
 
 import Numeric
 import Control.Exception (try)
+import Control.Applicative
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
@@ -32,22 +34,26 @@ import Language.Forth.Interpreter.DataField
 import Language.Forth.Cell
 import Language.Forth.CellVal
 import Language.Forth.Compiler
-import Language.Forth.CrossCompiler
 import Language.Forth.Dictionary
 import Language.Forth.Interpreter.State
 import Language.Forth.Primitive
 import Language.Forth.StreamFile
 import Language.Forth.Target
+import Language.Forth.Target.CortexM (codeGenerateCortexM)
+import Language.Forth.Target.MSP430 (codeGenerateMSP430)
 import Language.Forth.Word
+import Translator.Assembler.InstructionSet
+import Translator.Assembler.Generate (IM)
 import Util.Memory
 import Prelude hiding (drop, until, repeat)
 import qualified Prelude as Prelude
 
-initialState target targetStates =
-  FState [] [] [] target interpreterDictionary IntMap.empty [] Map.empty Nothing ic targetStates
-    where ic = Compiler icompile ilitComma xcompileBranch xcompileBranch irecurse
+initialState target =
+  FState [] [] [] target interpreterDictionary IntMap.empty [] Map.empty icompiler Nothing Nothing
 
-initialVarStorage :: Cell cell => FM cell ()
+icompiler = Compiler icompile ilitComma xcompileBranch xcompileBranch irecurse closeDefining
+
+initialVarStorage :: Cell cell => FM cell t ()
 initialVarStorage = gets target >>=
   \t -> let f (wid, val) =
               let field@(DataField cm) = newDataField t wid (bytesPerCell t)
@@ -59,7 +65,7 @@ initialVarStorage = gets target >>=
                    (sourceIDWid, 0)]
           mapM_ g [(tregWid, 100)]
 
-interpreterDictionary :: Cell cell => Dictionary (FM cell ())
+interpreterDictionary :: Cell cell => Dictionary (FM cell t ())
 interpreterDictionary = newDictionary extras
   where extras = do
           addWord "ROT" rot
@@ -109,7 +115,7 @@ interpreterDictionary = newDictionary extras
           addWord "TREG" treg
           addWord "PAD" pad
           addWord "STRING," compileString
-          addWord "LIT," (dpop >>= cprim litComma)
+          addWord "LIT," (dpop >>= \x -> cprim (flip litComma x))
           addWord "ALLOT" allot
           addWord ">BODY" toBody
           addWord "ACCEPT" accept
@@ -117,11 +123,14 @@ interpreterDictionary = newDictionary extras
           addWord "ALIGNED" aligned
           addWord "DEPTH" depth
           addWord "KEY" key
-          addWord "RECURSE" (cprim recurse ())
-          addWord "TARGET-CODEGEN" (targetCodegen MSP430)
+          addWord "RECURSE" (cprim recurse)
+--          addWord "CROSS-COMPILER" crossCompileSetup
+          addWord "DUMP-CORTEXM" (targetCodegen codeGenerateCortexM)
+          addWord "DUMP-MSP430" (targetCodegen codeGenerateMSP430)
+
 
 -- | Foundation of the Forth interpreter
-instance Cell cell => Primitive (CV cell) (FM cell ()) where
+instance Cell cell => Primitive (CV cell t) (FM cell t ()) where
   exit = rpop >>= \case
            IP ip' -> do
              modify $ \s -> s { ip = ip' }
@@ -197,20 +206,25 @@ instance Cell cell => Primitive (CV cell) (FM cell ()) where
   ummod = ummod'
 
 -- Forward declarations of Forth words implemented by the interpreter
-xif, xelse, xthen, xdo, loop, plusLoop, leave, begin, until, again :: Cell cell => FM cell ()
-repeat, while :: Cell cell => FM cell ()
-interpret, plusStore, create, does, colon, semicolon, quit :: Cell cell => FM cell ()
-compileComma, smudge, immediate, pdo, ploop, pplusLoop :: Cell cell => FM cell ()
-here, backpatch, backslash, loadSource, emit, treg, pad :: Cell cell => FM cell ()
-allot, umstar', ummod', rot, evaluate, false, true, key :: Cell cell => FM cell ()
-state, sourceID, toIn, inputBuffer, inputLine, inputLineLength :: Cell cell => FM cell ()
-toBody, accept, align, aligned, depth :: Cell cell => FM cell ()
+xif, xelse, xthen, xdo, loop, plusLoop, leave, begin, until, again,
+  repeat, while,
+  interpret, plusStore, create, does, colon, semicolon, quit,
+  compileComma, smudge, immediate, pdo, ploop, pplusLoop,
+  here, backpatch, backslash, loadSource, emit, treg, pad,
+  allot, umstar', ummod', rot, evaluate, false, true, key,
+  state, sourceID, toIn, inputBuffer, inputLine, inputLineLength,
+  toBody, accept, align, aligned, depth
+  :: Cell cell => FM cell t ()
 
 
--- | Invoke a compilation primitve
-cprim cf x = updateState f  where
-  f s | Just d <- defining s = newState s { defining = Just (cf (compiler s) x d) }
-      | otherwise = notDefining s
+-- | Invoke a compilation primitve for the interpreter only
+-- iprim :: (Cell cell, Compiler cell (FM cell t ()) (Defining cell (FM cell t ()))) =>
+--         (Defining cell (FM cell t ()) -> Defining cell (FM cell t ())) -> FM cell t ()
+-- cprim :: Cell cell => (forall d. (d -> d)) -> FM cell t ()
+cprim cf = updateState f  where
+  f s = case defining s of
+          Just{} -> newState s { defining = cf (compilerFuns s) <$> defining s }
+          Nothing -> notDefining s
 
 -- variables
 state           = litAdr stateWId
@@ -235,7 +249,7 @@ xif   = docol [here, icompileBranch branch0, exit]
 xelse = docol [here, icompileBranch branch, here, rot, backpatch, exit]
 xthen = docol [here, swap, backpatch, exit]
 
-xdo = docol [cprim compile (XT Nothing pdo), here, exit]
+xdo = docol [cprim (flip compile (XT Nothing pdo)), here, exit]
 loop = xloop ploop
 plusLoop = xloop pplusLoop
 leave = updateState f  where
@@ -254,8 +268,8 @@ plusStore = docol [dup, fetch, rot, plus, swap, store, exit]
 
 create = docol [xword, create' docol True, exit]
 colon = docol [lit (Val (-1)), state, store, xword, create' docol False, exit]
-semicolon = docol [cprim compile (XT Nothing exit), lit (Val 0), state, store, smudge, exit]
-compileComma = dpop >>= cprim compile
+semicolon = docol [cprim (flip compile (XT Nothing exit)), lit (Val 0), state, store, smudge, exit]
+compileComma = dpop >>= \x -> cprim (flip compile x)
 immediate = updateState $ \s -> newState s { dict = setLatestImmediate (dict s) }
 
 does = updateState f  where
@@ -270,7 +284,8 @@ does = updateState f  where
         | otherwise = abortWith "IP not on rstack" s
 
 -- Helper function that compile the ending loop word
-xloop a = docol [cprim compile (XT Nothing a), here, icompileBranch branch0, backpatch, exit]
+xloop :: Cell cell => FM cell t () -> FM cell t ()
+xloop a = docol [cprim (flip compile (XT Nothing a)), here, icompileBranch branch0, backpatch, exit]
 
 -- | Runtime words for DO-LOOPs
 pdo = updateState f  where
@@ -291,13 +306,13 @@ rloopHelper f s
   | otherwise = emptyStack s
 
 -- | Helper for arithmetics
-binary :: Cell cell => (CV cell -> CV cell -> CV cell) -> FM cell ()
+binary :: Cell cell => (CV cell t -> CV cell t -> CV cell t) -> FM cell t ()
 binary op = updateState f  where
   f s | op1 : op2 : ss <- stack s = newState s { stack = op2 `op` op1 : ss }
       | otherwise = emptyStack s
 
 -- | Convert a cell value to a large unsigned number
-unsigned :: Cell cell => CV cell -> Word64
+unsigned :: Cell cell => CV cell t -> Word64
 unsigned c@(Val x) =
   let (ux :: Word64) = fromIntegral x
       Just bitsize = bitSizeMaybe c
@@ -305,7 +320,7 @@ unsigned c@(Val x) =
   in ux Bits..&. bitmask
 
 -- | Call given colon definition body.
-docol, branch, branch0 :: Cell cell => [FM cell ()] -> FM cell ()
+docol, branch, branch0 :: Cell cell => [FM cell t ()] -> FM cell t ()
 docol xs = modify (\s -> s { rstack = IP (ip s) : rstack s, ip = xs }) >> next
 
 branch = ipdo
@@ -315,18 +330,18 @@ branch0 loc = dpop >>= \n -> if | isZero n -> ipdo loc
 -- | Replace what we are interpreting with given slice of code.
 --   Typically used for implementing branches and setting the
 --   main loop.
-ipdo :: Cell cell => [FM cell ()] -> FM cell ()
+ipdo :: Cell cell => [FM cell t ()] -> FM cell t ()
 ipdo ip' = modify (\s -> s { ip = ip' }) >> next
 
 -- | Search dictionary for given named word.
-searchDict :: Cell cell => ByteString -> FM cell (Maybe (ForthWord (FM cell ())))
+searchDict :: Cell cell => ByteString -> FM cell t (Maybe (ForthWord (FM cell t ())))
 searchDict n = gets (f . latest . dict)
   where f jw@(Just word) | n == name word = jw
                          | otherwise = f (link word)
         f Nothing = Nothing
 
 -- | Main loop for the interpreter
-mainLoop :: Cell cell => FM cell ()
+mainLoop :: Cell cell => FM cell t ()
 mainLoop = do
   mline <- lift $ getInputLine ""
   case mline of
@@ -366,11 +381,11 @@ evaluate = docol [inputLine, fetch, tor,              -- save input specificatio
                   rto, inputLine, store, exit]
 
 -- | Insert the field contents of given word
-putField :: Cell cell => WordId -> DataField cell (FM cell ()) -> FM cell ()
+putField :: Cell cell => WordId -> DataField cell (FM cell t ()) -> FM cell t ()
 putField wid field = modify $ \s -> s { variables = IntMap.insert (unWordId wid) field  (variables s) }
 
 -- | Push the field address of a word on stack
-litAdr :: Cell cell => WordId -> FM cell ()
+litAdr :: Cell cell => WordId -> FM cell t ()
 litAdr = lit . adrcv
 
 -- | Addressable value, pointing to the first address of the datafield of
@@ -378,7 +393,7 @@ litAdr = lit . adrcv
 adrcv wid = Address (Just $ Addr wid 0)
 
 -- | Forth level error handling.
-abort :: Cell cell => FM cell ()
+abort :: Cell cell => FM cell t ()
 abort = docol [modify (\s -> s { stack = [], defining = Nothing }) >> next,
                lit (Val 0), state, store, quit]
 
@@ -388,27 +403,27 @@ abortWith msg s = return (Left msg, s)
 abortMessage msg = liftIO (putStrLn msg) >> abort
 
 -- | Step the colon body and execute next word in it.
-next :: Cell cell => FM cell ()
+next :: Cell cell => FM cell t ()
 next = do x <- StateT $ \s -> let (x:xs) = ip s
                               in return (x, s { ip = xs } )
           x
 
 -- | Invoke an execution token.
-call :: Cell cell => CV cell -> FM cell ()
+call :: Cell cell => CV cell t -> FM cell t ()
 call (XT _ a) = a
 call _ = abortMessage "not an execution token"
 
 -- | Data stack primitives
-dpush :: CV cell -> FM cell ()
+dpush :: CV cell t -> FM cell t ()
 dpush val = modify $ \s -> s { stack = val : stack s }
 
-dpop :: Cell cell => FM cell (CV cell)
+dpop :: Cell cell => FM cell t (CV cell t)
 dpop = updateStateVal (Val 0) f  where
   f s | t:ts <- stack s = return (Right t, s { stack = ts })
       | otherwise = emptyStack s
 
 -- | Return stack primitives
-rpop :: Cell cell => FM cell (CV cell)
+rpop :: Cell cell => FM cell t (CV cell t)
 rpop = updateStateVal (Val 0) f  where
   f s | t:ts <- rstack s = return (Right t, s { rstack = ts })
       | otherwise = emptyStack s
@@ -427,7 +442,7 @@ updateStateVal x f = StateT f >>= \case
 
 newState s = return (Right (), s)
 
-cfetch' :: Cell cell => FM cell ()
+cfetch' :: Cell cell => FM cell t ()
 cfetch' = updateState f  where
   f s | Address (Just adr@(Addr wid _)) : rest <- stack s =
           case IntMap.lookup (unWordId wid) (variables s) of
@@ -441,7 +456,7 @@ cfetch' = updateState f  where
       | null (stack s) = emptyStack s
       | otherwise = abortWith "bad C@ address" s
 
-cstore' :: Cell cell => FM cell ()
+cstore' :: Cell cell => FM cell t ()
 cstore' = do
   action <- updateStateVal (return ()) $ \s ->
     case stack s of
@@ -462,7 +477,7 @@ cstore' = do
   liftIO action
   next
 
-fetch' :: Cell cell => FM cell ()
+fetch' :: Cell cell => FM cell t ()
 fetch' = updateState f  where
   f s | Address (Just adr@(Addr wid off)) : rest <- stack s =
           case IntMap.lookup (unWordId wid) (variables s) of
@@ -476,7 +491,7 @@ fetch' = updateState f  where
       | null (stack s) = emptyStack s
       | otherwise = abortWith "bad address given to @" s
 
-store' :: Cell cell => FM cell ()
+store' :: Cell cell => FM cell t ()
 store' = updateState f  where
   f s | Address (Just adr@(Addr wid i)) : val : rest <- stack s,
         Just (DataField cm) <- IntMap.lookup (unWordId wid) (variables s) =
@@ -487,7 +502,7 @@ store' = updateState f  where
       | otherwise = abortWith "Bad arguments to !" s
 
 -- | Given a counted string, extract the actual text as an individual ByteString.
-countedText :: Cell cell => CV cell -> FM cell ByteString
+countedText :: Cell cell => CV cell t -> FM cell t ByteString
 countedText (Address (Just (Addr wid off))) = updateStateVal "" $ \s ->
     case IntMap.lookup (unWordId wid) (variables s) of
       Just (BufferField cmem) ->
@@ -500,7 +515,7 @@ xt word = XT (Just $ wordId word) (doer word)
 
 -- | Find the name (counted string) in the dictionary
 --   ( c-addr -- c-addr 0 | xt 1 | xt -1 )
-find :: Cell cell => FM cell ()
+find :: Cell cell => FM cell t ()
 find = do
   caddr <- dpop
   mword <- searchDict =<< countedText caddr
@@ -514,7 +529,7 @@ find = do
 
 -- | Copy word from given address with delimiter to a special transient area.
 --   ( "<chars>ccc<char>" -- c-addr )
-xword :: Cell cell => FM cell ()
+xword :: Cell cell => FM cell t ()
 xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, exit]
   where
     parseName =   -- ( "<spaces>ccc<space>" -- ctransbuf n )
@@ -548,14 +563,14 @@ ilitComma x = tackOn $ WrapA $ lit x
 
 -- | Compile a branch instruction. Branches need special handling when
 --   the colon definition is finailized.
-icompileBranch :: Cell cell => ([FM cell ()] -> FM cell ()) -> FM cell ()
+icompileBranch :: Cell cell => ([FM cell t ()] -> FM cell t ()) -> FM cell t ()
 icompileBranch dest = updateState f  where
   f s | Just d <- defining s = newState s { defining = Just (tackOn (WrapB dest) d) }
       | otherwise = notDefining s
 
 xcompileBranch _ = error "do not call xcompileBranch"
 
-irecurse _ = tackOn WrapRecurse
+irecurse = tackOn WrapRecurse
 
 tackOn x d = d { compileList = V.snoc (compileList d) x }
 
@@ -563,7 +578,7 @@ tackOn x d = d { compileList = V.snoc (compileList d) x }
 -- | Helper for create. Open up for defining a word assuming that the name of the
 --   word can be found on top of stack.
 --   ( caddr -- )  of word name to be created
-create' :: Cell cell => ([FM cell ()] -> FM cell ()) -> Bool -> FM cell ()
+create' :: Cell cell => ([FM cell t ()] -> FM cell t ()) -> Bool -> FM cell t ()
 create' finalizer usingCreate = updateState f  where
   f s | Just{} <- defining s = abortWith "already compiling" s
       | Address (Just (Addr awid off)) : ss <- stack s,
@@ -588,7 +603,7 @@ smudge = updateState f  where
       | otherwise = notDefining s
 
 -- | Close the word being defined.
-closeDefining :: Cell cell => Defining cell (FM cell ()) -> FState cell -> FState cell
+closeDefining :: Cell cell => Defining (FM cell t ()) -> FState cell t -> FState cell t
 closeDefining defining s =
   let dict' = (dict s) { latest = Just word }
       word = (definingWord defining) { doer = (defineFinalizer defining) cs }
@@ -629,7 +644,7 @@ backslash = docol body
         eol = drop : drop : inputLineLength : fetch : toIn : store : exit : found
         found = [inputLineLength, fetch, swap, minus, toIn, store, drop, exit]
 
-popFilename :: Cell cell => FM cell String
+popFilename :: Cell cell => FM cell t String
 popFilename =
   updateStateVal "" $ \s ->
     case stack s of
@@ -666,22 +681,28 @@ loadSource = docol [xword, makeTempBuffer, evaluate, releaseTempBuffer, exit] wh
                                                            oldHandles = handle : oldHandles s }
 
 -- | Generate code for a target
-targetCodegen :: Cell cell => TargetKey -> FM cell ()
-targetCodegen key = docol [xword, dump, exit]
+targetCodegen codeGenerate = docol [xword, dump, exit]
   where dump = do
           outputfile <- popFilename
-          text <- targetOutput key
+          Just dict <- gets targetDict
+          let text = codeGenerate dict
           mres <- liftIO $ try $ withFile outputfile WriteMode (flip L.hPut text)
           case mres of
             Left (e :: IOException) -> abortMessage $ show e
             Right () -> next
 
+{-
+crossCompileSetup = updateState f  where
+  f s = newState s { targetDict = Just (newDictionary extras)  }
+  extras = return (WordId 0)
+-}
+
 -- | Compile a string literal. We expect to get a string pointer (caddr u) on
 --   the stack pointing to some character buffer. Compile a string literal
 --   that has the execution semantics to push the string back on stack.
 --   For the interpreter we simply wrap it in a literal.
-compileString :: Cell cell => FM cell ()
-compileString = cprim compile =<< liftM Text stringlit
+compileString :: Cell cell => FM cell t ()
+compileString = cprim . flip compile =<< liftM Text stringlit
   where stringlit = updateStateVal "" $ \s ->
                       case stack s of
                         Val n : Address (Just (Addr wid i)) : rest
@@ -708,7 +729,7 @@ emit = dpop >>= emit1 >> next where
     emit1 (Val n) | n >= 0 = liftIO $ putStr [chr $ fromIntegral n]
     emit1 _ = liftIO $ putStr "?"
 
-move :: Cell cell => FM cell ()
+move :: Cell cell => FM cell t ()
 move = do
   mtuple <- updateStateVal Nothing $ \s ->
     case stack s of

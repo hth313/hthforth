@@ -17,7 +17,7 @@ import Language.Forth.Word
 import Data.Vector.Storable.ByteString (ByteString)
 import Language.Forth.Interpreter.Address
 import Translator.Expression (Expr(Value))
-
+import Translator.Symbol
 
 -- | Cell values are what we can put into a data cell.
 --   We parameterize over some integer type size (cell).
@@ -25,6 +25,7 @@ data CellVal cell a =
     Address (Maybe Addr)    -- ^ An address value
   | Val cell                -- ^ A numeric value
   | XT (Maybe WordId) a     -- ^ Execution token
+  | XTSym Symbol            -- ^ Target symbol
   | IP [a]                  -- ^ Pushed interpretive pointer
   | Text ByteString         -- ^ Some text buffer
   | HereColon WordId Int    -- ^ Pointer inside word being defined

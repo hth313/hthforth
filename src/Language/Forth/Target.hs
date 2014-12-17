@@ -1,10 +1,8 @@
-
 module Language.Forth.Target (Target(..), alignOffset, TargetKey(..)) where
 
 import Data.Bits
 import Util.Endian
 import Util.Memory
-
 
 -- | Target descriptor
 data Target cell =  Target

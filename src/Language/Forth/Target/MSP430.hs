@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, TypeSynonymInstances #-}
+{-# LANGUAGE ImpredicativeTypes #-}
 {-
   Forth target code generator for MSP430.
 
@@ -7,12 +8,14 @@
 
 -}
 
-module Language.Forth.Target.MSP430 (dictionaryMSP430, codeGenerateMSP430) where
+module Language.Forth.Target.MSP430 (bindMSP430, dictionaryMSP430, codeGenerateMSP430) where
 
 import qualified Data.ByteString.Char8 as C
 import Data.Bits
 import Data.Int
 import Data.Monoid
+import Data.ByteString.Lazy (ByteString)
+import Language.Forth.Cell
 import Language.Forth.CellVal
 import Language.Forth.CodeGenerate
 import Language.Forth.Dictionary
@@ -21,6 +24,10 @@ import Language.Forth.Word
 import Translator.Assembler.Generate
 import Translator.Assembler.Target.MSP430
 import Translator.Expression
+
+-- | Bind a polymorphic target dictionary to be an MSP430 specific one
+bindMSP430 :: Dictionary (IM Instr430) -> Dictionary (IM Instr430)
+bindMSP430 = id
 
 -- | Our initial dictionary.
 dictionaryMSP430 :: Dictionary (IM Instr430)
@@ -143,5 +150,5 @@ pushStack r = decd W stack <>
               mov W r (indirect stack)
 
 -- | Generate code for a dictionary for MSP430
-codeGenerateMSP430 :: Dictionary (IM Instr430) -> IM Instr430
-codeGenerateMSP430 dict = codeGenerate Directive pad2 dict
+-- codeGenerateMSP430 :: (forall t. Dictionary (IM t)) -> ByteString
+codeGenerateMSP430 dict = emitCode $ codeGenerate Directive pad2 (bindMSP430 dict)

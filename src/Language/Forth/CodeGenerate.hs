@@ -22,7 +22,7 @@ import Translator.Assembler.Directive
 import Translator.Assembler.Generate
 
 -- | Generalized Forth code generator
-codeGenerate :: (GNUDirective -> a) -> (Int -> Int) -> Dictionary (IM a) -> (IM a)
+codeGenerate :: (GNUDirective -> a) -> (Int -> Int) -> Dictionary (IM a) -> IM a
 codeGenerate dir pad dict = visit (latest dict)  where
   visit Nothing = mempty
   visit (Just word) = visit (link word) <> generate word
