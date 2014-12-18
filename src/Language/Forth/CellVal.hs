@@ -5,25 +5,27 @@
 
 -}
 
-module Language.Forth.CellVal (CellVal(..), trueVal, falseVal, isValue, isAddress, isAny,
+module Language.Forth.CellVal (Cell, CellVal(..), trueVal, falseVal, isValue, isAddress, isAny,
                                bitSizeMaybe, isExecutionToken, isZero, cellToExpr) where
 
 import Data.Bits
+import Data.Int
 import Data.Ord
 import Data.Map (Map)
 import Data.Word
-import Language.Forth.Cell
 import Language.Forth.Word
 import Data.Vector.Storable.ByteString (ByteString)
 import Language.Forth.Interpreter.Address
 import Translator.Expression (Expr(Value))
 import Translator.Symbol
 
+type Cell = Int32
+
 -- | Cell values are what we can put into a data cell.
 --   We parameterize over some integer type size (cell).
-data CellVal cell a =
+data CellVal a =
     Address (Maybe Addr)    -- ^ An address value
-  | Val cell                -- ^ A numeric value
+  | Val Cell                -- ^ A numeric value
   | XT (Maybe WordId) a     -- ^ Execution token
   | XTSym Symbol            -- ^ Target symbol
   | IP [a]                  -- ^ Pushed interpretive pointer
@@ -31,13 +33,13 @@ data CellVal cell a =
   | HereColon WordId Int    -- ^ Pointer inside word being defined
   | Bot String
 
-instance Eq cell => Eq (CellVal cell a) where
+instance Eq (CellVal a) where
   Address a1 == Address a2 = a1 == a2
   Val n1     == Val n2     = n1 == n2
   Text t1    == Text t2    = t1 == t2
   _ == _ = False
 
-instance Ord cell => Ord (CellVal cell a) where
+instance Ord (CellVal a) where
   Address (Just (Addr wid1 off1)) <= Address (Just (Addr wid2 off2))
     | wid1 == wid2 = off1 <= off2
   Val n1 <= Val n2  = n1 <= n2
@@ -47,7 +49,7 @@ illegalValue = Bot "illegal value"
 
 -- | Make 'CellVal cell' part of Num class. This allows us to use functions such as (+)
 --   and many others direct on literals.
-instance Cell cell => Num (CellVal cell a) where
+instance Num (CellVal a) where
     (Val a) + (Val b) = Val (a + b)
     (Address (Just (Addr w off))) + (Val b) = Address (Just (Addr w (off + (fromIntegral b))))
     (Val b) + (Address (Just (Addr w off))) = Address (Just (Addr w (off +  (fromIntegral b))))
@@ -78,7 +80,7 @@ instance Cell cell => Num (CellVal cell a) where
 
 
 -- | Also make 'CellVal cell' part of Bits to allow further operations.
-instance Cell cell => Bits (CellVal cell a) where
+instance Bits (CellVal a) where
     (Val a) .&. (Val b) = Val (a .&. b)
     a .&. b = illegalValue
     (Val a) .|. (Val b) = Val (a .|. b)
@@ -103,12 +105,12 @@ instance Cell cell => Bits (CellVal cell a) where
     bit a = illegalValue
 
 #if __GLASGOW_HASKELL__ < 708
-bitSizeMaybe :: Cell cell => CellVal cell a -> Maybe Int
+bitSizeMaybe :: CellVal a -> Maybe Int
 bitSizeMaybe = Just . bitSize
 #endif
 
 -- | Boolean truth values.
-trueVal, falseVal :: Cell cell => CellVal cell a
+trueVal, falseVal :: CellVal a
 trueVal = Val (-1)
 falseVal = Val 0
 

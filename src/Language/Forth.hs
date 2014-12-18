@@ -6,6 +6,7 @@ import qualified Data.Map as Map
 import Translator.Assembler.Generate
 import Language.Forth.Interpreter
 import Language.Forth.Machine
+import Language.Forth.Primitive
 import Language.Forth.Target
 import Language.Forth.Target.CortexM
 import Language.Forth.Target.MSP430
@@ -16,12 +17,10 @@ import System.Exit
 import System.FilePath
 import System.IO
 
-import Language.Forth.Primitive
-import Language.Forth.Cell
 
 main :: IO ()
 main =
-    let target = Target 4 4 1 LittleEndian :: Target Int32
+    let target = Target 4 4 1 LittleEndian :: Target
         name = "hthforth"
     in do
       putStrLn $ name ++ ", version 1.1.1"

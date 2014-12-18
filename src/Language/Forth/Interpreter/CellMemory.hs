@@ -21,36 +21,36 @@ import Language.Forth.Target
 import Util.Address
 import Util.Endian
 
-data CellMemory cell a = CellMemory
-  { contents :: IntMap (StorageUnit cell a)
-  , target :: Target cell
+data CellMemory a = CellMemory
+  { contents :: IntMap (StorageUnit a)
+  , target :: Target
   , dpOffset :: Int
   }
 
-data StorageUnit cell a = Part Int (CellVal cell a) | Byte Word8
+data StorageUnit a = Part Int (CellVal a) | Byte Word8
 
-newCellMemory :: Target cell -> Int -> CellMemory cell a
+newCellMemory :: Target -> Int -> CellMemory a
 newCellMemory target size = CellMemory IntMap.empty target size
 
-readCell :: Addr -> CellMemory cell a -> Maybe (CellVal cell a)
+readCell :: Addr -> CellMemory a -> Maybe (CellVal a)
 readCell (Addr _ i) mem =
     case IntMap.lookup i (contents mem) of
       Just (Part _ cell) -> Just cell
       otherwise -> Nothing
 
-writeCell :: CellVal cell a -> Addr -> CellMemory cell a -> CellMemory cell a
+writeCell :: CellVal a -> Addr -> CellMemory a -> CellMemory a
 writeCell val (Addr _ i) mem =
     mem { contents = IntMap.insert i (Part 0 val) (contents mem) }
 
-read8CM :: Addr -> CellMemory cell a -> Maybe (StorageUnit cell a)
+read8CM :: Addr -> CellMemory a -> Maybe (StorageUnit a)
 read8CM (Addr _ i) mem = IntMap.lookup i (contents mem)
 
-write8CM :: Word8 -> Addr -> CellMemory cell a -> CellMemory cell a
+write8CM :: Word8 -> Addr -> CellMemory a -> CellMemory a
 write8CM val (Addr _ i) mem = mem { contents = IntMap.insert i (Byte val) (contents mem) }
 
 -- | Apply a function to the datapointer to advance it, return the
 --   previous value of it
-updateDataPointer :: (Int -> Int) -> CellMemory cell a -> (Int, CellMemory cell a)
+updateDataPointer :: (Int -> Int) -> CellMemory a -> (Int, CellMemory a)
 updateDataPointer f mem = (dpOffset mem, mem { dpOffset = f (dpOffset mem) })
 
 blockMoveTextCM text (Addr _ offset) cm =

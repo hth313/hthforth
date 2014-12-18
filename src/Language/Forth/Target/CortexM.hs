@@ -13,7 +13,6 @@ module Language.Forth.Target.CortexM (bindCortexM, dictionaryCortexM, codeGenera
 import Data.Int
 import Data.Monoid hiding (Any)
 import Data.ByteString.Lazy (ByteString)
-import Language.Forth.Cell
 import Language.Forth.CellVal
 import Language.Forth.CrossCompiler.CodeGenerate
 import Language.Forth.Dictionary
@@ -41,7 +40,7 @@ dictionaryCortexM = newDictionary extras
   where extras = return (WordId 0)
 
 -- | CortexM instantiation of the Forth tagless final style typeclass.
-instance Primitive (CellVal Int32 (IM ARMInstr)) (IM ARMInstr) where
+instance Primitive (CellVal (IM ARMInstr)) (IM ARMInstr) where
   exit     = popRStack ip
   execute  = insRec (mov ip (RegOp tos)) <>
              popStack tos

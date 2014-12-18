@@ -18,7 +18,7 @@ import Util.Memory
 
 -- | A data field is the body of a data word. It can either be
 --   a cell memory or a byte buffer
-data DataField cell a = DataField (CellMemory cell a) | BufferField (Memory Addr)
+data DataField a = DataField (CellMemory a) | BufferField (Memory Addr)
 
 -- | Allocate a data field of the given size. This is for generic use, writing
 --   cells or bytes

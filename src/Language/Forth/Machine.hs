@@ -28,23 +28,23 @@ import Translator.Assembler.InstructionSet
 import Translator.Expression
 
 -- Interpreter monad
-type FM cell t = StateT (FState cell t) (InputT IO)
+type FM t = StateT (FState t) (InputT IO)
 
 -- Simpler way of specifying a cell value
-type CV cell t = CellVal cell (FM cell t ())
+type CV t = CellVal (FM t ())
 
 -- | Interpreter state.
-data FState cell t = FState
-  { stack  :: [CV cell t]               -- ^ Data stack
-  , rstack :: [CV cell t]               -- ^ Return stack
-  , ip     :: [FM cell t ()]            -- ^ Interpretive pointer
-  , target :: Target cell
-  , dict   :: Dictionary (FM cell t ()) -- ^ Dictionary of Forth words for interpreter
-  , variables :: IntMap (DataField cell (FM cell t ()))
+data FState t = FState
+  { stack  :: [CV t]               -- ^ Data stack
+  , rstack :: [CV t]               -- ^ Return stack
+  , ip     :: [FM t ()]            -- ^ Interpretive pointer
+  , target :: Target
+  , dict   :: Dictionary (FM t ()) -- ^ Dictionary of Forth words for interpreter
+  , variables :: IntMap (DataField (FM t ()))
   , oldHandles :: [WordId]                 -- ^ Unused handles after reading source files
   , stringLiterals :: Map V.ByteString Addr
-  , compilerFuns :: Compiler cell t (Defining (FM cell t ()))
-  , defining :: Maybe (Defining (FM cell t ()))   -- ^ Collector when compiling
+  , compilerFuns :: Compiler t (Defining (FM t ()))
+  , defining :: Maybe (Defining (FM t ()))   -- ^ Collector when compiling
   , targetDict :: forall t1. InstructionSet t1 => Maybe (Dictionary (IM t1)) -- ^ Cross compiler dictionary
   }
 
@@ -67,17 +67,17 @@ data DefiningWrapper a = WrapA a | WrapB ([a] -> a) | WrapRecurse
 
 -- | Compiler primitives. This record keeps track of compiler primitives,
 --   and is meant to be replaced when cross compiling to some other target.
-data Compiler cell t d = Compiler {
-    compile :: CV cell t -> d -> d
+data Compiler t d = Compiler {
+    compile :: CV t -> d -> d
     -- ^ Compile a cell value to a colon definition
-  , litComma :: CV cell t -> d -> d
+  , litComma :: CV t -> d -> d
     -- ^ Compile a cell value from the stack
-  , compileBranch :: CellVal cell t -> d -> d
+  , compileBranch :: CellVal t -> d -> d
     -- ^ Compile a unconditional branch instruction, not used by the interpreter
-  , compileBranch0 :: CellVal cell t -> d -> d
+  , compileBranch0 :: CellVal t -> d -> d
     -- ^ Compile a conditional branch instruction, not used by the interpreter
   , recurse :: d -> d
     -- ^ Compile a recursive call back to the start of current definition
-  , addCompiledWord :: d -> FState cell t -> FState cell t
+  , addCompiledWord :: d -> FState t -> FState t
     -- ^ Add compiled word to active dictionary in the Forth state
   }

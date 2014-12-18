@@ -15,7 +15,6 @@ import Data.Bits
 import Data.Int
 import Data.Monoid
 import Data.ByteString.Lazy (ByteString)
-import Language.Forth.Cell
 import Language.Forth.CellVal
 import Language.Forth.CrossCompiler.CodeGenerate
 import Language.Forth.Dictionary
@@ -75,7 +74,7 @@ unary ctor s op = insRec $ ctor s op
 label = labRec . C.pack . nameMangle
 
 -- | MSP430 instantiation of the Forth tagless final style typeclass.
-instance Primitive (CellVal Int16 (IM Instr430)) (IM Instr430) where
+instance Primitive (CellVal (IM Instr430)) (IM Instr430) where
   exit     = pop W ip
   execute  = mov W tos ip <>
              popStack tos
