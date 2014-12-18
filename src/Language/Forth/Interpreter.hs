@@ -123,7 +123,7 @@ interpreterDictionary = newDictionary extras
           addWord "DEPTH" depth
           addWord "KEY" key
           addWord "RECURSE" (cprim recurse)
---          addWord "CROSS-COMPILER" crossCompileSetup
+          addWord "CROSS-COMPILER" crossCompileSetup
           addWord "DUMP-CORTEXM" (targetCodegen codeGenerateCortexM)
           addWord "DUMP-MSP430" (targetCodegen codeGenerateMSP430)
 
@@ -690,11 +690,9 @@ targetCodegen codeGenerate = docol [xword, dump, exit]
             Left (e :: IOException) -> abortMessage $ show e
             Right () -> next
 
-{-
 crossCompileSetup = updateState f  where
   f s = newState s { targetDict = Just (newDictionary extras)  }
   extras = return (WordId 0)
--}
 
 -- | Compile a string literal. We expect to get a string pointer (caddr u) on
 --   the stack pointing to some character buffer. Compile a string literal

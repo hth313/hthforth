@@ -45,7 +45,8 @@ data FState t = FState
   , stringLiterals :: Map V.ByteString Addr
   , compilerFuns :: Compiler t (Defining (FM t ()))
   , defining :: Maybe (Defining (FM t ()))   -- ^ Collector when compiling
-  , targetDict :: forall t1. InstructionSet t1 => Maybe (Dictionary (IM t1)) -- ^ Cross compiler dictionary
+  , targetDict :: forall t1. (InstructionSet t1, Primitive (IM t1)) =>
+                  Maybe (Dictionary (IM t1)) -- ^ Cross compiler dictionary
   }
 
 -- | The defining state for the interpreter.
