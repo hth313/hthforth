@@ -74,7 +74,7 @@ unary ctor s op = insRec $ ctor s op
 label = labRec . C.pack . nameMangle
 
 -- | MSP430 instantiation of the Forth tagless final style typeclass.
-instance Primitive (CellVal (IM Instr430)) (IM Instr430) where
+instance Primitive (IM Instr430) where
   exit     = pop W ip
   execute  = mov W tos ip <>
              popStack tos

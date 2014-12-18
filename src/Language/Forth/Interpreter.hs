@@ -129,7 +129,7 @@ interpreterDictionary = newDictionary extras
 
 
 -- | Foundation of the Forth interpreter
-instance Primitive (CV t) (FM t ()) where
+instance Primitive (FM t ()) where
   exit = rpop >>= \case
            IP ip' -> do
              modify $ \s -> s { ip = ip' }

@@ -38,7 +38,7 @@ data Dictionary a = Dictionary
  inputLineLengthWId : wordBufferWId : sourceIDWid : tregWid : wordsIds) = map WordId [0..]
 
 -- Create a new basic dictionary.
-newDictionary :: Primitive c a => State (Dictionary a) WordId -> Dictionary a
+newDictionary :: Primitive a => State (Dictionary a) WordId -> Dictionary a
 newDictionary extras = execState build (Dictionary wordsIds Nothing)
   where
     build = do

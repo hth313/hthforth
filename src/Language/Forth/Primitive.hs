@@ -1,4 +1,4 @@
-{-# LANGUAGE FunctionalDependencies, MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {- |
 
    Forth primitives.
@@ -10,6 +10,9 @@
 
 module Language.Forth.Primitive (Primitive(..)) where
 
+import Language.Forth.CellVal
+
+
 {- | The Forth builtin primitives.
 
      Tagless final style relies on some type 'a' to fold on.
@@ -18,10 +21,10 @@ module Language.Forth.Primitive (Primitive(..)) where
      cell values (execution token), so we have to parameterize
      CellVal with both type variables.
 -}
-class Primitive c a | a -> c where
+class Primitive a where
   exit :: a
   execute :: a
-  lit :: c -> a
+  lit :: CellVal a -> a
   swap, drop, dup, over, rto, tor, rfetch :: a
   fetch, cfetch :: a
   store, cstore :: a

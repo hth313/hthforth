@@ -40,7 +40,7 @@ dictionaryCortexM = newDictionary extras
   where extras = return (WordId 0)
 
 -- | CortexM instantiation of the Forth tagless final style typeclass.
-instance Primitive (CellVal (IM ARMInstr)) (IM ARMInstr) where
+instance Primitive (IM ARMInstr) where
   exit     = popRStack ip
   execute  = insRec (mov ip (RegOp tos)) <>
              popStack tos
