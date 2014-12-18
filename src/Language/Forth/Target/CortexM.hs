@@ -15,7 +15,7 @@ import Data.Monoid hiding (Any)
 import Data.ByteString.Lazy (ByteString)
 import Language.Forth.Cell
 import Language.Forth.CellVal
-import Language.Forth.CodeGenerate
+import Language.Forth.CrossCompiler.CodeGenerate
 import Language.Forth.Dictionary
 import Language.Forth.Primitive
 import Language.Forth.Word

@@ -20,9 +20,8 @@ import Control.Applicative
 import qualified Data.Map as Map
 import qualified Data.Vector as V
 import Language.Forth.CellVal
-import Language.Forth.Compiler
 import Language.Forth.Dictionary
-import Language.Forth.Interpreter.State
+import Language.Forth.Machine
 import Language.Forth.Target (TargetKey)
 import Translator.Assembler.Generate (IM)
 import Translator.Expression

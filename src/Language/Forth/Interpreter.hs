@@ -33,9 +33,9 @@ import Language.Forth.Interpreter.CellMemory
 import Language.Forth.Interpreter.DataField
 import Language.Forth.Cell
 import Language.Forth.CellVal
-import Language.Forth.Compiler
+import Language.Forth.CrossCompiler
 import Language.Forth.Dictionary
-import Language.Forth.Interpreter.State
+import Language.Forth.Machine
 import Language.Forth.Primitive
 import Language.Forth.StreamFile
 import Language.Forth.Target

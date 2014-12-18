@@ -5,7 +5,7 @@
 
 -}
 
-module Language.Forth.CodeGenerate (codeGenerate, nameMangle, nameString, pad2) where
+module Language.Forth.CrossCompiler.CodeGenerate (codeGenerate, nameMangle, nameString, pad2) where
 
 import Data.Bits
 import Data.Char
