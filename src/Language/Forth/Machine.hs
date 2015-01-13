@@ -28,25 +28,25 @@ import Translator.Assembler.InstructionSet
 import Translator.Expression
 
 -- Interpreter monad
-type FM t = StateT (FState t) (InputT IO)
+type FM a = StateT (FState a) (InputT IO)
 
 -- Simpler way of specifying a cell value
-type CV t = CellVal (FM t ())
+type CV a = CellVal (FM a ())
 
 -- | Interpreter state.
-data FState t = FState
-  { stack  :: [CV t]               -- ^ Data stack
-  , rstack :: [CV t]               -- ^ Return stack
-  , ip     :: [FM t ()]            -- ^ Interpretive pointer
+data FState a = FState
+  { stack  :: [CV a]               -- ^ Data stack
+  , rstack :: [CV a]               -- ^ Return stack
+  , ip     :: [FM a ()]            -- ^ Interpretive pointer
   , target :: Target
-  , dict   :: Dictionary (FM t ()) -- ^ Dictionary of Forth words for interpreter
-  , variables :: IntMap (DataField (FM t ()))
+  , dict   :: Dictionary (FM a ()) -- ^ Dictionary of Forth words for interpreter
+  , variables :: IntMap (DataField (FM a ()))
   , oldHandles :: [WordId]                 -- ^ Unused handles after reading source files
   , stringLiterals :: Map V.ByteString Addr
-  , compilerFuns :: Compiler t (Defining (FM t ()))
-  , defining :: Maybe (Defining (FM t ()))   -- ^ Collector when compiling
-  , targetDict :: forall t1. (InstructionSet t1, Primitive (IM t1)) =>
-                  Maybe (Dictionary (IM t1)) -- ^ Cross compiler dictionary
+  , compilerFuns :: Compiler a (Defining (FM a ()))
+  , defining :: Maybe (Defining (FM a ()))   -- ^ Collector when compiling
+  , targetDict :: forall t. (InstructionSet t, Primitive (IM t)) =>
+                  Maybe (Dictionary (IM t)) -- ^ Cross compiler dictionary
   }
 
 -- | The defining state for the interpreter.
@@ -68,17 +68,17 @@ data DefiningWrapper a = WrapA a | WrapB ([a] -> a) | WrapRecurse
 
 -- | Compiler primitives. This record keeps track of compiler primitives,
 --   and is meant to be replaced when cross compiling to some other target.
-data Compiler t d = Compiler {
-    compile :: CV t -> d -> d
+data Compiler a d = Compiler {
+    compile :: CV a -> d -> d
     -- ^ Compile a cell value to a colon definition
-  , litComma :: CV t -> d -> d
+  , litComma :: CV a -> d -> d
     -- ^ Compile a cell value from the stack
-  , compileBranch :: CellVal t -> d -> d
+  , compileBranch :: CellVal a -> d -> d
     -- ^ Compile a unconditional branch instruction, not used by the interpreter
-  , compileBranch0 :: CellVal t -> d -> d
+  , compileBranch0 :: CellVal a -> d -> d
     -- ^ Compile a conditional branch instruction, not used by the interpreter
   , recurse :: d -> d
     -- ^ Compile a recursive call back to the start of current definition
-  , addCompiledWord :: d -> FState t -> FState t
+  , addCompiledWord :: d -> FState a -> FState a
     -- ^ Add compiled word to active dictionary in the Forth state
   }
