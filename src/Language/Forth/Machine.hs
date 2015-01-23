@@ -1,4 +1,4 @@
-{-# LANGUAGE ExistentialQuantification, FlexibleContexts, RankNTypes #-}
+{-# LANGUAGE FlexibleContexts, RankNTypes #-}
 {- |
 
    The Forth interpreter state and embedding it a monad transformer.
