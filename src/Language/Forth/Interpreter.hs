@@ -211,21 +211,8 @@ instance Primitive (FM t ()) where
   umstar = umstar'
   ummod = ummod'
 
--- Forward declarations of Forth words implemented by the interpreter
-xif, xelse, xthen, xdo, loop, plusLoop, leave, begin, until, again,
-  repeat, while,
-  interpret, plusStore, create, does, colon, semicolon, quit,
-  compileComma, smudge, immediate, pdo, ploop, pplusLoop,
-  here, backpatch, backslash, loadSource, emit, treg, pad,
-  allot, umstar', ummod', rot, evaluate, false, true, key,
-  state, sourceID, toIn, inputBuffer, inputLine, inputLineLength,
-  toBody, accept, align, aligned, depth
-  :: FM t ()
-
-
 -- | Invoke compiler primitive, intercepting the error condition that
 --   we are currently not in compilation mode.
--- cprim :: (Compiler a -> FState a -> FState a) -> FM a ()
 cprim cf = updateState f  where
   f s | isdefining s = newState $ s^.compilerFuns.cf $ s
       | otherwise = notDefining s
