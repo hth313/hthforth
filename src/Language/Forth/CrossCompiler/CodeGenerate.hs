@@ -23,16 +23,16 @@ import Translator.Assembler.Generate
 
 -- | Generalized Forth code generator
 codeGenerate :: (GNUDirective -> a) -> (Int -> Int) -> Dictionary (IM a) -> IM a
-codeGenerate dir pad dict = visit (latest dict)  where
+codeGenerate dir pad dict = visit (_latest dict)  where
   visit Nothing = mempty
-  visit (Just word) = visit (link word) <> generate word
+  visit (Just word) = visit (_link word) <> generate word
   generate word =
-    let (bytes, chars) = nameString pad (C.unpack $ name word)
+    let (bytes, chars) = nameString pad (C.unpack $ _name word)
         asciiRec | null chars = mempty
                  | otherwise = insRec $ dir $ ASCII [C.pack chars]
     in insRec (dir $ BYTE bytes) <>
        asciiRec <>
-       labRec (C2.pack . nameMangle . C.unpack $ name word) <> doer word <> insEmpty
+       labRec (C2.pack . nameMangle . C.unpack $ _name word) <> _doer word <> insEmpty
 
 -- Ensure the name is something the assembler accepts.
 nameMangle :: String -> String

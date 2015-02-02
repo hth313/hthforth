@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, ScopedTypeVariables, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, RankNTypes, OverloadedStrings #-}
 {- |
 
    The Forth cross compiler.
@@ -7,35 +7,60 @@
    replaced by alternatives that write to a target dictionary.
    This dictionary is type polymorphic and can be bound by any target
    to generate output.
-   Here we simply apply the target specific dictionary dumper to the
-   polymorphic target dictionary to get the output.
    For the moment, we generate assembler meant to be fed into a suitable
    cross assembler to get object code for the target.
 
 -}
 
-module Language.Forth.CrossCompiler (crossCompiler) where
+module Language.Forth.CrossCompiler (crossCompiler, targetDictionary) where
 
 import Control.Applicative
+import Control.Lens
 import qualified Data.Map as Map
 import qualified Data.Vector as V
+import Data.Maybe
+import Data.Monoid
 import Language.Forth.CellVal
 import Language.Forth.Dictionary
 import Language.Forth.Machine
+import Language.Forth.Primitive
+import Language.Forth.TargetPrimitive
 import Language.Forth.Target (TargetKey)
+import Language.Forth.Word
+import Translator.Assembler.InstructionSet
 import Translator.Assembler.Generate (IM)
-import Translator.Expression
 import qualified Data.ByteString.Lazy.Char8 as C
+import Translator.Expression
+
+-- These imports (minor kludge) are for defining below binding to a specific target,
+-- as I have yet to find a way to avoid it.
+import Translator.Assembler.Target.ARM (ARMInstr)
+import Language.Forth.Target.CortexM
 
 -- | The cross compiler
-crossCompiler = Compiler compile litComma compileBranch compileBranch0 recurse closeDefining  where
-  compile val = addWord [cellToExpr val]
-  litComma val = addWord [Identifier "LIT", cellToExpr val]
+crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 recurse closeDefining
+                         abortDefining setImmediate where
+  -- Works, but not ideal. It would be nicer if we could avoid binding it here
+  -- as we are only interested in the isJust of it, and the bound target is
+  -- irrelevant for that.
+  defining s = isJust $ _tdefining (_targetDict s :: TDict ARMInstr)
+  compile (XT (Just wordid) _) = addTokens $ wordToken "$SYM$" --  (nameSymbol word)
+  litComma val = addTokens $ literal $ cellToExpr val
   compileBranch = compileBranch0
-  compileBranch0 val def = def
-  recurse def = def
-  closeDefining (TargetDefining list) s =
-    s { defining = Nothing, targetDict = addTargetWord list <$> targetDict s }
+  compileBranch0 val s = s
+  recurse s = s
+  abortDefining s = s
+  setImmediate s = s
+  closeDefining s = s { _targetDict = closeDefining1 $ _targetDict s }
+    where closeDefining1 dict = dict & tdefining.~Nothing & tdict.latest.~Just newWord
+            where newWord = ForthWord "foo" False (_latest $ _tdict dict) (WordId 0)
+                                      (finish $ _tcompileList (fromJust $ _tdefining dict))
 
-  addWord vs (TargetDefining list) = TargetDefining (foldl V.snoc list vs) -- V.concat list (V.fromList vs))
-  addTargetWord _ s =  s
+addTokens :: (forall t. (InstructionSet t, Primitive (IM t), TargetPrimitive (IM t)) => IM t) -> FState a -> FState a
+addTokens vs s = s { _targetDict = (_targetDict s) { _tdefining = f <$> _tdefining (_targetDict s) } }
+  where f d = d { _tcompileList = _tcompileList d <> vs }
+
+targetDictionary :: (InstructionSet t, Primitive (IM t), TargetPrimitive (IM t)) => TDict t
+targetDictionary = TDict dict Nothing
+    where dict = newDictionary extras
+          extras = return $ WordId 0

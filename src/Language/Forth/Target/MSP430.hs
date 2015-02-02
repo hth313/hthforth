@@ -19,6 +19,7 @@ import Language.Forth.CellVal
 import Language.Forth.CrossCompiler.CodeGenerate
 import Language.Forth.Dictionary
 import Language.Forth.Primitive
+import Language.Forth.TargetPrimitive
 import Language.Forth.Word
 import Translator.Assembler.Generate
 import Translator.Assembler.Target.MSP430
@@ -124,6 +125,13 @@ instance Primitive (IM Instr430) where
              mov W (Absolute (Identifier "RESLO")) (indirect stack) <>
              mov W (Absolute (Identifier "RESHI")) tos
   ummod    = mempty  -- TBD
+
+colonToken tok = insRec $ Directive $ WORD [tok]
+
+instance TargetPrimitive (IM Instr430) where
+  wordToken sym = colonToken $ Identifier sym
+  literal val = colonToken (Identifier "LIT") <> colonToken val
+  finish = id
 
 -- Helper function for implementing LSHIFT and RSHIFT
 multiShift t shift =

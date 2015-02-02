@@ -12,11 +12,14 @@ module Language.Forth.Interpreter (initialState, initialVarStorage, quit) where
 import Numeric
 import Control.Exception (try)
 import Control.Applicative
+import Control.Lens hiding (over)
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import qualified Data.Bits as Bits
 import Data.Char
+import Data.Maybe
+import Data.Monoid
 import Data.Word
 import qualified Data.Map as Map
 import Data.Vector.Storable.ByteString.Char8 (ByteString)
@@ -47,13 +50,17 @@ import Util.Memory
 import Prelude hiding (drop, until, repeat)
 import qualified Prelude as Prelude
 
+
 initialState target =
-  FState [] [] [] target interpreterDictionary IntMap.empty [] Map.empty icompiler Nothing Nothing
+  FState [] [] [] target interpreterDictionary IntMap.empty [] Map.empty icompiler targetDictionary
 
-icompiler = Compiler icompile ilitComma xcompileBranch xcompileBranch irecurse closeDefining
+icompiler = Compiler defining icompile ilitComma xcompileBranch xcompileBranch irecurse icloseDefining abortDefining imm
+    where defining = isJust._idefining._dict
+          abortDefining = dict.idefining.~Nothing
+          imm = dict.idict.latest._Just.immediateFlag.~True
 
-initialVarStorage :: FM a ()
-initialVarStorage = gets target >>=
+initialVarStorage :: FM t ()
+initialVarStorage = gets _target >>=
   \t -> let f (wid, val) =
               let field@(DataField cm) = newDataField t wid (bytesPerCell t)
               in  putField wid (DataField $ writeCell val (Addr wid 0) cm)
@@ -64,8 +71,8 @@ initialVarStorage = gets target >>=
                    (sourceIDWid, 0)]
           mapM_ g [(tregWid, 100)]
 
-interpreterDictionary :: Dictionary (FM a ())
-interpreterDictionary = newDictionary extras
+interpreterDictionary :: IDict (FM a ())
+interpreterDictionary = IDict (newDictionary extras) Nothing
   where extras = do
           addWord "ROT" rot
           addWord "EVALUATE" evaluate
@@ -114,7 +121,7 @@ interpreterDictionary = newDictionary extras
           addWord "TREG" treg
           addWord "PAD" pad
           addWord "STRING," compileString
-          addWord "LIT," (dpop >>= \x -> cprim (flip litComma x))
+          addWord "LIT," (dpop >>= \x -> cprim1 litComma x ) -- (\c -> c.litComma x))
           addWord "ALLOT" allot
           addWord ">BODY" toBody
           addWord "ACCEPT" accept
@@ -129,38 +136,38 @@ interpreterDictionary = newDictionary extras
 
 
 -- | Foundation of the Forth interpreter
-instance Primitive (FM a ()) where
+instance Primitive (FM t ()) where
   exit = rpop >>= \case
            IP ip' -> do
-             modify $ \s -> s { ip = ip' }
+             modify $ \s -> s { _ip = ip' }
              next
            otherwise -> abortMessage "IP not on rstack"
   execute = call =<< dpop
   lit (Text text) = modify (\s ->
                        let u = fromIntegral $ C.length text
                            (caddr, s') = addrString text s
-                       in  s' { stack = Val u : caddr : stack s' }) >> next
+                       in  s' { _stack = Val u : caddr : _stack s' }) >> next
   lit val = dpush val >> next
   swap = updateState f  where
-     f s | s0 : s1 : ss <- stack s = newState s { stack = s1 : s0 : ss }
+     f s | s0 : s1 : ss <- _stack s = newState s { _stack = s1 : s0 : ss }
          | otherwise = emptyStack s
   drop = updateState f  where
-    f s | _ : ss <- stack s = newState s { stack = ss }
+    f s | _ : ss <- _stack s = newState s { _stack = ss }
         | otherwise = emptyStack s
   dup = updateState f  where
-    f s | ss@(s0 : _) <- stack s = newState s { stack = s0 : ss }
+    f s | ss@(s0 : _) <- _stack s = newState s { _stack = s0 : ss }
         | otherwise = emptyStack s
   over = updateState f  where
-    f s | ss@(_ : s1 : _) <- stack s = newState s { stack = s1 : ss }
+    f s | ss@(_ : s1 : _) <- _stack s = newState s { _stack = s1 : ss }
         | otherwise = emptyStack s
   tor = updateState f  where
-     f s | s0 : ss <- stack s = newState s { stack = ss, rstack = s0 : rstack s }
+     f s | s0 : ss <- _stack s = newState s { _stack = ss, _rstack = s0 : _rstack s }
          | otherwise = emptyStack s
   rto = updateState f  where
-    f s | r0 : rs <- rstack s = newState s { rstack = rs, stack = r0 : stack s }
+    f s | r0 : rs <- _rstack s = newState s { _rstack = rs, _stack = r0 : _stack s }
         | otherwise = emptyStack s
   rfetch = updateState f  where
-    f s | r0 : _ <- rstack s = newState s { stack = r0 : stack s }
+    f s | r0 : _ <- _rstack s = newState s { _stack = r0 : _stack s }
         | otherwise = emptyStack s
   cfetch = cfetch'
   fetch = fetch'
@@ -174,30 +181,30 @@ instance Primitive (FM a ()) where
 
   twoStar = docol [dup, plus, exit]
   twoSlash = updateState f  where
-    f s | Val x : ss <- stack s = newState s { stack = Val (x `Bits.shiftR` 1) : ss }
+    f s | Val x : ss <- _stack s = newState s { _stack = Val (x `Bits.shiftR` 1) : ss }
         | otherwise = abortWith "bad input to 2/" s
   lshift = updateState f  where
-    f s | Val n : Val x : ss <- stack s =
-            newState s { stack = Val (x `Bits.shiftL` (fromIntegral n)) : ss }
+    f s | Val n : Val x : ss <- _stack s =
+            newState s { _stack = Val (x `Bits.shiftL` (fromIntegral n)) : ss }
         | otherwise = abortWith "bad input to LSHIFT" s
   rshift = updateState f  where
-    f s | Val n : x@Val{} : ss <- stack s =
+    f s | Val n : x@Val{} : ss <- _stack s =
             let x' = unsigned x `Bits.shiftR` (fromIntegral n)
-            in newState s { stack = Val (fromIntegral x') : ss }
+            in newState s { _stack = Val (fromIntegral x') : ss }
         | otherwise = abortWith "bad input to RSHIFT" s
 
-  zerop = updateState $ \s -> case stack s of
-                                (Val 0) : ss         -> newState s { stack = trueVal  : ss }
-                                Val{} : ss           -> newState s { stack = falseVal : ss }
-                                Address Nothing : ss -> newState s { stack = trueVal : ss }
-                                Address{} : ss       -> newState s { stack = falseVal : ss }
+  zerop = updateState $ \s -> case _stack s of
+                                (Val 0) : ss         -> newState s { _stack = trueVal  : ss }
+                                Val{} : ss           -> newState s { _stack = falseVal : ss }
+                                Address Nothing : ss -> newState s { _stack = trueVal : ss }
+                                Address{} : ss       -> newState s { _stack = falseVal : ss }
                                 otherwise            -> emptyStack s
   lt0 = updateState f  where
-    f s | (Val n) : ss <- stack s =
+    f s | (Val n) : ss <- _stack s =
             let flag | n < 0 = trueVal
                      | otherwise = falseVal
-            in newState s { stack = flag : ss }
-        | null (stack s) = emptyStack s
+            in newState s { _stack = flag : ss }
+        | null (_stack s) = emptyStack s
         | otherwise = abortWith "bad input to 0<" s
   constant = docol [xword, create' head False, compileComma, smudge, exit]
 
@@ -213,17 +220,19 @@ xif, xelse, xthen, xdo, loop, plusLoop, leave, begin, until, again,
   allot, umstar', ummod', rot, evaluate, false, true, key,
   state, sourceID, toIn, inputBuffer, inputLine, inputLineLength,
   toBody, accept, align, aligned, depth
-  :: FM a ()
+  :: FM t ()
 
 
--- | Invoke a compilation primitve for the interpreter only
--- iprim :: (Cell cell, Compiler cell (FM cell t ()) (Defining cell (FM cell t ()))) =>
---         (Defining cell (FM cell t ()) -> Defining cell (FM cell t ())) -> FM cell t ()
--- cprim :: Cell cell => (forall d. (d -> d)) -> FM cell t ()
+-- | Invoke compiler primitive, intercepting the error condition that
+--   we are currently not in compilation mode.
+-- cprim :: (Compiler a -> FState a -> FState a) -> FM a ()
 cprim cf = updateState f  where
-  f s = case defining s of
-          Just{} -> newState s { defining = cf (compilerFuns s) <$> defining s }
-          Nothing -> notDefining s
+  f s | isdefining s = newState $ s^.compilerFuns.cf $ s
+      | otherwise = notDefining s
+
+cprim1 cf arg = updateState f  where
+  f s | isdefining s = newState $ (s^.compilerFuns.cf) arg s
+      | otherwise = notDefining s
 
 -- variables
 state           = litAdr stateWId
@@ -237,7 +246,7 @@ false = lit falseVal
 true = lit trueVal
 
 rot = updateState f  where
-  f s | s0 : s1 : s2 : ss <- stack s = newState s { stack = s2 : s0 : s1 : ss }
+  f s | s0 : s1 : s2 : ss <- _stack s = newState s { _stack = s2 : s0 : s1 : ss }
       | otherwise = emptyStack s
 
 treg = litAdr tregWid
@@ -248,11 +257,11 @@ xif   = docol [here, icompileBranch branch0, exit]
 xelse = docol [here, icompileBranch branch, here, rot, backpatch, exit]
 xthen = docol [here, swap, backpatch, exit]
 
-xdo = docol [cprim (flip compile (XT Nothing pdo)), here, exit]
+xdo = docol [cprim1 compile (XT Nothing pdo), here, exit]
 loop = xloop ploop
 plusLoop = xloop pplusLoop
 leave = updateState f  where
-  f s | _ : rs@(limit : _) <- rstack s = newState s { rstack = limit : rs }
+  f s | _ : rs@(limit : _) <- _rstack s = newState s { _rstack = limit : rs }
       | otherwise = emptyStack s
 begin = here
 until = docol [here, icompileBranch branch0, backpatch, exit]
@@ -260,58 +269,54 @@ again = docol [here, icompileBranch branch, backpatch, exit]
 while = docol [here, icompileBranch branch0, exit]
 repeat = docol [swap, here, icompileBranch branch, backpatch, here, swap, backpatch, exit]
 
-quit = ipdo [ (modify (\s -> s { rstack = [], stack = Val 0 : stack s }) >> next),
+quit = ipdo [ (modify (\s -> s { _rstack = [], _stack = Val 0 : _stack s }) >> next),
               sourceID, store, mainLoop ]
 
 plusStore = docol [dup, fetch, rot, plus, swap, store, exit]
 
 create = docol [xword, create' docol True, exit]
 colon = docol [lit (Val (-1)), state, store, xword, create' docol False, exit]
-semicolon = docol [cprim (flip compile (XT Nothing exit)), lit (Val 0), state, store, smudge, exit]
-compileComma = dpop >>= \x -> cprim (flip compile x)
-immediate = updateState $ \s -> newState s { dict = setLatestImmediate (dict s) }
+semicolon = docol [cprim1 compile (XT Nothing exit), lit (Val 0), state, store, smudge, exit]
+compileComma = dpop >>= \x -> cprim1 compile x
+immediate = updateState $ \s -> newState $ s^.compilerFuns.setImmediate $ s
 
 does = updateState f  where
-  f s | IP ip' : rs <- rstack s =
-      let Just word = latest (dict s)
-          word' = word { doer = docol (litAdr (wordId word) : ip s) }
-          dict' = (dict s) { latest = Just word' }
-      in newState s { ip = ip',
-                      dict = dict',
-                      rstack = rs }
-        | null (rstack s) = emptyStack s
-        | otherwise = abortWith "IP not on rstack" s
+  f s | IP ip' : rs <- _rstack s, Just wid <- s^?dict.idict.latest._Just.wordId =
+          let dobody = docol (litAdr wid : _ip s)
+          in newState $ s & dict.idict.latest._Just.doer.~dobody & ip.~ip' & rstack.~rs
+      | null (_rstack s) = emptyStack s
+      | otherwise = abortWith "IP not on rstack" s
 
 -- Helper function that compile the ending loop word
-xloop :: FM a () -> FM a ()
-xloop a = docol [cprim (flip compile (XT Nothing a)), here, icompileBranch branch0, backpatch, exit]
+xloop :: FM t () -> FM t ()
+xloop a = docol [cprim1 compile (XT Nothing a), here, icompileBranch branch0, backpatch, exit]
 
 -- | Runtime words for DO-LOOPs
 pdo = updateState f  where
-  f s | s0 : s1 : ss <- stack s = newState s { stack = ss,
-                                               rstack = s0 : s1 : rstack s }
+  f s | s0 : s1 : ss <- _stack s = newState s { _stack = ss,
+                                               _rstack = s0 : s1 : _rstack s }
       | otherwise = emptyStack s
 ploop = updateState $ rloopHelper (Val 1 +)
-pplusLoop = updateState $ \s -> case stack s of
-                                  n : ss -> rloopHelper (n+) (s { stack = ss })
+pplusLoop = updateState $ \s -> case _stack s of
+                                  n : ss -> rloopHelper (n+) (s { _stack = ss })
 rloopHelper f s
-  | i : r2@(limit : rs) <- rstack s =
+  | i : r2@(limit : rs) <- _rstack s =
     let i' = f i
     in newState $ if i' < limit
-                  then s { rstack = i' : r2,
-                           stack = falseVal : stack s }
-                  else s { rstack = rs,
-                           stack = trueVal : stack s }
+                  then s { _rstack = i' : r2,
+                           _stack = falseVal : _stack s }
+                  else s { _rstack = rs,
+                           _stack = trueVal : _stack s }
   | otherwise = emptyStack s
 
 -- | Helper for arithmetics
-binary :: (CV a -> CV a -> CV a) -> FM a ()
+binary :: (CV t -> CV t -> CV t) -> FM t ()
 binary op = updateState f  where
-  f s | op1 : op2 : ss <- stack s = newState s { stack = op2 `op` op1 : ss }
+  f s | op1 : op2 : ss <- _stack s = newState s { _stack = op2 `op` op1 : ss }
       | otherwise = emptyStack s
 
 -- | Convert a cell value to a large unsigned number
-unsigned :: CV a -> Word64
+unsigned :: CV t -> Word64
 unsigned c@(Val x) =
   let (ux :: Word64) = fromIntegral x
       Just bitsize = bitSizeMaybe c
@@ -319,8 +324,8 @@ unsigned c@(Val x) =
   in ux Bits..&. bitmask
 
 -- | Call given colon definition body.
-docol, branch, branch0 :: [FM a ()] -> FM a ()
-docol xs = modify (\s -> s { rstack = IP (ip s) : rstack s, ip = xs }) >> next
+docol, branch, branch0 :: [FM t ()] -> FM t ()
+docol xs = modify (\s -> s { _rstack = IP (_ip s) : _rstack s, _ip = xs }) >> next
 
 branch = ipdo
 branch0 loc = dpop >>= \n -> if | isZero n -> ipdo loc
@@ -329,18 +334,18 @@ branch0 loc = dpop >>= \n -> if | isZero n -> ipdo loc
 -- | Replace what we are interpreting with given slice of code.
 --   Typically used for implementing branches and setting the
 --   main loop.
-ipdo :: [FM a ()] -> FM a ()
-ipdo ip' = modify (\s -> s { ip = ip' }) >> next
+ipdo :: [FM t ()] -> FM t ()
+ipdo ip' = modify (\s -> s { _ip = ip' }) >> next
 
 -- | Search dictionary for given named word.
-searchDict :: ByteString -> FM a (Maybe (ForthWord (FM a ())))
-searchDict n = gets (f . latest . dict)
-  where f jw@(Just word) | n == name word = jw
-                         | otherwise = f (link word)
+searchDict :: ByteString -> FM t (Maybe (ForthWord (FM t ())))
+searchDict n = gets (\s -> f (s^.dict.idict.latest))
+  where f jw@(Just word) | n == _name word = jw
+                         | otherwise = f (_link word)
         f Nothing = Nothing
 
 -- | Main loop for the interpreter
-mainLoop :: FM a ()
+mainLoop :: FM t ()
 mainLoop = do
   mline <- lift $ getInputLine ""
   case mline of
@@ -380,11 +385,11 @@ evaluate = docol [inputLine, fetch, tor,              -- save input specificatio
                   rto, inputLine, store, exit]
 
 -- | Insert the field contents of given word
-putField :: WordId -> DataField (FM a ()) -> FM a ()
-putField wid field = modify $ \s -> s { variables = IntMap.insert (unWordId wid) field  (variables s) }
+putField :: WordId -> DataField (FM t ()) -> FM t ()
+putField wid field = modify $ \s -> s { _variables = IntMap.insert (unWordId wid) field  (_variables s) }
 
 -- | Push the field address of a word on stack
-litAdr :: WordId -> FM a ()
+litAdr :: WordId -> FM t ()
 litAdr = lit . adrcv
 
 -- | Addressable value, pointing to the first address of the datafield of
@@ -392,8 +397,8 @@ litAdr = lit . adrcv
 adrcv wid = Address (Just $ Addr wid 0)
 
 -- | Forth level error handling.
-abort :: FM a ()
-abort = docol [modify (\s -> s { stack = [], defining = Nothing }) >> next,
+abort :: FM t ()
+abort = docol [modify (\s -> (s^.compilerFuns.abortDefining $ s) & stack.~[]) >> next,
                lit (Val 0), state, store, quit]
 
 emptyStack = abortWith "empty stack"
@@ -402,29 +407,29 @@ abortWith msg s = return (Left msg, s)
 abortMessage msg = liftIO (putStrLn msg) >> abort
 
 -- | Step the colon body and execute next word in it.
-next :: FM a ()
-next = do x <- StateT $ \s -> let (x:xs) = ip s
-                              in return (x, s { ip = xs } )
+next :: FM t ()
+next = do x <- StateT $ \s -> let (x:xs) = _ip s
+                              in return (x, s { _ip = xs } )
           x
 
 -- | Invoke an execution token.
-call :: CV a -> FM a ()
+call :: CV t -> FM t ()
 call (XT _ a) = a
 call _ = abortMessage "not an execution token"
 
 -- | Data stack primitives
-dpush :: CV a -> FM a ()
-dpush val = modify $ \s -> s { stack = val : stack s }
+dpush :: CV t -> FM t ()
+dpush val = modify $ \s -> s { _stack = val : _stack s }
 
-dpop :: FM a (CV a)
+dpop :: FM t (CV t)
 dpop = updateStateVal (Val 0) f  where
-  f s | t:ts <- stack s = return (Right t, s { stack = ts })
+  f s | t:ts <- _stack s = return (Right t, s { _stack = ts })
       | otherwise = emptyStack s
 
 -- | Return stack primitives
-rpop :: FM a (CV a)
+rpop :: FM t (CV t)
 rpop = updateStateVal (Val 0) f  where
-  f s | t:ts <- rstack s = return (Right t, s { rstack = ts })
+  f s | t:ts <- _rstack s = return (Right t, s { _rstack = ts })
       | otherwise = emptyStack s
 
 -- | State updater that can handle aborts and that automatically do 'next'
@@ -441,34 +446,34 @@ updateStateVal x f = StateT f >>= \case
 
 newState s = return (Right (), s)
 
-cfetch' :: FM a ()
+cfetch' :: FM t ()
 cfetch' = updateState f  where
-  f s | Address (Just adr@(Addr wid _)) : rest <- stack s =
-          case IntMap.lookup (unWordId wid) (variables s) of
+  f s | Address (Just adr@(Addr wid _)) : rest <- _stack s =
+          case IntMap.lookup (unWordId wid) (_variables s) of
             Just (BufferField buf) ->
               let c = Val $ fromIntegral $ read8 adr buf
-              in  newState s { stack = c : rest }
+              in  newState s { _stack = c : rest }
             Nothing -> abortWith "C@ - no valid address" s
             Just (DataField cm) | Just (Byte x) <- read8CM adr cm ->
-              newState s { stack = Val (fromIntegral x) : rest }
+              newState s { _stack = Val (fromIntegral x) : rest }
             otherwise -> abortWith "C@ - no byte found in cell memory" s
-      | null (stack s) = emptyStack s
+      | null (_stack s) = emptyStack s
       | otherwise = abortWith "bad C@ address" s
 
-cstore' :: FM a ()
+cstore' :: FM t ()
 cstore' = do
   action <- updateStateVal (return ()) $ \s ->
-    case stack s of
+    case _stack s of
       Address (Just adr@(Addr wid i)) : Val val : rest ->
-        case IntMap.lookup (unWordId wid) (variables s) of
+        case IntMap.lookup (unWordId wid) (_variables s) of
           Just (BufferField bm) ->
-            return (Right (write8 (fromIntegral val) adr bm), s { stack = rest })
+            return (Right (write8 (fromIntegral val) adr bm), s { _stack = rest })
           Just (DataField df) ->
             return (Right (return ()),
-                    s { stack = rest,
-                        variables = IntMap.insert (unWordId wid)
+                    s { _stack = rest,
+                        _variables = IntMap.insert (unWordId wid)
                                       (DataField $ write8CM (fromIntegral val) adr df)
-                                      (variables s) })
+                                      (_variables s) })
           otherwise -> abortWith "missing data field" s
       [] -> emptyStack s
       [x] -> abortWith "no value to C! to" s
@@ -476,66 +481,66 @@ cstore' = do
   liftIO action
   next
 
-fetch' :: FM a ()
+fetch' :: FM t ()
 fetch' = updateState f  where
-  f s | Address (Just adr@(Addr wid off)) : rest <- stack s =
-          case IntMap.lookup (unWordId wid) (variables s) of
+  f s | Address (Just adr@(Addr wid off)) : rest <- _stack s =
+          case IntMap.lookup (unWordId wid) (_variables s) of
             Just (DataField cm) ->
                 case readCell adr cm of
-                  Just x -> newState s { stack = x : rest }
+                  Just x -> newState s { _stack = x : rest }
                   _ | validAddressCM adr cm -> abortWith "uninitialized access in data field" s
                     | otherwise -> abortWith "@ outside data field" s
             Just (BufferField mem) -> abortWith "@ in buffer field" s
             Nothing -> abortWith "no data field" s
-      | null (stack s) = emptyStack s
+      | null (_stack s) = emptyStack s
       | otherwise = abortWith "bad address given to @" s
 
-store' :: FM a ()
+store' :: FM t ()
 store' = updateState f  where
-  f s | Address (Just adr@(Addr wid i)) : val : rest <- stack s,
-        Just (DataField cm) <- IntMap.lookup (unWordId wid) (variables s) =
-          newState s { variables = IntMap.insert (unWordId wid) (DataField $ writeCell val adr cm)
-                       (variables s),
-                       stack = rest }
-      | null (stack s) = emptyStack s
+  f s | Address (Just adr@(Addr wid i)) : val : rest <- _stack s,
+        Just (DataField cm) <- IntMap.lookup (unWordId wid) (_variables s) =
+          newState s { _variables = IntMap.insert (unWordId wid) (DataField $ writeCell val adr cm)
+                       (_variables s),
+                       _stack = rest }
+      | null (_stack s) = emptyStack s
       | otherwise = abortWith "Bad arguments to !" s
 
 -- | Given a counted string, extract the actual text as an individual ByteString.
-countedText :: CV a -> FM a ByteString
+countedText :: CV t -> FM t ByteString
 countedText (Address (Just (Addr wid off))) = updateStateVal "" $ \s ->
-    case IntMap.lookup (unWordId wid) (variables s) of
+    case IntMap.lookup (unWordId wid) (_variables s) of
       Just (BufferField cmem) ->
           let count = fromIntegral $ B.index (chunk cmem) off
           in return (Right $ B.take count $ B.drop (off + 1) (chunk cmem), s)
       otherwise -> abortWith "expected address pointing to char buffer" s
 countedText _ = abortMessage "expected address" >> return B.empty
 
-xt word = XT (Just $ wordId word) (doer word)
+xt word = XT (Just $ _wordId word) (_doer word)
 
 -- | Find the name (counted string) in the dictionary
 --   ( c-addr -- c-addr 0 | xt 1 | xt -1 )
-find :: FM a ()
+find :: FM t ()
 find = do
   caddr <- dpop
   mword <- searchDict =<< countedText caddr
   modify $ \s ->
       case mword of
         Just word
-            | immediateFlag word -> s { stack = Val 1 : xt word : (stack s) }
-            | otherwise -> s { stack = Val (-1) : xt word : (stack s) }
-        Nothing -> s { stack = Val 0 : caddr : stack s }
+            | _immediateFlag word -> s { _stack = Val 1 : xt word : (_stack s) }
+            | otherwise -> s { _stack = Val (-1) : xt word : (_stack s) }
+        Nothing -> s { _stack = Val 0 : caddr : _stack s }
   next
 
 -- | Copy word from given address with delimiter to a special transient area.
 --   ( "<chars>ccc<char>" -- c-addr )
-xword :: FM a ()
+xword :: FM t ()
 xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, exit]
   where
     parseName =   -- ( "<spaces>ccc<space>" -- ctransbuf n )
       updateState  $ \s ->
-         case stack s of
+         case _stack s of
            Address (Just (Addr wid off)) : ss
-             | Just (BufferField cmem) <- IntMap.lookup (unWordId wid) (variables s) ->
+             | Just (BufferField cmem) <- IntMap.lookup (unWordId wid) (_variables s) ->
                  let start = B.drop off (chunk cmem)
                      (skipCount, nameStart) = skipSpaces 0 start
                      skipSpaces n bs
@@ -547,8 +552,8 @@ xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, 
                                | otherwise = 0
                      inAdjust = skipCount + nameLength + pastdelim
                      countedField = textBuffer wordBufferWId (B.cons (fromIntegral nameLength) name)
-                 in newState s { stack = Val (fromIntegral inAdjust) : Address (Just $ Addr wordBufferWId 0) : ss,
-                                 variables = IntMap.insert (unWordId wordBufferWId) countedField (variables s) }
+                 in newState s { _stack = Val (fromIntegral inAdjust) : Address (Just $ Addr wordBufferWId 0) : ss,
+                                 _variables = IntMap.insert (unWordId wordBufferWId) countedField (_variables s) }
            otherwise -> abortWith "parseName failed" s
 
 -- | Interpreter - Compile given cell value
@@ -562,79 +567,76 @@ ilitComma x = tackOn $ WrapA $ lit x
 
 -- | Compile a branch instruction. Branches need special handling when
 --   the colon definition is finailized.
-icompileBranch :: ([FM a ()] -> FM a ()) -> FM a ()
+icompileBranch :: ([FM t ()] -> FM t ()) -> FM t ()
+
 icompileBranch dest = updateState f  where
-  f s | Just d <- defining s = newState s { defining = Just (tackOn (WrapB dest) d) }
+  f s | isdefining s = newState $ tackOn (WrapB dest) s
       | otherwise = notDefining s
 
 xcompileBranch _ = error "do not call xcompileBranch"
 
 irecurse = tackOn WrapRecurse
 
-tackOn x d = d { compileList = V.snoc (compileList d) x }
+tackOn x = dict.idefining._Just.compileList%~(<>V.singleton x)   
 
+isdefining s = (s^.compilerFuns.defining) s
 
 -- | Helper for create. Open up for defining a word assuming that the name of the
 --   word can be found on top of stack.
 --   ( caddr -- )  of word name to be created
-create' :: ([FM a ()] -> FM a ()) -> Bool -> FM a ()
+create' :: ([FM t ()] -> FM t ()) -> Bool -> FM t ()
 create' finalizer usingCreate = updateState f  where
-  f s | Just{} <- defining s = abortWith "already compiling" s
-      | Address (Just (Addr awid off)) : ss <- stack s,
-        Just (BufferField cmem) <- IntMap.lookup (unWordId awid) (variables s) =
-        let dict' = (dict s) { wids = wids' }
-            wid : wids' = wids (dict s)
-            linkhead = latest (dict s)
+  f s | isdefining s = abortWith "already compiling" s
+      | Address (Just (Addr awid off)) : ss <- _stack s,
+        Just (BufferField cmem) <- IntMap.lookup (unWordId awid) (_variables s) =
+        let dict' = dict.idict.wids.~wids'
+            wid : wids' = s^.dict.idict.wids
+            linkhead = s^.dict.idict.latest
             name = B.drop (1 + off) $ chunk cmem
             (variables', code, cl)
-              | usingCreate = (IntMap.insert (unWordId wid) (newDataField (target s) (unWordId wid) 0) (variables s), V.fromList (map WrapA [litAdr wid, exit]), closeDefining defining)
-              | otherwise = (variables s, V.empty, id)
-            defining = Defining code [] finalizer (ForthWord name False linkhead wid abort)
-        in newState (cl (s { stack = ss,
-                             dict = dict',
-                             variables = variables',
-                             defining = Just defining } ))
+              | usingCreate = (IntMap.insert (unWordId wid) (newDataField (_target s) (unWordId wid) 0) (_variables s), V.fromList (map WrapA [litAdr wid, exit]), s^.compilerFuns.closeDefining)
+              | otherwise = (_variables s, V.empty, id)
+            defining = IDefining code [] finalizer (ForthWord name False linkhead wid abort)
+        in newState $ cl $ s & stack.~ss & variables.~variables' & dict.idict.wids.~wids' & dict.idefining.~(Just defining)
       | otherwise = abortWith "missing word name" s
 
 -- | Smudge, terminate defining of a word and make it available.
 smudge = updateState f  where
-  f s | Just defining <- defining s = newState $ closeDefining defining s
+  f s | isdefining s = newState $ s^.compilerFuns.closeDefining $ s
       | otherwise = notDefining s
 
 -- | Close the word being defined.
-closeDefining :: Defining (FM a ()) -> FState a -> FState a
-closeDefining defining s =
-  let dict' = (dict s) { latest = Just word }
-      word = (definingWord defining) { doer = (defineFinalizer defining) cs }
-      vs = compileList defining
+icloseDefining :: FState t -> FState t
+icloseDefining s =
+  let addToDict = latest.~(Just word)
+      word = (_definingWord defining) { _doer = (_defineFinalizer defining) cs }
+      Just defining = s^.dict.idefining
+      vs = _compileList defining
       -- Compile the branch instructions using the patch list provided by
       -- backpatch function. We rely on lazy evaluation here and insert
       -- branch destinations where lazy functions that will end up dropping
       -- 'dest' elements from final colon list.
-      cs = map unWrap $ V.toList $ (V.//) vs (map f $ patchList defining)
+      cs = map unWrap $ V.toList $ (V.//) vs (map f $ _patchList defining)
       f (loc, dest) =
         let branchInstr | WrapB b <- (V.!) vs loc = WrapA $ b (Prelude.drop dest cs)
         in  (loc, branchInstr)
       unWrap WrapRecurse = branch cs
       unWrap (WrapA a) = a
-  in s { defining = Nothing,
-         dict = dict' }
+  in s & dict.idefining.~Nothing & dict.idict%~addToDict
 
 here = updateState f  where
-  f s | Just def <- defining s =
-          let wid = wordId $ definingWord def
-          in newState s { stack = HereColon wid (V.length (compileList def)) : stack s }
-      | Just word <- latest (dict s), wid <- wordId word,
-        Just (DataField mem) <- IntMap.lookup (unWordId wid) (variables s) =
-          newState s { stack = Address (Just (Addr wid (dpOffset mem))) : stack s }
+  f s | Just def <- s^.dict.idefining =
+          let wid = def^.definingWord.wordId
+          in newState s { _stack = HereColon wid (V.length (_compileList def)) : _stack s }
+      | Just word <- s^.dict.idict.latest, wid <- _wordId word,
+        Just (DataField mem) <- IntMap.lookup (unWordId wid) (_variables s) =
+          newState s { _stack = Address (Just (Addr wid (dpOffset mem))) : _stack s }
       | otherwise = abortWith "HERE only partially implemented" s
 
 backpatch = updateState f  where
-  f s | Just def <- defining s,
-        HereColon _ loc : HereColon _ dest : ss <- stack s =
-          let def' = def { patchList = (loc, dest) : patchList def }
-          in newState s { defining = Just def',
-                          stack = ss }
+  f s | Just def <- s^.dict.idefining,
+        HereColon _ loc : HereColon _ dest : ss <- s^.stack =
+          newState $ s & stack.~ss & dict.idefining._Just.patchList%~((:) (loc, dest))
       | otherwise = notDefining s
 
 backslash = docol body
@@ -643,16 +645,16 @@ backslash = docol body
         eol = drop : drop : inputLineLength : fetch : toIn : store : exit : found
         found = [inputLineLength, fetch, swap, minus, toIn, store, drop, exit]
 
-popFilename :: FM a String
+popFilename :: FM t String
 popFilename =
   updateStateVal "" $ \s ->
-    case stack s of
+    case _stack s of
       Address (Just (Addr wid off)) : ss
-        | Just (BufferField cmem) <- IntMap.lookup (unWordId wid) (variables s),
+        | Just (BufferField cmem) <- IntMap.lookup (unWordId wid) (_variables s),
           not (B.null $ chunk cmem) ->
             let len = fromIntegral $ B.head $ chunk cmem
                 name = C.take len $ C.drop (1 + off) $ chunk cmem
-            in return (Right (C.unpack name), s { stack = ss })
+            in return (Right (C.unpack name), s { _stack = ss })
         | otherwise -> abortWith "missing filename" s
 
 loadSource = docol [xword, makeTempBuffer, evaluate, releaseTempBuffer, exit] where
@@ -663,27 +665,28 @@ loadSource = docol [xword, makeTempBuffer, evaluate, releaseTempBuffer, exit] wh
       Left (e :: IOException) -> abortMessage (show e)
       Right contents -> updateState $ \s ->
                let (handle, oldHandles', dict')
-                     | null (oldHandles s) = let w:ws = (wids $ dict s)
-                                             in (w, [], (dict s) { wids = ws })
-                     | otherwise = (head $ oldHandles s, tail $ oldHandles s, dict s)
+                     | null (_oldHandles s) = let w:ws = d^.wids
+                                                  d = s^.dict.idict
+                                              in (w, [], d & wids.~ws)
+                     | otherwise = (head $ _oldHandles s, tail $ _oldHandles s, s^.dict.idict)
                    adr = Address (Just (Addr handle 0))
-               in newState s { oldHandles = oldHandles',
-                               dict = dict',
-                               rstack = adr : rstack s,
-                               stack = Val (fromIntegral $ C.length contents) : adr : stack s,
-                               variables = IntMap.insert (unWordId handle) (textBuffer handle contents) (variables s) }
+               in newState $ (s & dict.idict.~dict')
+                    { _oldHandles = oldHandles',
+                      _rstack = adr : _rstack s,
+                      _stack = Val (fromIntegral $ C.length contents) : adr : _stack s,
+                      _variables = IntMap.insert (unWordId handle) (textBuffer handle contents) (_variables s) }
 
-  releaseTempBuffer = updateState $ \s -> case rstack s of
+  releaseTempBuffer = updateState $ \s -> case _rstack s of
                                             Address (Just (Addr handle 0)) : rs ->
-                                              newState s { variables = IntMap.delete (unWordId handle) (variables s),
-                                                           rstack = rs,
-                                                           oldHandles = handle : oldHandles s }
+                                              newState s { _variables = IntMap.delete (unWordId handle) (_variables s),
+                                                           _rstack = rs,
+                                                           _oldHandles = handle : _oldHandles s }
 
 -- | Generate code for a target
 targetCodegen codeGenerate = docol [xword, dump, exit]
   where dump = do
           outputfile <- popFilename
-          Just dict <- gets targetDict
+          dict <- gets (\s -> s^.targetDict.tdict)
           let text = codeGenerate dict
           mres <- liftIO $ try $ withFile outputfile WriteMode (flip L.hPut text)
           case mres of
@@ -691,49 +694,47 @@ targetCodegen codeGenerate = docol [xword, dump, exit]
             Right () -> next
 
 crossCompileSetup = updateState f  where
-  f s = newState s { targetDict = Just (newDictionary extras)  }
-  extras = return (WordId 0)
+  f s = newState s { _compilerFuns = crossCompiler }
 
 -- | Compile a string literal. We expect to get a string pointer (caddr u) on
 --   the stack pointing to some character buffer. Compile a string literal
 --   that has the execution semantics to push the string back on stack.
 --   For the interpreter we simply wrap it in a literal.
-compileString :: FM a ()
-compileString = cprim . flip compile =<< liftM Text stringlit
+compileString :: FM t ()
+compileString = cprim1 compile =<< liftM Text stringlit
   where stringlit = updateStateVal "" $ \s ->
-                      case stack s of
+                      case _stack s of
                         Val n : Address (Just (Addr wid i)) : rest
-                          | Just (BufferField bm) <- IntMap.lookup (unWordId wid) (variables s) ->
+                          | Just (BufferField bm) <- IntMap.lookup (unWordId wid) (_variables s) ->
                               let text = B.take (fromIntegral n) (B.drop i (chunk bm))
-                              in return (Right text, s { stack = rest } )
+                              in return (Right text, s { _stack = rest } )
                           | otherwise -> abortWith "no text to compile" s
                         otherwise -> emptyStack s
 
 -- | Make a string literal addressable on the fly.
 addrString text s =
-    case Map.lookup text (stringLiterals s) of
+    case Map.lookup text (_stringLiterals s) of
       Just addr -> (Address (Just addr), s)
       Nothing ->
-          let (k:ks) = wids (dict s)
+          let (k:ks) = s^.dict.idict.wids
               addr = Addr k 0
-              dict' = (dict s) { wids = ks }
-              in (Address (Just addr), s { dict = dict',
-                                           stringLiterals = Map.insert text addr
-                                                            (stringLiterals s),
-                                           variables = IntMap.insert (unWordId k) (textBuffer k text) (variables s) })
+              in (Address (Just addr), (s & dict.idict.wids.~ks)
+                                         { _stringLiterals = Map.insert text addr
+                                                            (_stringLiterals s),
+                                           _variables = IntMap.insert (unWordId k) (textBuffer k text) (_variables s) })
 
 emit = dpop >>= emit1 >> next where
     emit1 (Val n) | n >= 0 = liftIO $ putStr [chr $ fromIntegral n]
     emit1 _ = liftIO $ putStr "?"
 
-move :: FM a ()
+move :: FM t ()
 move = do
   mtuple <- updateStateVal Nothing $ \s ->
-    case stack s of
+    case _stack s of
       Val count : Address (Just adrTo@(Addr widTo _iTo)) : Address (Just adrFrom@(Addr widFrom _iFrom)) : rest
-          | Just (BufferField memTo) <- IntMap.lookup (unWordId widTo) (variables s),
-            Just (BufferField memFrom) <- IntMap.lookup (unWordId widFrom) (variables s) ->
-                return (Right (Just (count, adrFrom, memFrom, adrTo, memTo)), s { stack = rest })
+          | Just (BufferField memTo) <- IntMap.lookup (unWordId widTo) (_variables s),
+            Just (BufferField memFrom) <- IntMap.lookup (unWordId widFrom) (_variables s) ->
+                return (Right (Just (count, adrFrom, memFrom, adrTo, memTo)), s { _stack = rest })
       xs | length xs < 3 -> emptyStack s
          | otherwise -> abortWith "illegal arguments to MOVE" s
   case mtuple of
@@ -743,43 +744,43 @@ move = do
   next
 
 allot = updateState f  where
-  f s | Val n:ss <- stack s =
-        let Just word = latest (dict s)
-            wid = wordId word
-            Just (DataField mem) = IntMap.lookup (unWordId wid) (variables s)
+  f s | Val n:ss <- _stack s =
+        let Just word = s^.dict.idict.latest
+            wid = _wordId word
+            Just (DataField mem) = IntMap.lookup (unWordId wid) (_variables s)
             (offset, mem1) = updateDataPointer (fromIntegral n +) mem
-        in newState s { variables = IntMap.insert (unWordId wid) (DataField mem1) (variables s),
-                        stack = ss }
-      | null (stack s) = emptyStack s
+        in newState s { _variables = IntMap.insert (unWordId wid) (DataField mem1) (_variables s),
+                        _stack = ss }
+      | null (_stack s) = emptyStack s
       | otherwise = abortWith "ALLOT requires integer value" s
 
 umstar' = updateState f  where
-  f s | n1@Val{} : n2@Val{} : ss <- stack s =
+  f s | n1@Val{} : n2@Val{} : ss <- _stack s =
         let prod = unsigned n1 * unsigned n2
             Just bitsize = bitSizeMaybe n1
             low = mask prod
             high = mask $ prod `Bits.shiftR` bitsize
             mask x =  fromIntegral $ x Bits..&. ((1 `Bits.shiftL` bitsize) - 1)
-        in newState s { stack = Val high : Val low : ss }
+        in newState s { _stack = Val high : Val low : ss }
       | otherwise = abortWith "bad input to UM*" s
 
 ummod' = updateState f  where
-  f s | divisor@Val{} : hi@Val{} : lo@Val{} : ss <- stack s =
+  f s | divisor@Val{} : hi@Val{} : lo@Val{} : ss <- _stack s =
       let dividend = unsigned lo Bits..|. (unsigned hi `Bits.shiftL` bitsize)
           Just bitsize = bitSizeMaybe divisor
           (quot, rem) = dividend `quotRem` unsigned divisor
-      in newState s { stack = Val (fromIntegral quot) : Val (fromIntegral rem) : ss }
+      in newState s { _stack = Val (fromIntegral quot) : Val (fromIntegral rem) : ss }
     | otherwise = abortWith "bad input to UM/MOD" s
 
 toBody = updateState f  where
-  f s | XT (Just wid) a : ss <- stack s = newState s { stack = adrcv wid : ss }
+  f s | XT (Just wid) a : ss <- _stack s = newState s { _stack = adrcv wid : ss }
       | otherwise = abortWith "bad input to >BODY" s
 
 accept =
-  let f s | Val n : caddr@Address{} : ss <- stack s =
-              return (Right (fromIntegral n, caddr), s { stack = ss })
+  let f s | Val n : caddr@Address{} : ss <- _stack s =
+              return (Right (fromIntegral n, caddr), s { _stack = ss })
           | otherwise = abortWith "bad arguments to ACCEPT, or nu buffer destination" s
-      g len s = newState s { stack = Val (fromIntegral len) : stack s }
+      g len s = newState s { _stack = Val (fromIntegral len) : _stack s }
   in do
     (n, caddr) <- updateStateVal (0, Address Nothing) f
     text <- liftM (C.take n) (liftIO C.getLine)
@@ -789,7 +790,7 @@ accept =
 -- Copy given chunk of text to given address. This will handle writing to
 -- either cell memory and buffer memory.
 copyTextBlock (Address (Just adrTo@(Addr wid _))) text =
-  let f s = case IntMap.lookup (unWordId wid) (variables s) of
+  let f s = case IntMap.lookup (unWordId wid) (_variables s) of
               Nothing -> abortWith "missing data field" s
               Just (BufferField memTo) | validAddress adrTo memTo,
                                          validAddress adrEnd memTo ->
@@ -804,19 +805,19 @@ copyTextBlock (Address (Just adrTo@(Addr wid _))) text =
     copyAction
 
 align = updateState f  where
-  f s | Just word <- latest (dict s),
-        Just (DataField mem) <- IntMap.lookup (unWordId (wordId word)) (variables s) =
-          let mem' = DataField $ alignDP mem (target s)
-          in newState s { variables = IntMap.insert (unWordId (wordId word)) mem' (variables s) }
+  f s | Just word <- s^.dict.idict.latest,
+        Just (DataField mem) <- IntMap.lookup (unWordId (_wordId word)) (_variables s) =
+          let mem' = DataField $ alignDP mem (_target s)
+          in newState s { _variables = IntMap.insert (unWordId (_wordId word)) mem' (_variables s) }
       | otherwise = abortWith "cannot ALIGN, dp no valid" s
 
 aligned = updateState f  where
-  f s | Address (Just (Addr wid off)) : ss <- stack s =
-          newState s { stack = Address (Just (Addr wid (alignOffset off (target s)))) : ss }
+  f s | Address (Just (Addr wid off)) : ss <- _stack s =
+          newState s { _stack = Address (Just (Addr wid (alignOffset off (_target s)))) : ss }
       | otherwise = abortWith "ALIGNED only words on addresses" s
 
 depth = updateState f  where
-  f s = newState s { stack = Val (fromIntegral $ length $ stack s) : stack s }
+  f s = newState s { _stack = Val (fromIntegral $ length $ _stack s) : _stack s }
 
 key =
   let withRawInput action = do
@@ -834,4 +835,4 @@ key =
           where valid c = c >= ' ' && c <= '~'
   in do
     c <- liftIO $ withRawInput readValidChar
-    updateState $ \s -> newState s { stack = Val (fromIntegral $ ord c) : stack s }
+    updateState $ \s -> newState s { _stack = Val (fromIntegral $ ord c) : _stack s }

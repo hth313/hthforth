@@ -17,6 +17,7 @@ import Language.Forth.CellVal
 import Language.Forth.CrossCompiler.CodeGenerate
 import Language.Forth.Dictionary
 import Language.Forth.Primitive
+import Language.Forth.TargetPrimitive
 import Language.Forth.Word
 import qualified Translator.Expression as E
 import Translator.Assembler.Generate
@@ -87,6 +88,13 @@ instance Primitive (IM ARMInstr) where
              insRec (umull w tos w tos) <>
              insRec (str w (RegIndOffset stack 0))
   ummod    = next
+
+colonToken tok = insRec $ Directive $ WORD [tok]
+
+instance TargetPrimitive (IM ARMInstr) where
+  wordToken sym = colonToken $ E.Identifier sym
+  literal val = colonToken (E.Identifier "LIT") <> colonToken val
+  finish = id
 
 {-
 -- Given
