@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, LambdaCase, MultiParamTypeClasses #-}
 {-# LANGUAGE MultiWayIf, OverloadedStrings, PatternGuards, ScopedTypeVariables,  TypeSynonymInstances #-}
 {-# LANGUAGE RankNTypes, NoMonomorphismRestriction #-}
@@ -54,7 +55,8 @@ import qualified Prelude as Prelude
 initialState target =
   FState [] [] [] target interpreterDictionary IntMap.empty [] Map.empty icompiler targetDictionary
 
-icompiler = Compiler defining icompile ilitComma xcompileBranch xcompileBranch irecurse icloseDefining abortDefining imm
+icompiler = Compiler defining icompile ilitComma xcompileBranch xcompileBranch irecurse istartDefining 
+                     icloseDefining abortDefining imm
     where defining = isJust._idefining._dict
           abortDefining = dict.idefining.~Nothing
           imm = dict.idict.latest._Just.immediateFlag.~True
@@ -571,21 +573,22 @@ isdefining s = (s^.compilerFuns.defining) s
 -- | Helper for create. Open up for defining a word assuming that the name of the
 --   word can be found on top of stack.
 --   ( caddr -- )  of word name to be created
-create' :: ([FM t ()] -> FM t ()) -> Bool -> FM t ()
 create' finalizer usingCreate = updateState f  where
   f s | isdefining s = abortWith "already compiling" s
       | Address (Just (Addr awid off)) : ss <- _stack s,
         Just (BufferField cmem) <- IntMap.lookup (unWordId awid) (_variables s) =
-        let dict' = dict.idict.wids.~wids'
-            wid : wids' = s^.dict.idict.wids
-            linkhead = s^.dict.idict.latest
-            name = B.drop (1 + off) $ chunk cmem
-            (variables', code, cl)
-              | usingCreate = (IntMap.insert (unWordId wid) (newDataField (_target s) (unWordId wid) 0) (_variables s), V.fromList (map WrapA [litAdr wid, exit]), s^.compilerFuns.closeDefining)
-              | otherwise = (_variables s, V.empty, id)
-            defining = IDefining code [] finalizer (ForthWord name False linkhead wid abort)
-        in newState $ cl $ s & stack.~ss & variables.~variables' & dict.idict.wids.~wids' & dict.idefining.~(Just defining)
+        let name = B.drop (1 + off) $ chunk cmem
+        in newState $ (s^.compilerFuns.startDefining) (Create name finalizer usingCreate) (s & stack.~ss)
       | otherwise = abortWith "missing word name" s
+
+istartDefining Create{..} s = 
+  let wid : wids' = s^.dict.idict.wids
+      linkhead = s^.dict.idict.latest
+      (variables', code, cl)
+        | usingCreate = (IntMap.insert (unWordId wid) (newDataField (_target s) (unWordId wid) 0) (_variables s), V.fromList (map WrapA [litAdr wid, exit]), s^.compilerFuns.closeDefining)
+        | otherwise = (_variables s, V.empty, id)
+      defining = IDefining code [] finalizer (ForthWord createName False linkhead wid abort)
+  in cl $ s & variables.~variables' & dict.idict.wids.~wids' & dict.idefining.~(Just defining)
 
 -- | Smudge, terminate defining of a word and make it available.
 smudge = updateState f  where

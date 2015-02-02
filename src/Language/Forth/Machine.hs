@@ -9,7 +9,7 @@ module Language.Forth.Machine (FM, FState(..), CV, module Control.Monad.Trans.St
                                stack, rstack, ip, targetDict, dict, compilerFuns, variables,
                                Compiler(..), defining, compile, litComma,
                                compileBranch, compileBranch0, recurse, closeDefining,
-                               abortDefining, setImmediate) where
+                               startDefining, abortDefining, setImmediate, Create(..)) where
 
 import Control.Lens
 import Control.Monad
@@ -67,6 +67,9 @@ data Compiler a = Compiler {
     -- ^ Compile a conditional branch instruction, not used by the interpreter
   , _recurse :: FState a -> FState a
     -- ^ Compile a recursive call back to the start of current definition
+  , _startDefining ::Create (FM a ()) -> FState a -> FState a
+    -- ^ Start defining a new word, bring the name and whether we are
+    --   using CREATE to build a custom word or a colon definition.
   , _closeDefining :: FState a -> FState a
     -- ^ Add compiled word to active dictionary in the Forth state
   , _abortDefining :: FState a -> FState a
@@ -74,6 +77,13 @@ data Compiler a = Compiler {
   , _setImmediate :: FState a -> FState a
     -- ^ Set the immediate bit in the last defined word 
   }
+
+-- | Data record used by startDefining
+data Create a = Create { 
+    createName :: V.ByteString
+  , finalizer :: [a] -> a
+  , usingCreate :: Bool
+}
 
 makeLenses ''FState
 makeLenses ''Compiler

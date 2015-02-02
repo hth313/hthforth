@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts, RankNTypes, OverloadedStrings #-}
 {- |
 
@@ -38,8 +39,8 @@ import Translator.Assembler.Target.ARM (ARMInstr)
 import Language.Forth.Target.CortexM
 
 -- | The cross compiler
-crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 recurse closeDefining
-                         abortDefining setImmediate where
+crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 recurse startDefining
+                         closeDefining abortDefining setImmediate where
   -- Works, but not ideal. It would be nicer if we could avoid binding it here
   -- as we are only interested in the isJust of it, and the bound target is
   -- irrelevant for that.
@@ -51,6 +52,8 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
   recurse s = s
   abortDefining s = s
   setImmediate s = s
+  startDefining Create{..} s = s { _targetDict = startDefining1 $ _targetDict s }
+    where startDefining1 = tdefining.~(Just $ TDefining createName mempty)
   closeDefining s = s { _targetDict = closeDefining1 $ _targetDict s }
     where closeDefining1 dict = dict & tdefining.~Nothing & tdict.latest.~Just newWord
             where newWord = ForthWord "foo" False (_latest $ _tdict dict) (WordId 0)

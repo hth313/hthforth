@@ -57,7 +57,8 @@ data TDict t = TDict {
 }
 
 data TDefining t = TDefining  {
-    _tcompileList :: IM t
+    _wordName :: ByteString
+  , _tcompileList :: IM t
 }
 
 data Dictionary a = Dictionary
