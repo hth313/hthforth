@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE CPP #-}
 {-|
 
@@ -13,9 +15,13 @@ import Data.Int
 import Data.Ord
 import Data.Map (Map)
 import Data.Word
+import Language.Forth.Primitive (Primitive)
+import Language.Forth.TargetPrimitive (TargetPrimitive)
 import Language.Forth.Word
 import Data.Vector.Storable.ByteString (ByteString)
 import Language.Forth.Interpreter.Address
+import Translator.Assembler.Generate (IM)
+import Translator.Assembler.InstructionSet
 import Translator.Expression (Expr(Value))
 import Translator.Symbol
 
@@ -26,7 +32,8 @@ type Cell = Int32
 data CellVal a =
     Address (Maybe Addr)    -- ^ An address value
   | Val Cell                -- ^ A numeric value
-  | XT (Maybe WordId) a     -- ^ Execution token
+  | XT (Maybe WordId) a (Maybe Symbol)
+                            -- ^ Execution token
   | XTSym Symbol            -- ^ Target symbol
   | IP [a]                  -- ^ Pushed interpretive pointer
   | Text ByteString         -- ^ Some text buffer

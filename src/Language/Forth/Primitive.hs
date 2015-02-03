@@ -10,7 +10,7 @@
 
 module Language.Forth.Primitive (Primitive(..)) where
 
-import Language.Forth.CellVal
+import {-# SOURCE #-} Language.Forth.CellVal
 
 
 {- | The Forth builtin primitives.

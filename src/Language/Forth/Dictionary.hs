@@ -7,7 +7,7 @@
 
 module Language.Forth.Dictionary (newDictionary, IDict(..), TDict(..), Dictionary(..),
                                   idict, idefining, compileList,
-                                  latest, wids, tdict, tdefining, tcompileList,
+                                  latest, wids, tdict, tdefining, tcompileList, wordName,
                                   DefiningWrapper(..), TDefining(..),
                                   IDefining(..),
                                   definingWord, patchList,

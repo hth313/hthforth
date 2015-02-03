@@ -45,7 +45,7 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
   -- as we are only interested in the isJust of it, and the bound target is
   -- irrelevant for that.
   defining s = isJust $ _tdefining (_targetDict s :: TDict ARMInstr)
-  compile (XT (Just wordid) _) = addTokens $ wordToken "$SYM$" --  (nameSymbol word)
+  compile (XT _ _ (Just sym)) = addTokens $ wordToken sym
   litComma val = addTokens $ literal $ cellToExpr val
   compileBranch = compileBranch0
   compileBranch0 val s = s
@@ -56,8 +56,9 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
     where startDefining1 = tdefining.~(Just $ TDefining createName mempty)
   closeDefining s = s { _targetDict = closeDefining1 $ _targetDict s }
     where closeDefining1 dict = dict & tdefining.~Nothing & tdict.latest.~Just newWord
-            where newWord = ForthWord "foo" False (_latest $ _tdict dict) (WordId 0)
+            where newWord = ForthWord name False (_latest $ _tdict dict) (WordId 0)
                                       (finish $ _tcompileList (fromJust $ _tdefining dict))
+                  name = _wordName (fromJust $ _tdefining dict) 
 
 addTokens :: (forall t. (InstructionSet t, Primitive (IM t), TargetPrimitive (IM t)) => IM t) -> FState a -> FState a
 addTokens vs s = s { _targetDict = (_targetDict s) { _tdefining = f <$> _tdefining (_targetDict s) } }

@@ -1,11 +1,12 @@
-{-# LANGUAGE TemplateHaskell #-}{-|
+{-# LANGUAGE OverloadedStrings, TemplateHaskell #-}{-|
 
   Forth word definition.
 
 -}
 
 module Language.Forth.Word (ForthWord(..), WordId(..), LinkField, immediateFlag,
-                            name, link, doer, wordId, nameSymbol) where
+                            name, link, doer, wordId, symbol, nameSymbol,
+                            exitName, pdoName, ploopName, pploopName) where
 
 import Control.Lens
 import Data.Char
@@ -36,4 +37,11 @@ instance Eq (ForthWord a) where
 instance Show (ForthWord a) where
     show = B.unpack . _name
 
-nameSymbol = L.pack . B.unpack . _name
+symbol = L.pack . B.unpack
+nameSymbol = symbol . _name
+
+exitName, pdoName, ploopName, pploopName :: ByteString
+exitName   = "EXIT"
+pdoName    = "(DO)"
+ploopName  = "(LOOP)"
+pploopName = "(+LOOP)"

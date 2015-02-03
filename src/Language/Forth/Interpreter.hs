@@ -40,6 +40,7 @@ import Language.Forth.CrossCompiler
 import Language.Forth.Dictionary
 import Language.Forth.Machine
 import Language.Forth.Primitive
+import Language.Forth.TargetPrimitive
 import Language.Forth.StreamFile
 import Language.Forth.Target
 import Language.Forth.Target.CortexM (codeGenerateCortexM)
@@ -105,11 +106,11 @@ interpreterDictionary = IDict (newDictionary extras) Nothing
           addWord "ELSE" xelse >> makeImmediate
           addWord "THEN" xthen >> makeImmediate
           addWord "DO" xdo >> makeImmediate
-          addWord "(DO)" pdo
+          addWord pdoName pdo
           addWord "LOOP" loop >> makeImmediate
-          addWord "(LOOP)" ploop
+          addWord ploopName ploop
           addWord "+LOOP" plusLoop >> makeImmediate
-          addWord "(+LOOP)" pplusLoop
+          addWord pploopName pplusLoop
           addWord "LEAVE" leave
           addWord "I" rfetch
           addWord "BEGIN" begin >> makeImmediate
@@ -246,9 +247,9 @@ xif   = docol [here, icompileBranch branch0, exit]
 xelse = docol [here, icompileBranch branch, here, rot, backpatch, exit]
 xthen = docol [here, swap, backpatch, exit]
 
-xdo = docol [cprim1 compile (XT Nothing pdo), here, exit]
-loop = xloop ploop
-plusLoop = xloop pplusLoop
+xdo = docol [cprim1 compile (XT Nothing pdo (Just $ symbol pdoName)), here, exit]
+loop = xloop (XT Nothing ploop (Just $ symbol ploopName))
+plusLoop = xloop (XT Nothing pplusLoop (Just $ symbol pploopName))
 leave = updateState f  where
   f s | _ : rs@(limit : _) <- _rstack s = newState s { _rstack = limit : rs }
       | otherwise = emptyStack s
@@ -265,7 +266,7 @@ plusStore = docol [dup, fetch, rot, plus, swap, store, exit]
 
 create = docol [xword, create' docol True, exit]
 colon = docol [lit (Val (-1)), state, store, xword, create' docol False, exit]
-semicolon = docol [cprim1 compile (XT Nothing exit), lit (Val 0), state, store, smudge, exit]
+semicolon = docol [cprim1 compile (XT Nothing exit (Just $ symbol exitName)), lit (Val 0), state, store, smudge, exit]
 compileComma = dpop >>= \x -> cprim1 compile x
 immediate = updateState $ \s -> newState $ s^.compilerFuns.setImmediate $ s
 
@@ -277,8 +278,7 @@ does = updateState f  where
       | otherwise = abortWith "IP not on rstack" s
 
 -- Helper function that compile the ending loop word
-xloop :: FM t () -> FM t ()
-xloop a = docol [cprim1 compile (XT Nothing a), here, icompileBranch branch0, backpatch, exit]
+xloop xt = docol [cprim1 compile xt, here, icompileBranch branch0, backpatch, exit]
 
 -- | Runtime words for DO-LOOPs
 pdo = updateState f  where
@@ -327,11 +327,11 @@ ipdo :: [FM t ()] -> FM t ()
 ipdo ip' = modify (\s -> s { _ip = ip' }) >> next
 
 -- | Search dictionary for given named word.
-searchDict :: ByteString -> FM t (Maybe (ForthWord (FM t ())))
-searchDict n = gets (\s -> f (s^.dict.idict.latest))
+searchDict n = gets (\s -> (f (s^.dict.idict.latest), Just $ symbol n)) -- f (s^.targetDict.tdict.latest)))
   where f jw@(Just word) | n == _name word = jw
                          | otherwise = f (_link word)
         f Nothing = Nothing
+
 
 -- | Main loop for the interpreter
 mainLoop :: FM t ()
@@ -403,7 +403,7 @@ next = do x <- StateT $ \s -> let (x:xs) = _ip s
 
 -- | Invoke an execution token.
 call :: CV t -> FM t ()
-call (XT _ a) = a
+call (XT _ a _) = a
 call _ = abortMessage "not an execution token"
 
 -- | Data stack primitives
@@ -504,19 +504,19 @@ countedText (Address (Just (Addr wid off))) = updateStateVal "" $ \s ->
       otherwise -> abortWith "expected address pointing to char buffer" s
 countedText _ = abortMessage "expected address" >> return B.empty
 
-xt word = XT (Just $ _wordId word) (_doer word)
+xt word sym = XT (Just $ _wordId word) (_doer word) sym
 
 -- | Find the name (counted string) in the dictionary
 --   ( c-addr -- c-addr 0 | xt 1 | xt -1 )
 find :: FM t ()
 find = do
   caddr <- dpop
-  mword <- searchDict =<< countedText caddr
+  (mword, sym) <- searchDict =<< countedText caddr
   modify $ \s ->
       case mword of
         Just word
-            | _immediateFlag word -> s { _stack = Val 1 : xt word : (_stack s) }
-            | otherwise -> s { _stack = Val (-1) : xt word : (_stack s) }
+            | _immediateFlag word -> s { _stack = Val 1 : xt word sym : (_stack s) }
+            | otherwise -> s { _stack = Val (-1) : xt word sym : (_stack s) }
         Nothing -> s { _stack = Val 0 : caddr : _stack s }
   next
 
@@ -549,7 +549,7 @@ xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, 
 icompile adr@Address{} = tackOn $ WrapA $ lit adr
 icompile val@Val{}     = tackOn $ WrapA $ lit val
 icompile val@Text{}    = tackOn $ WrapA $ lit val
-icompile (XT _ a)      = tackOn $ WrapA $ a
+icompile (XT _ a _ )   = tackOn $ WrapA $ a
 
 -- | Interpreter - Compile a cell value from the stack.
 ilitComma x = tackOn $ WrapA $ lit x
@@ -763,7 +763,7 @@ ummod' = updateState f  where
     | otherwise = abortWith "bad input to UM/MOD" s
 
 toBody = updateState f  where
-  f s | XT (Just wid) a : ss <- _stack s = newState s { _stack = adrcv wid : ss }
+  f s | XT (Just wid) a _ : ss <- _stack s = newState s { _stack = adrcv wid : ss }
       | otherwise = abortWith "bad input to >BODY" s
 
 accept =
