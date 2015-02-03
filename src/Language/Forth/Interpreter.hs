@@ -54,7 +54,8 @@ import qualified Prelude as Prelude
 
 
 initialState target =
-  FState [] [] [] target interpreterDictionary IntMap.empty [] Map.empty icompiler targetDictionary
+  FState [] [] [] target dict IntMap.empty [] wids Map.empty icompiler targetDictionary
+    where (dict, wids) = interpreterDictionary
 
 icompiler = Compiler defining icompile ilitComma xcompileBranch xcompileBranch irecurse istartDefining 
                      icloseDefining abortDefining imm
@@ -74,9 +75,10 @@ initialVarStorage = gets _target >>=
                    (sourceIDWid, 0)]
           mapM_ g [(tregWid, 100)]
 
-interpreterDictionary :: IDict (FM a ())
-interpreterDictionary = IDict (newDictionary extras) Nothing
-  where extras = do
+interpreterDictionary :: (IDict (FM a ()), [WordId])
+interpreterDictionary = (IDict dict Nothing, wids) 
+  where (dict, wids) = newDictionary extras
+        extras = do
           addWord "ROT" rot
           addWord "EVALUATE" evaluate
           addWord "FALSE" false
@@ -582,13 +584,13 @@ create' finalizer usingCreate = updateState f  where
       | otherwise = abortWith "missing word name" s
 
 istartDefining Create{..} s = 
-  let wid : wids' = s^.dict.idict.wids
+  let wid : wids' = s^.wids
       linkhead = s^.dict.idict.latest
       (variables', code, cl)
         | usingCreate = (IntMap.insert (unWordId wid) (newDataField (_target s) (unWordId wid) 0) (_variables s), V.fromList (map WrapA [litAdr wid, exit]), s^.compilerFuns.closeDefining)
         | otherwise = (_variables s, V.empty, id)
       defining = IDefining code [] finalizer (ForthWord createName False linkhead wid abort)
-  in cl $ s & variables.~variables' & dict.idict.wids.~wids' & dict.idefining.~(Just defining)
+  in cl $ s & variables.~variables' & wids.~wids' & dict.idefining.~(Just defining)
 
 -- | Smudge, terminate defining of a word and make it available.
 smudge = updateState f  where
@@ -654,13 +656,13 @@ loadSource = docol [xword, makeTempBuffer, evaluate, releaseTempBuffer, exit] wh
     case mc of
       Left (e :: IOException) -> abortMessage (show e)
       Right contents -> updateState $ \s ->
-               let (handle, oldHandles', dict')
-                     | null (_oldHandles s) = let w:ws = d^.wids
+               let (handle, oldHandles', dict', s')
+                     | null (_oldHandles s) = let w:ws = s^.wids
                                                   d = s^.dict.idict
-                                              in (w, [], d & wids.~ws)
-                     | otherwise = (head $ _oldHandles s, tail $ _oldHandles s, s^.dict.idict)
+                                              in (w, [], d, s & wids.~ws)
+                     | otherwise = (head $ _oldHandles s, tail $ _oldHandles s, s^.dict.idict, s)
                    adr = Address (Just (Addr handle 0))
-               in newState $ (s & dict.idict.~dict')
+               in newState $ (s' & dict.idict.~dict')
                     { _oldHandles = oldHandles',
                       _rstack = adr : _rstack s,
                       _stack = Val (fromIntegral $ C.length contents) : adr : _stack s,
@@ -706,9 +708,9 @@ addrString text s =
     case Map.lookup text (_stringLiterals s) of
       Just addr -> (Address (Just addr), s)
       Nothing ->
-          let (k:ks) = s^.dict.idict.wids
+          let (k:ks) = s^.wids
               addr = Addr k 0
-              in (Address (Just addr), (s & dict.idict.wids.~ks)
+              in (Address (Just addr), (s & wids.~ks)
                                          { _stringLiterals = Map.insert text addr
                                                             (_stringLiterals s),
                                            _variables = IntMap.insert (unWordId k) (textBuffer k text) (_variables s) })

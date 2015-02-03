@@ -66,5 +66,5 @@ addTokens vs s = s { _targetDict = (_targetDict s) { _tdefining = f <$> _tdefini
 
 targetDictionary :: (InstructionSet t, Primitive (IM t), TargetPrimitive (IM t)) => TDict t
 targetDictionary = TDict dict Nothing
-    where dict = newDictionary extras
-          extras = return $ WordId 0
+    where dict = fst $ newDictionary extras
+          extras = return ()

@@ -7,7 +7,7 @@
 
 module Language.Forth.Dictionary (newDictionary, IDict(..), TDict(..), Dictionary(..),
                                   idict, idefining, compileList,
-                                  latest, wids, tdict, tdefining, tcompileList, wordName,
+                                  latest, tdict, tdefining, tcompileList, wordName,
                                   DefiningWrapper(..), TDefining(..),
                                   IDefining(..),
                                   definingWord, patchList,
@@ -61,9 +61,8 @@ data TDefining t = TDefining  {
   , _tcompileList :: IM t
 }
 
-data Dictionary a = Dictionary
-  { _wids :: [WordId]
-  , _latest :: LinkField a
+newtype Dictionary a = Dictionary
+  { _latest :: LinkField a
   }
 
 makeLenses ''IDict
@@ -81,8 +80,8 @@ makeLenses ''Dictionary
  inputLineLengthWId : wordBufferWId : sourceIDWid : tregWid : wordsIds) = map WordId [0..]
 
 -- Create a new basic dictionary.
-newDictionary :: Primitive a => State (Dictionary a) WordId -> Dictionary a
-newDictionary extras = execState build (Dictionary wordsIds Nothing)
+newDictionary :: Primitive a => State (Dictionary a, [WordId]) () -> (Dictionary a, [WordId])
+newDictionary extras = execState build (Dictionary Nothing, wordsIds)
   where
     build = do
       addWord "EXIT"  exit
@@ -115,12 +114,10 @@ newDictionary extras = execState build (Dictionary wordsIds Nothing)
       extras
 
 addWord name doer =
-  StateT $ \s ->
-    let i:is = _wids s
-    in  return (i, s { _wids = is,
-                       _latest = Just $ ForthWord name False (_latest s) i doer })
+  StateT $ \(Dictionary latest, i:is) -> 
+      return ((), (Dictionary (Just $ ForthWord name False latest i doer), is))
 
-makeImmediate :: State (Dictionary a)  ()
-makeImmediate = modify setLatestImmediate
+makeImmediate :: State (Dictionary a, [WordId]) ()
+makeImmediate = modify (_1%~setLatestImmediate)
 
 setLatestImmediate = latest._Just.immediateFlag.~True
