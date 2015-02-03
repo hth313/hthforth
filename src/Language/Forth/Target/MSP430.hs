@@ -8,7 +8,7 @@
 
 -}
 
-module Language.Forth.Target.MSP430 (bindMSP430, dictionaryMSP430, codeGenerateMSP430) where
+module Language.Forth.Target.MSP430 (bindMSP430, codeGenerateMSP430) where
 
 import qualified Data.ByteString.Char8 as C
 import Data.Bits
@@ -28,11 +28,6 @@ import Translator.Expression
 -- | Bind a polymorphic target dictionary to be an MSP430 specific one
 bindMSP430 :: Dictionary (IM Instr430) -> Dictionary (IM Instr430)
 bindMSP430 = id
-
--- | Our initial dictionary.
-dictionaryMSP430 :: Dictionary (IM Instr430)
-dictionaryMSP430 = newDictionary extras
-  where extras = return (WordId 0)
 
 -- Forth machine registers
 tos   = RegOp R4

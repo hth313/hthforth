@@ -8,7 +8,7 @@
 
 -}
 
-module Language.Forth.Target.CortexM (bindCortexM, dictionaryCortexM, codeGenerateCortexM) where
+module Language.Forth.Target.CortexM (bindCortexM, codeGenerateCortexM) where
 
 import Data.Int
 import Data.Monoid hiding (Any)
@@ -34,11 +34,6 @@ ip = R6        -- interpretive pointer
 ftable = R7    -- base regiser for flash token table
 stack = R10    -- data stack pointer
 rstack = R11   -- return stack pointer
-
--- | Our initial dictionary.
-dictionaryCortexM :: Dictionary (IM ARMInstr)
-dictionaryCortexM = newDictionary extras
-  where extras = return (WordId 0)
 
 -- | CortexM instantiation of the Forth tagless final style typeclass.
 instance Primitive (IM ARMInstr) where
