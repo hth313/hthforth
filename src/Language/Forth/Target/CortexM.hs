@@ -91,13 +91,6 @@ instance TargetPrimitive (IM ARMInstr) where
   literal val = colonToken (E.Identifier "LIT") <> colonToken val
   finish = id
 
-{-
--- Given
-instance Primitive (CellVal Int32 String) String where
-  exit = "exit"
-  lit c = "lit"
--}
-
 token lab = insRec $ Directive $ WORD lab
 
 popStack = popXStack stack
