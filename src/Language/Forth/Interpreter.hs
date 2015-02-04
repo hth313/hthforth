@@ -54,7 +54,7 @@ import qualified Prelude as Prelude
 
 
 initialState target =
-  FState [] [] [] target dict IntMap.empty [] wids Map.empty icompiler targetDictionary
+  FState [] [] [] target dict IntMap.empty wids [] Map.empty icompiler targetDictionary
     where (dict, wids) = interpreterDictionary
 
 icompiler = Compiler defining icompile ilitComma xcompileBranch xcompileBranch irecurse istartDefining 
