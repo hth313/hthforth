@@ -44,6 +44,7 @@ indirectInc (RegOp reg) = IndirectInc reg
 add  = binary ADD
 and_ = binary AND
 bis  = binary BIS
+call = insRec . CALL
 clrc = insRec CLRC
 dec  = unary  DEC
 decd = unary  DECD
@@ -127,6 +128,7 @@ instance TargetPrimitive (IM Instr430) where
   wordToken sym = colonToken $ Identifier sym
   literal val = colonToken (Identifier "LIT") <> colonToken val
   finish = id
+  docol = call (Imm (Identifier "DOCOL"))
 
 -- Helper function for implementing LSHIFT and RSHIFT
 multiShift t shift =

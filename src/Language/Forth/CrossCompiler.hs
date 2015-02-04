@@ -54,7 +54,9 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
   abortDefining s = s
   setImmediate s = s
   startDefining Create{..} s = s { _targetDict = startDefining1 $ _targetDict s }
-    where startDefining1 = tdefining.~(Just $ TDefining createName mempty)
+    where startDefining1 s = s { _tdefining = Just (TDefining createName doer) }
+            where doer | usingCreate = mempty 
+                       | otherwise = docol
   closeDefining s = s { _targetDict = closeDefining1 $ _targetDict s }
     where closeDefining1 dict = dict & tdefining.~Nothing & tdict.latest.~Just newWord
             where newWord = ForthWord name False (_latest $ _tdict dict) (WordId 0)

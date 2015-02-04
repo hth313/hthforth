@@ -12,3 +12,4 @@ class TargetPrimitive imt where
   wordToken :: Symbol -> imt
   literal   :: Expr -> imt
   finish    :: imt -> imt
+  docol     :: imt

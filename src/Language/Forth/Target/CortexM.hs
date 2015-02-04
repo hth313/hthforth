@@ -90,6 +90,7 @@ instance TargetPrimitive (IM ARMInstr) where
   wordToken sym = colonToken $ E.Identifier sym
   literal val = colonToken (E.Identifier "LIT") <> colonToken val
   finish = id
+  docol = insRec $ bl (Mem $ E.Identifier "DOCOL")
 
 token lab = insRec $ Directive $ WORD lab
 

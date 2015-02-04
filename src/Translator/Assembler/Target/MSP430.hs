@@ -18,6 +18,7 @@ data Instr430 = ADD  Suffix Op Op
               | ADDC Suffix Op Op
               | AND  Suffix Op Op
               | BIS  Suffix Op Op
+              | CALL Op
               | CLRC
               | DEC  Suffix Op
               | DECD Suffix Op
@@ -64,6 +65,7 @@ instance InstructionSet Instr430 where
         disasm (ADDC s op1 op2) = dis "addc" s op1 (Just op2)
         disasm (AND  s op1 op2) = dis "and"  s op1 (Just op2)
         disasm (BIS  s op1 op2) = dis "bis"  s op1 (Just op2)
+        disasm (CALL   op)      = ("call", Just [show op])
         disasm CLRC             = ("clrc", Nothing)
         disasm (DEC  s op)      = dis "dec"  s op  Nothing
         disasm (DECD s op)      = dis "decd" s op  Nothing
