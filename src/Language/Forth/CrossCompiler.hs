@@ -46,6 +46,7 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
   -- irrelevant for that.
   defining s = isJust $ _tdefining (_targetDict s :: TDict ARMInstr)
   compile (XT _ _ (Just sym)) = addTokens $ wordToken sym
+  compile val@Val{} = litComma val
   litComma val = addTokens $ literal $ cellToExpr val
   compileBranch = compileBranch0
   compileBranch0 val s = s
