@@ -136,6 +136,7 @@ interpreterDictionary = (IDict dict Nothing, wids)
           addWord "KEY" key
           addWord "RECURSE" (cprim recurse)
           addWord "CROSS-COMPILER" crossCompileSetup
+          addWord "INTERPRETER" interpreterCompileSetup
           addWord "DUMP-CORTEXM" (targetCodegen codeGenerateCortexM)
           addWord "DUMP-MSP430" (targetCodegen codeGenerateMSP430)
 
@@ -685,8 +686,8 @@ targetCodegen codeGenerate = docol [xword, dump, exit]
             Left (e :: IOException) -> abortMessage $ show e
             Right () -> next
 
-crossCompileSetup = updateState f  where
-  f s = newState s { _compilerFuns = crossCompiler }
+crossCompileSetup = updateState $ \s -> newState $ s & compilerFuns.~crossCompiler
+interpreterCompileSetup = updateState $ \s -> newState $ s & compilerFuns.~icompiler
 
 -- | Compile a string literal. We expect to get a string pointer (caddr u) on
 --   the stack pointing to some character buffer. Compile a string literal
