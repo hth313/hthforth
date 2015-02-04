@@ -126,7 +126,7 @@ interpreterDictionary = (IDict dict Nothing, wids)
           addWord "TREG" treg
           addWord "PAD" pad
           addWord "STRING," compileString
-          addWord "LIT," (dpop >>= \x -> cprim1 litComma x ) -- (\c -> c.litComma x))
+          addWord "LIT," (dpop >>= \x -> cprim1 litComma x)
           addWord "ALLOT" allot
           addWord ">BODY" toBody
           addWord "ACCEPT" accept
