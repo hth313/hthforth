@@ -40,7 +40,6 @@ import Language.Forth.CrossCompiler
 import Language.Forth.Dictionary
 import Language.Forth.Machine
 import Language.Forth.Primitive
-import Language.Forth.TargetPrimitive
 import Language.Forth.StreamFile
 import Language.Forth.Target
 import Language.Forth.Target.CortexM (codeGenerateCortexM)
