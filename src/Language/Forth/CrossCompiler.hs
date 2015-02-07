@@ -54,7 +54,7 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
   abortDefining s = s
   setImmediate s = s
   startDefining Create{..} s = s { _targetDict = startDefining1 $ _targetDict s }
-    where startDefining1 s = s { _tdefining = Just (TDefining createName doer) }
+    where startDefining1 dict = dict { _tdefining = Just (TDefining createName doer) }
             where doer | usingCreate = mempty 
                        | otherwise = docol
   closeDefining s = s { _targetDict = closeDefining1 $ _targetDict s }
