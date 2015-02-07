@@ -51,7 +51,8 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
   compileBranch = compileBranch0
   compileBranch0 val s = s
   recurse s = s
-  abortDefining s = s
+  abortDefining s = s { _targetDict = abortDefining1 $ _targetDict s }
+    where abortDefining1 dict = dict & tdefining.~Nothing
   setImmediate s = s
   startDefining Create{..} s = s { _targetDict = startDefining1 $ _targetDict s }
     where startDefining1 dict = dict { _tdefining = Just (TDefining createName doer) }
