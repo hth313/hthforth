@@ -68,7 +68,6 @@ icompiler = Compiler defining icompile ilitComma xcompileBranch xcompileBranch i
           abortDefining = dict.idefining.~Nothing
           imm = dict.idict.latest._Just.immediateFlag.~True
 
-initialVarStorage :: FM t ()
 initialVarStorage = gets _target >>=
   \t -> let f (wid, val) =
               let field@(DataField cm) = newDataField t wid (bytesPerCell t)
@@ -147,7 +146,7 @@ interpreterDictionary = (IDict dict Nothing, wids)
 
 
 -- | Foundation of the Forth interpreter
-instance Primitive (FM t ()) where
+instance Primitive (FM a ()) where
   exit = rpop >>= \case
            IP ip' -> do
              modify $ \s -> s { _ip = ip' }
@@ -307,13 +306,13 @@ rloopHelper f s
   | otherwise = emptyStack s
 
 -- | Helper for arithmetics
-binary :: (CV t -> CV t -> CV t) -> FM t ()
+binary :: (CV a -> CV a -> CV a) -> FM a ()
 binary op = updateState f  where
   f s | op1 : op2 : ss <- _stack s = newState s { _stack = op2 `op` op1 : ss }
       | otherwise = emptyStack s
 
 -- | Convert a cell value to a large unsigned number
-unsigned :: CV t -> Word64
+unsigned :: CV a -> Word64
 unsigned c@(Val x) =
   let (ux :: Word64) = fromIntegral x
       Just bitsize = bitSizeMaybe c
@@ -321,7 +320,6 @@ unsigned c@(Val x) =
   in ux Bits..&. bitmask
 
 -- | Call given colon definition body.
-docol, branch, branch0 :: [FM t ()] -> FM t ()
 docol xs = modify (\s -> s { _rstack = IP (_ip s) : _rstack s, _ip = xs }) >> next
 
 branch = ipdo
@@ -331,7 +329,6 @@ branch0 loc = dpop >>= \n -> if | isZero n -> ipdo loc
 -- | Replace what we are interpreting with given slice of code.
 --   Typically used for implementing branches and setting the
 --   main loop.
-ipdo :: [FM t ()] -> FM t ()
 ipdo ip' = modify (\s -> s { _ip = ip' }) >> next
 
 -- | Search dictionary for given named word.
@@ -343,7 +340,6 @@ searchDict n = gets (\s -> (f (s^.dict.idict.latest),
         f Nothing = Nothing
 
 -- | Main loop for the interpreter
-mainLoop :: FM t ()
 mainLoop = do
   mline <- lift $ getInputLine ""
   case mline of
@@ -383,11 +379,11 @@ evaluate = docol [inputLine, fetch, tor,              -- save input specificatio
                   rto, inputLine, store, exit]
 
 -- | Insert the field contents of given word
-putField :: WordId -> DataField (FM t ()) -> FM t ()
+putField :: WordId -> DataField (FM a ()) -> FM a ()
 putField wid field = modify $ \s -> s { _variables = IntMap.insert (unWordId wid) field  (_variables s) }
 
 -- | Push the field address of a word on stack
-litAdr :: WordId -> FM t ()
+litAdr :: WordId -> FM a ()
 litAdr = lit . adrcv
 
 -- | Addressable value, pointing to the first address of the datafield of
@@ -395,7 +391,6 @@ litAdr = lit . adrcv
 adrcv wid = Address (Just $ Addr wid 0)
 
 -- | Forth level error handling.
-abort :: FM t ()
 abort = docol [modify (\s -> (s^.compilerFuns.abortDefining $ s) & stack.~[]) >> next,
                lit (Val 0), state, store, quit]
 
@@ -405,28 +400,27 @@ abortWith msg s = return (Left msg, s)
 abortMessage msg = liftIO (putStrLn msg) >> abort
 
 -- | Step the colon body and execute next word in it.
-next :: FM t ()
 next = do x <- StateT $ \s -> let (x:xs) = _ip s
                               in return (x, s { _ip = xs } )
           x
 
 -- | Invoke an execution token.
-call :: CV t -> FM t ()
+call :: CV a -> FM a ()
 call (XT _ (Just a) _) = a
 call (XT _ _ Just{}) = abortMessage "xt only known to a target"
 call _ = abortMessage "not an execution token"
 
 -- | Data stack primitives
-dpush :: CV t -> FM t ()
+dpush :: CV a -> FM a ()
 dpush val = modify $ \s -> s { _stack = val : _stack s }
 
-dpop :: FM t (CV t)
+dpop :: FM a (CV a)
 dpop = updateStateVal (Val 0) f  where
   f s | t:ts <- _stack s = return (Right t, s { _stack = ts })
       | otherwise = emptyStack s
 
 -- | Return stack primitives
-rpop :: FM t (CV t)
+rpop :: FM a (CV a)
 rpop = updateStateVal (Val 0) f  where
   f s | t:ts <- _rstack s = return (Right t, s { _rstack = ts })
       | otherwise = emptyStack s
@@ -445,7 +439,6 @@ updateStateVal x f = StateT f >>= \case
 
 newState s = return (Right (), s)
 
-cfetch' :: FM t ()
 cfetch' = updateState f  where
   f s | Address (Just adr@(Addr wid _)) : rest <- _stack s =
           case IntMap.lookup (unWordId wid) (_variables s) of
@@ -459,7 +452,6 @@ cfetch' = updateState f  where
       | null (_stack s) = emptyStack s
       | otherwise = abortWith "bad C@ address" s
 
-cstore' :: FM t ()
 cstore' = do
   action <- updateStateVal (return ()) $ \s ->
     case _stack s of
@@ -480,7 +472,6 @@ cstore' = do
   liftIO action
   next
 
-fetch' :: FM t ()
 fetch' = updateState f  where
   f s | Address (Just adr@(Addr wid off)) : rest <- _stack s =
           case IntMap.lookup (unWordId wid) (_variables s) of
@@ -494,7 +485,6 @@ fetch' = updateState f  where
       | null (_stack s) = emptyStack s
       | otherwise = abortWith "bad address given to @" s
 
-store' :: FM t ()
 store' = updateState f  where
   f s | Address (Just adr@(Addr wid i)) : val : rest <- _stack s,
         Just (DataField cm) <- IntMap.lookup (unWordId wid) (_variables s) =
@@ -505,7 +495,7 @@ store' = updateState f  where
       | otherwise = abortWith "Bad arguments to !" s
 
 -- | Given a counted string, extract the actual text as an individual ByteString.
-countedText :: CV t -> FM t ByteString
+countedText :: CV a -> FM a ByteString
 countedText (Address (Just (Addr wid off))) = updateStateVal "" $ \s ->
     case IntMap.lookup (unWordId wid) (_variables s) of
       Just (BufferField cmem) ->
@@ -518,7 +508,6 @@ xt word = XT (_wordId <$> word) (_doer <$> word)
 
 -- | Find the name (counted string) in the dictionary
 --   ( c-addr -- c-addr 0 | xt 1 | xt -1 )
-find :: FM t ()
 find = do
   caddr <- dpop
   (word, sym) <- searchDict =<< countedText caddr
@@ -532,7 +521,6 @@ find = do
 
 -- | Copy word from given address with delimiter to a special transient area.
 --   ( "<chars>ccc<char>" -- c-addr )
-xword :: FM t ()
 xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, exit]
   where
     parseName =   -- ( "<spaces>ccc<space>" -- ctransbuf n )
@@ -566,8 +554,7 @@ ilitComma x = tackOn $ WrapA $ lit x
 
 -- | Compile a branch instruction. Branches need special handling when
 --   the colon definition is finailized.
-icompileBranch :: ([FM t ()] -> FM t ()) -> FM t ()
-
+icompileBranch :: ([FM a ()] -> FM a ()) -> FM a ()
 icompileBranch dest = updateState f  where
   f s | isdefining s = newState $ tackOn (WrapB dest) s
       | otherwise = notDefining s
@@ -645,7 +632,7 @@ backslash = docol body
         eol = drop : drop : inputLineLength : fetch : toIn : store : exit : found
         found = [inputLineLength, fetch, swap, minus, toIn, store, drop, exit]
 
-popFilename :: FM t String
+popFilename :: FM a String
 popFilename =
   updateStateVal "" $ \s ->
     case _stack s of
@@ -700,7 +687,6 @@ interpreterCompileSetup = updateState $ \s -> newState $ s & compilerFuns.~icomp
 --   the stack pointing to some character buffer. Compile a string literal
 --   that has the execution semantics to push the string back on stack.
 --   For the interpreter we simply wrap it in a literal.
-compileString :: FM t ()
 compileString = cprim1 compile =<< liftM Text stringlit
   where stringlit = updateStateVal "" $ \s ->
                       case _stack s of
@@ -727,7 +713,6 @@ emit = dpop >>= emit1 >> next where
     emit1 (Val n) | n >= 0 = liftIO $ putStr [chr $ fromIntegral n]
     emit1 _ = liftIO $ putStr "?"
 
-move :: FM t ()
 move = do
   mtuple <- updateStateVal Nothing $ \s ->
     case _stack s of
