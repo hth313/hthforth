@@ -32,7 +32,7 @@ type Cell = Int32
 data CellVal a =
     Address (Maybe Addr)    -- ^ An address value
   | Val Cell                -- ^ A numeric value
-  | XT (Maybe WordId) a (Maybe Symbol)
+  | XT (Maybe WordId) (Maybe a) (Maybe Symbol)
                             -- ^ Execution token
   | XTSym Symbol            -- ^ Target symbol
   | IP [a]                  -- ^ Pushed interpretive pointer
