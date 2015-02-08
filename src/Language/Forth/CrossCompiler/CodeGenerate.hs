@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {- |
 
@@ -16,13 +17,14 @@ import qualified Data.Vector.Storable.ByteString as B
 import qualified Data.Vector.Storable.ByteString.Char8 as C
 import qualified Data.ByteString.Char8 as C2
 import Language.Forth.Dictionary
+import Language.Forth.TargetPrimitive
 import Language.Forth.Word
 import Translator.Expression
 import Translator.Assembler.Directive
 import Translator.Assembler.Generate
 
 -- | Generalized Forth code generator
-codeGenerate :: (GNUDirective -> a) -> (Int -> Int) -> Dictionary (IM a) -> IM a
+codeGenerate ::  TargetPrimitive (IM t) => (GNUDirective -> t) -> (Int -> Int) -> Dictionary (IM t) -> IM t
 codeGenerate dir pad dict = visit (_latest dict)  where
   visit Nothing = mempty
   visit (Just word) = visit (_link word) <> generate word
@@ -30,9 +32,11 @@ codeGenerate dir pad dict = visit (_latest dict)  where
     let (bytes, chars) = nameString pad (C.unpack $ _name word)
         asciiRec | null chars = mempty
                  | otherwise = insRec $ dir $ ASCII [C.pack chars]
+        tail | primitiveTargetWord word = next
+             | otherwise = insEmpty
     in insRec (dir $ BYTE bytes) <>
        asciiRec <>
-       labRec (C2.pack . nameMangle . C.unpack $ _name word) <> _doer word <> insEmpty
+       labRec (C2.pack . nameMangle . C.unpack $ _name word) <> _doer word <> tail
 
 -- Ensure the name is something the assembler accepts.
 nameMangle :: String -> String

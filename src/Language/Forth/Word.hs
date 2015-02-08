@@ -6,7 +6,8 @@
 
 module Language.Forth.Word (ForthWord(..), WordId(..), LinkField, immediateFlag,
                             name, link, doer, wordId, symbol, nameSymbol,
-                            exitName, pdoName, ploopName, pploopName) where
+                            exitName, pdoName, ploopName, pploopName, 
+                            targetColonWordId, primitiveTargetWord) where
 
 import Control.Lens
 import Data.Char
@@ -45,3 +46,12 @@ exitName   = "EXIT"
 pdoName    = "(DO)"
 ploopName  = "(LOOP)"
 pploopName = "(+LOOP)"
+
+-- | Obtain an identity for a high level target word. At the moment we
+--   just give them the same number what is different from native words
+--   created newDictionary.
+targetColonWordId = WordId 0
+
+-- | Test whether the given word is a primitive word. This test is only valid for
+--   target words.
+primitiveTargetWord word = (targetColonWordId /= _wordId word)

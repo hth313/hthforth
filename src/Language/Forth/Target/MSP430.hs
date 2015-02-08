@@ -54,6 +54,7 @@ inv  = unary  INV
 jc   = insRec . JC
 jnc  = insRec . JNC
 jz   = insRec . JZ
+jmp  = insRec . JMP
 mov  = binary MOV
 pop  = unary  POP
 push = unary  PUSH
@@ -129,6 +130,7 @@ instance TargetPrimitive (IM Instr430) where
   literal val = colonToken (Identifier "LIT") <> colonToken val
   finish = id
   docol = call (Imm (Identifier "DOCOL"))
+  next = jmp (Imm (Identifier "NEXT"))
 
 -- Helper function for implementing LSHIFT and RSHIFT
 multiShift t shift =

@@ -13,3 +13,4 @@ class TargetPrimitive imt where
   literal   :: Expr -> imt
   finish    :: imt -> imt
   docol     :: imt
+  next      :: imt

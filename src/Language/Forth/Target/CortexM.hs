@@ -82,7 +82,7 @@ instance Primitive (IM ARMInstr) where
   umstar   = insRec (ldr w (RegIndOffset stack 0)) <>
              insRec (umull w tos w tos) <>
              insRec (str w (RegIndOffset stack 0))
-  ummod    = next
+  ummod    = mempty  -- TBD
 
 colonToken tok = insRec $ Directive $ WORD [tok]
 
@@ -91,6 +91,7 @@ instance TargetPrimitive (IM ARMInstr) where
   literal val = colonToken (E.Identifier "LIT") <> colonToken val
   finish = id
   docol = insRec $ bl (Mem $ E.Identifier "DOCOL")
+  next = insRec $ b (Mem $ E.Identifier "NEXT")
 
 token lab = insRec $ Directive $ WORD lab
 
@@ -115,8 +116,6 @@ supportCode  = insLabRec "docol" (str ip (PreIndexed rstack 4)) <>
                insLabRec "next" (ldrh w (PostIndexed ip 2)) <>
                insRec (ldr w (RegRegInd ftable w (OpLSL 2))) <>
                insRec (ldr PC (PostIndexed w 4))
-
-next = insRec $ b (Mem $ E.Identifier "next")
 
 -- | Generate code for a dictionary for Cortex-M
 -- codeGenerateCortexM :: (forall t. Dictionary (IM t)) -> ByteString

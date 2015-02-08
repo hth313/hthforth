@@ -28,6 +28,7 @@ data Instr430 = ADD  Suffix Op Op
               | JC   Lab
               | JNC  Lab
               | JZ   Lab
+              | JMP Op
               | MOV  Suffix Op Op
               | POP  Suffix Op
               | PUSH Suffix Op
@@ -75,6 +76,7 @@ instance InstructionSet Instr430 where
         disasm (JC   lab)       = ("jc",  Just [lab])
         disasm (JNC  lab)       = ("jnc", Just [lab])
         disasm (JZ   lab)       = ("jz",  Just [lab])
+        disasm (JMP  op)        = ("jmp", Just [show op])
         disasm (MOV  s op1 op2) = dis "mov"  s op1 (Just op2)
         disasm (POP  s op)      = dis "pop"  s op  Nothing
         disasm (PUSH s op)      = dis "push" s op  Nothing

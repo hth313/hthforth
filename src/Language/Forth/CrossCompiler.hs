@@ -60,7 +60,7 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
                        | otherwise = docol
   closeDefining s = s { _targetDict = closeDefining1 $ _targetDict s }
     where closeDefining1 dict = dict & tdefining.~Nothing & tdict.latest.~Just newWord
-            where newWord = ForthWord name False (_latest $ _tdict dict) (WordId 0)
+            where newWord = ForthWord name False (_latest $ _tdict dict) targetColonWordId
                                       (finish $ _tcompileList (fromJust $ _tdefining dict))
                   name = _wordName (fromJust $ _tdefining dict) 
 

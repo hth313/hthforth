@@ -113,6 +113,7 @@ newDictionary extras = execState build (Dictionary Nothing, wordsIds)
       addWord "UM/MOD" ummod
       extras
 
+
 addWord name doer =
   StateT $ \(Dictionary latest, i:is) -> 
       return ((), (Dictionary (Just $ ForthWord name False latest i doer), is))
