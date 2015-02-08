@@ -90,8 +90,16 @@ instance TargetPrimitive (IM ARMInstr) where
   wordToken sym = colonToken $ E.Identifier sym
   literal val = colonToken (E.Identifier "LIT") <> colonToken val
   finish = id
-  docol = insRec $ bl (Mem $ E.Identifier "DOCOL")
-  next = insRec $ b (Mem $ E.Identifier "NEXT")
+  docol = insRec $ bl (Mem $ E.Identifier docolName)
+  next = insRec $ b (Mem $ E.Identifier nextName)
+  libDoCol = insLabRec docolName (str ip (PreIndexed rstack 4)) <>
+             insRec (mov ip (RegOp R0)) 
+  libNext = insLabRec nextName (ldrh w (PostIndexed ip 2)) <>
+            insRec (ldr w (RegRegInd ftable w (OpLSL 2))) <>
+            insRec (ldr PC (PostIndexed w 4))
+
+docolName = "DOCOL"
+nextName = "NEXT"
 
 token lab = insRec $ Directive $ WORD lab
 
@@ -110,12 +118,6 @@ singleShift ins = insRec (ins tos tos (Imm 1))
 
 multiShift ins = popStack w <>
                  insRec (ins tos w (RegOp tos))
-
-supportCode  = insLabRec "docol" (str ip (PreIndexed rstack 4)) <>
-               insRec (mov ip (RegOp R0)) <>
-               insLabRec "next" (ldrh w (PostIndexed ip 2)) <>
-               insRec (ldr w (RegRegInd ftable w (OpLSL 2))) <>
-               insRec (ldr PC (PostIndexed w 4))
 
 -- | Generate code for a dictionary for Cortex-M
 -- codeGenerateCortexM :: (forall t. Dictionary (IM t)) -> ByteString

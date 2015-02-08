@@ -131,6 +131,8 @@ instance TargetPrimitive (IM Instr430) where
   finish = id
   docol = call (Imm (Identifier "DOCOL"))
   next = jmp (Imm (Identifier "NEXT"))
+  libDoCol = mempty -- TBD
+  libNext  = mempty -- TBD
 
 -- Helper function for implementing LSHIFT and RSHIFT
 multiShift t shift =

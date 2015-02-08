@@ -1,5 +1,6 @@
 module Language.Forth.TargetPrimitive (TargetPrimitive(..)) where
 
+import Data.Monoid
 import Language.Forth.Word
 import Translator.Assembler.Generate (IM)
 import Translator.Expression (Expr)
@@ -14,3 +15,7 @@ class TargetPrimitive imt where
   finish    :: imt -> imt
   docol     :: imt
   next      :: imt
+  libNext   :: imt
+  libDoCol  :: imt
+  libRest   :: Monoid imt => imt
+  libRest = mempty

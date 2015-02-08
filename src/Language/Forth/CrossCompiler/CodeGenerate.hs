@@ -25,18 +25,20 @@ import Translator.Assembler.Generate
 
 -- | Generalized Forth code generator
 codeGenerate ::  TargetPrimitive (IM t) => (GNUDirective -> t) -> (Int -> Int) -> Dictionary (IM t) -> IM t
-codeGenerate dir pad dict = visit (_latest dict)  where
+codeGenerate dir pad dict = header <> visit (_latest dict)  where
   visit Nothing = mempty
   visit (Just word) = visit (_link word) <> generate word
   generate word =
     let (bytes, chars) = nameString pad (C.unpack $ _name word)
         asciiRec | null chars = mempty
                  | otherwise = insRec $ dir $ ASCII [C.pack chars]
-        tail | primitiveTargetWord word = next
+        tail | _name word == "EXIT" = libNext
+             | primitiveTargetWord word = next
              | otherwise = insEmpty
     in insRec (dir $ BYTE bytes) <>
        asciiRec <>
        labRec (C2.pack . nameMangle . C.unpack $ _name word) <> _doer word <> tail
+  header = libDoCol <> libRest
 
 -- Ensure the name is something the assembler accepts.
 nameMangle :: String -> String
