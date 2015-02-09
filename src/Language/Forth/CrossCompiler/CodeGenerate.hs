@@ -6,7 +6,8 @@
 
 -}
 
-module Language.Forth.CrossCompiler.CodeGenerate (codeGenerate, nameMangle, nameString, pad2) where
+module Language.Forth.CrossCompiler.CodeGenerate (docolName, nextName, litName, 
+                                                  codeGenerate, nameMangle, nameString, pad2) where
 
 import Data.Bits
 import Data.Char
@@ -22,6 +23,14 @@ import Language.Forth.Word
 import Translator.Expression
 import Translator.Assembler.Directive
 import Translator.Assembler.Generate
+import Translator.Symbol (Symbol)
+
+
+-- | Some predefined symbols for specific purposes in a target
+docolName, nextName, litName :: Symbol
+docolName = "DOCOL" 
+nextName  = "NEXT" 
+litName   = "LIT"   
 
 -- | Generalized Forth code generator
 codeGenerate ::  TargetPrimitive (IM t) => (GNUDirective -> t) -> (Int -> Int) -> Dictionary (IM t) -> IM t

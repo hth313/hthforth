@@ -92,7 +92,7 @@ colonToken tok = insRec $ Directive $ WORD [tok]
 
 instance TargetPrimitive (IM ARMInstr) where
   wordToken sym = colonToken $ E.Identifier sym
-  literal val = colonToken (E.Identifier "LIT") <> colonToken val
+  literal val = colonToken (E.Identifier litName) <> colonToken val
   docol = insRec $ bl (Mem $ E.Identifier docolName)
   next = insRec $ b (Mem $ E.Identifier nextName)
   libDoCol = insLabRec docolName (str ip (PreIndexed rstack 4)) <>
@@ -102,9 +102,6 @@ instance TargetPrimitive (IM ARMInstr) where
             insRec (ldr PC (PostIndexed w 4))
   resetRStack = insRec (ldr rstack (RegIndOffset ftable rstackResetOffset)) 
   resetStack  = insRec (ldr  stack (RegIndOffset ftable  stackResetOffset))
-
-docolName = "DOCOL"
-nextName = "NEXT"
 
 token lab = insRec $ Directive $ WORD lab
 

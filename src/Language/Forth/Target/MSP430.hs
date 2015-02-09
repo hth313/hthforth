@@ -127,9 +127,9 @@ colonToken tok = insRec $ Directive $ WORD [tok]
 
 instance TargetPrimitive (IM Instr430) where
   wordToken sym = colonToken $ Identifier sym
-  literal val = colonToken (Identifier "LIT") <> colonToken val
-  docol = call (Imm (Identifier "DOCOL"))
-  next = jmp (Imm (Identifier "NEXT"))
+  literal val = colonToken (Identifier litName) <> colonToken val
+  docol = call (Imm (Identifier docolName))
+  next = jmp (Imm (Identifier nextName))
   libDoCol    = mempty -- TBD
   libNext     = mempty -- TBD
   resetRStack = mempty -- TBD
