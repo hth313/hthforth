@@ -35,6 +35,10 @@ ftable = R7    -- base regiser for flash token table
 stack = R10    -- data stack pointer
 rstack = R11   -- return stack pointer
 
+-- Flash token table store some suitable constants in the beginning
+rstackResetOffset = 0
+stackResetOffset  = 4
+
 -- | CortexM instantiation of the Forth tagless final style typeclass.
 instance Primitive (IM ARMInstr) where
   exit     = popRStack ip
@@ -89,7 +93,6 @@ colonToken tok = insRec $ Directive $ WORD [tok]
 instance TargetPrimitive (IM ARMInstr) where
   wordToken sym = colonToken $ E.Identifier sym
   literal val = colonToken (E.Identifier "LIT") <> colonToken val
-  finish = id
   docol = insRec $ bl (Mem $ E.Identifier docolName)
   next = insRec $ b (Mem $ E.Identifier nextName)
   libDoCol = insLabRec docolName (str ip (PreIndexed rstack 4)) <>
@@ -97,6 +100,8 @@ instance TargetPrimitive (IM ARMInstr) where
   libNext = insLabRec nextName (ldrh w (PostIndexed ip 2)) <>
             insRec (ldr w (RegRegInd ftable w (OpLSL 2))) <>
             insRec (ldr PC (PostIndexed w 4))
+  resetRStack = insRec (ldr rstack (RegIndOffset ftable rstackResetOffset)) 
+  resetStack  = insRec (ldr  stack (RegIndOffset ftable  stackResetOffset))
 
 docolName = "DOCOL"
 nextName = "NEXT"

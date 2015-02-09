@@ -61,7 +61,7 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
   closeDefining s = s { _targetDict = closeDefining1 $ _targetDict s }
     where closeDefining1 dict = dict & tdefining.~Nothing & tdict.latest.~Just newWord
             where newWord = ForthWord name False (_latest $ _tdict dict) targetColonWordId
-                                      (finish $ _tcompileList (fromJust $ _tdefining dict))
+                                      (_tcompileList (fromJust $ _tdefining dict))
                   name = _wordName (fromJust $ _tdefining dict) 
 
 addTokens :: (forall t. (InstructionSet t, Primitive (IM t), TargetPrimitive (IM t)) => IM t) -> FState a -> FState a
@@ -71,4 +71,6 @@ addTokens vs s = s { _targetDict = (_targetDict s) { _tdefining = f <$> _tdefini
 targetDictionary :: (InstructionSet t, Primitive (IM t), TargetPrimitive (IM t)) => TDict t
 targetDictionary = TDict dict Nothing
     where dict = fst $ newDictionary extras
-          extras = return ()
+          extras = do
+            addWord "RSP0" resetRStack      -- reset return stack
+            addWord "SP0"  resetStack       -- reset data stack

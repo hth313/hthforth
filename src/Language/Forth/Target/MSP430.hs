@@ -128,11 +128,12 @@ colonToken tok = insRec $ Directive $ WORD [tok]
 instance TargetPrimitive (IM Instr430) where
   wordToken sym = colonToken $ Identifier sym
   literal val = colonToken (Identifier "LIT") <> colonToken val
-  finish = id
   docol = call (Imm (Identifier "DOCOL"))
   next = jmp (Imm (Identifier "NEXT"))
-  libDoCol = mempty -- TBD
-  libNext  = mempty -- TBD
+  libDoCol    = mempty -- TBD
+  libNext     = mempty -- TBD
+  resetRStack = mempty -- TBD
+  resetStack  = mempty -- TBD
 
 -- Helper function for implementing LSHIFT and RSHIFT
 multiShift t shift =
