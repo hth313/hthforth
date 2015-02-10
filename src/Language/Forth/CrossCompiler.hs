@@ -13,7 +13,7 @@
 
 -}
 
-module Language.Forth.CrossCompiler (crossCompiler, targetDictionary) where
+module Language.Forth.CrossCompiler (crossCompiler, targetDictionary, arbitraryTargetDict) where
 
 import Control.Applicative
 import Control.Lens
@@ -36,15 +36,12 @@ import Translator.Expression
 -- These imports (minor kludge) are for defining below binding to a specific target,
 -- as I have yet to find a way to avoid it.
 import Translator.Assembler.Target.ARM (ARMInstr)
-import Language.Forth.Target.CortexM
+import Language.Forth.Target.CortexM ()
 
 -- | The cross compiler
 crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 recurse startDefining
                          closeDefining abortDefining setImmediate where
-  -- Works, but not ideal. It would be nicer if we could avoid binding it here
-  -- as we are only interested in the isJust of it, and the bound target is
-  -- irrelevant for that.
-  defining s = isJust $ _tdefining (_targetDict s :: TDict ARMInstr)
+  defining = isJust . _tdefining . arbitraryTargetDict
   compile (XT _ _ (Just sym)) = addTokens $ wordToken sym
   compile val@Val{} = litComma val
   litComma val = addTokens $ literal $ cellToExpr val
@@ -74,3 +71,10 @@ targetDictionary = TDict dict Nothing
           extras = do
             addWord "RSP0" resetRStack      -- reset return stack
             addWord "SP0"  resetStack       -- reset data stack
+
+-- | Dummy binding a target dictionary is a kludge that can be used in certain situations
+--   when we do not care which target it is, but the type system insists that it must know,
+--   even though it does not matter.
+--   Maybe there is a better way to do this, but I yet to find it.
+arbitraryTargetDict :: FState a -> TDict ARMInstr
+arbitraryTargetDict = _targetDict

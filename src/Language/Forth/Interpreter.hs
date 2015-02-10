@@ -53,10 +53,6 @@ import Util.Memory
 import Prelude hiding (drop, until, repeat)
 import qualified Prelude as Prelude
 
--- This import (minor kludge) are for defining below binding to a specific target,
--- as I have yet to find a way to avoid it.
-import Translator.Assembler.Target.ARM (ARMInstr)
-
 
 initialState target =
   FState [] [] [] target dict IntMap.empty wids [] Map.empty icompiler targetDictionary
@@ -334,7 +330,7 @@ ipdo ip' = modify (\s -> s { _ip = ip' }) >> next
 -- | Search dictionary for given named word.
 searchDict :: ByteString -> FM a (Maybe (ForthWord (FM a())), Maybe Symbol)
 searchDict n = gets (\s -> (f (s^.dict.idict.latest), 
-                               nameSymbol <$> f (s^.targetDict.tdict.latest :: LinkField (IM (ARMInstr)))))
+                               nameSymbol <$> f ((arbitraryTargetDict s)^.tdict.latest)))
   where f jw@(Just word) | n == word^.name = jw
                          | otherwise = f (word^.link) 
         f Nothing = Nothing
