@@ -131,7 +131,7 @@ instance TargetPrimitive Instr430 where
   literal val = colonToken (Identifier litName) <> colonToken val
   docol = call (Imm (Identifier docolName))
   dohere dict  = call (Imm (Identifier dohereName)) <>
-                 insRec (Directive $ WORD [Identifier ramBase + Value (dict^.hereRAM)])
+                 insRec (Directive $ WORD [Identifier ramBaseName + Value (dict^.hereRAM)])
   next = jmp (Imm (Identifier nextName))
   libDoCol    = mempty -- TBD
   libDoHere   = mempty -- TBD
