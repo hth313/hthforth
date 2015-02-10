@@ -8,13 +8,14 @@
 module Language.Forth.Dictionary (newDictionary, IDict(..), TDict(..), Dictionary(..),
                                   idict, idefining, compileList,
                                   latest, tdict, tdefining, tcompileList, wordName,
-                                  DefiningWrapper(..), TDefining(..),
+                                  DefiningWrapper(..), TDefining(..), hereRAM,
                                   IDefining(..),
                                   definingWord, patchList,
                                   stateWId, toInWId,
                                   inputBufferWId, inputLineWId, tregWid,
                                   inputLineLengthWId, wordBufferWId, sourceIDWid,
-                                  addWord, makeImmediate, setLatestImmediate) where
+                                  addWord, makeImmediate, setLatestImmediate,
+                                  targetAllot) where
 
 import Control.Lens hiding (over)
 import Control.Monad
@@ -30,6 +31,7 @@ import Language.Forth.Primitive
 import Language.Forth.Target
 import Language.Forth.Word
 import Translator.Assembler.Generate (IM)
+import Translator.Expression (BaseVal)
 import Prelude hiding (drop, or, and)
 
 data IDict a = IDict {
@@ -54,6 +56,7 @@ data DefiningWrapper a = WrapA a | WrapB ([a] -> a) | WrapRecurse
 data TDict t = TDict {
     _tdict :: Dictionary (IM t)
   , _tdefining :: Maybe (TDefining t)
+  , _hereRAM :: BaseVal
 }
 
 data TDefining t = TDefining  {
@@ -122,3 +125,7 @@ makeImmediate :: State (Dictionary a, [WordId]) ()
 makeImmediate = modify (_1%~setLatestImmediate)
 
 setLatestImmediate = latest._Just.immediateFlag.~True
+
+-- | Reserve space in data memory
+targetAllot :: BaseVal -> TDict t -> TDict t
+targetAllot n = hereRAM%~(+n)

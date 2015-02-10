@@ -10,6 +10,7 @@
 
 module Language.Forth.Target.CortexM (bindCortexM, codeGenerateCortexM) where
 
+import Control.Lens
 import Data.Int
 import Data.Monoid hiding (Any)
 import Data.ByteString.Lazy (ByteString)
@@ -90,13 +91,18 @@ instance Primitive (IM ARMInstr) where
 
 colonToken tok = insRec $ Directive $ WORD [tok]
 
-instance TargetPrimitive (IM ARMInstr) where
+instance TargetPrimitive ARMInstr where
   wordToken sym = colonToken $ E.Identifier sym
   literal val = colonToken (E.Identifier litName) <> colonToken val
   docol = insRec $ bl (Mem $ E.Identifier docolName)
+  dohere dict = insRec (bl (Mem $ E.Identifier dohereName)) <>
+                insRec (Directive $ WORD [E.Identifier ramBase + E.Value (dict^.hereRAM)])
   next = insRec $ b (Mem $ E.Identifier nextName)
   libDoCol = insLabRec docolName (str ip (PreIndexed rstack 4)) <>
              insRec (mov ip (RegOp R0)) 
+  libDoHere = labRec dohereName <>
+              (pushStack tos) <>
+              insRec (ldr tos (RegIndOffset LR 0))
   libNext = insLabRec nextName (ldrh w (PostIndexed ip 2)) <>
             insRec (ldr w (RegRegInd ftable w (OpLSL 2))) <>
             insRec (ldr PC (PostIndexed w 4))

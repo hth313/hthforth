@@ -10,6 +10,7 @@
 
 module Language.Forth.Target.MSP430 (bindMSP430, codeGenerateMSP430) where
 
+import Control.Lens
 import qualified Data.ByteString.Char8 as C
 import Data.Bits
 import Data.Int
@@ -125,12 +126,15 @@ instance Primitive (IM Instr430) where
 
 colonToken tok = insRec $ Directive $ WORD [tok]
 
-instance TargetPrimitive (IM Instr430) where
+instance TargetPrimitive Instr430 where
   wordToken sym = colonToken $ Identifier sym
   literal val = colonToken (Identifier litName) <> colonToken val
   docol = call (Imm (Identifier docolName))
+  dohere dict  = call (Imm (Identifier dohereName)) <>
+                 insRec (Directive $ WORD [Identifier ramBase + Value (dict^.hereRAM)])
   next = jmp (Imm (Identifier nextName))
   libDoCol    = mempty -- TBD
+  libDoHere   = mempty -- TBD
   libNext     = mempty -- TBD
   resetRStack = mempty -- TBD
   resetStack  = mempty -- TBD

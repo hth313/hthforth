@@ -58,7 +58,7 @@ initialState target =
     where (dict, wids) = interpreterDictionary
 
 icompiler = Compiler defining icompile ilitComma xcompileBranch xcompileBranch irecurse istartDefining 
-                     icloseDefining abortDefining imm
+                     icloseDefining abortDefining imm ireserveSpace
     where defining = isJust._idefining._dict
           abortDefining = dict.idefining.~Nothing
           imm = dict.idict.latest._Just.immediateFlag.~True
@@ -724,15 +724,16 @@ move = do
   next
 
 allot = updateState f  where
-  f s | Val n:ss <- _stack s =
-        let Just word = s^.dict.idict.latest
-            wid = _wordId word
-            Just (DataField mem) = IntMap.lookup (unWordId wid) (_variables s)
-            (offset, mem1) = updateDataPointer (fromIntegral n +) mem
-        in newState s { _variables = IntMap.insert (unWordId wid) (DataField mem1) (_variables s),
-                        _stack = ss }
+  f s | Val n:ss <- _stack s = newState $ (s^.compilerFuns.reserveSpace) n (s & stack.~ss)
       | null (_stack s) = emptyStack s
       | otherwise = abortWith "ALLOT requires integer value" s
+
+ireserveSpace :: Cell -> FState a -> FState a
+ireserveSpace n s = s & variables%~(IntMap.insert (unWordId wid) (DataField mem1))
+  where Just word = s^.dict.idict.latest
+        wid = word^.wordId
+        Just (DataField mem) = IntMap.lookup (unWordId wid) (s^.variables)
+        (offset, mem1) = updateDataPointer (fromIntegral n +) mem
 
 umstar' = updateState f  where
   f s | n1@Val{} : n2@Val{} : ss <- _stack s =

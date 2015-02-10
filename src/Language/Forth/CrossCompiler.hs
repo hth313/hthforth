@@ -40,7 +40,7 @@ import Language.Forth.Target.CortexM ()
 
 -- | The cross compiler
 crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 recurse startDefining
-                         closeDefining abortDefining setImmediate where
+                         closeDefining abortDefining setImmediate reserveSpace where
   defining = isJust . _tdefining . arbitraryTargetDict
   compile (XT _ _ (Just sym)) = addTokens $ wordToken sym
   compile val@Val{} = litComma val
@@ -52,21 +52,22 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
     where abortDefining1 dict = dict & tdefining.~Nothing
   setImmediate s = s
   startDefining Create{..} s = s { _targetDict = startDefining1 $ _targetDict s }
-    where startDefining1 dict = dict { _tdefining = Just (TDefining createName doer) }
-            where doer | usingCreate = mempty 
-                       | otherwise = docol
+    where startDefining1 dict = f $ dict { _tdefining = Just (TDefining createName doer) }
+            where (f, doer) | usingCreate = (closeDefining1, dohere dict)
+                            | otherwise   = (id, docol)
   closeDefining s = s { _targetDict = closeDefining1 $ _targetDict s }
-    where closeDefining1 dict = dict & tdefining.~Nothing & tdict.latest.~Just newWord
-            where newWord = ForthWord name False (_latest $ _tdict dict) targetColonWordId
-                                      (_tcompileList (fromJust $ _tdefining dict))
-                  name = _wordName (fromJust $ _tdefining dict) 
+  closeDefining1 dict = dict & tdefining.~Nothing & tdict.latest.~Just newWord
+    where newWord = ForthWord name False (_latest $ _tdict dict) targetColonWordId
+                    (_tcompileList (fromJust $ _tdefining dict))
+          name = _wordName (fromJust $ _tdefining dict) 
+  reserveSpace n s = s { _targetDict = targetAllot (fromIntegral n) (_targetDict s) }
 
-addTokens :: (forall t. (InstructionSet t, Primitive (IM t), TargetPrimitive (IM t)) => IM t) -> FState a -> FState a
+addTokens :: (forall t. (InstructionSet t, Primitive (IM t), TargetPrimitive t) => IM t) -> FState a -> FState a
 addTokens vs s = s { _targetDict = (_targetDict s) { _tdefining = f <$> _tdefining (_targetDict s) } }
   where f d = d { _tcompileList = _tcompileList d <> vs }
 
-targetDictionary :: (InstructionSet t, Primitive (IM t), TargetPrimitive (IM t)) => TDict t
-targetDictionary = TDict dict Nothing
+targetDictionary :: (InstructionSet t, Primitive (IM t), TargetPrimitive t) => TDict t
+targetDictionary = TDict dict Nothing 0 
     where dict = fst $ newDictionary extras
           extras = do
             addWord "RSP0" resetRStack      -- reset return stack

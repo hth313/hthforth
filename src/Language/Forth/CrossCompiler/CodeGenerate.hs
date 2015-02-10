@@ -6,7 +6,8 @@
 
 -}
 
-module Language.Forth.CrossCompiler.CodeGenerate (docolName, nextName, litName, 
+module Language.Forth.CrossCompiler.CodeGenerate (docolName, dohereName, nextName, 
+                                                  litName, ramBase, 
                                                   codeGenerate, nameMangle, nameString, pad2) where
 
 import Data.Bits
@@ -27,13 +28,15 @@ import Translator.Symbol (Symbol)
 
 
 -- | Some predefined symbols for specific purposes in a target
-docolName, nextName, litName :: Symbol
+docolName, dohereName, nextName, litName, ramBaseSymbol
 docolName = "DOCOL" 
+dohereName = "DOHERE"
 nextName  = "NEXT" 
 litName   = "LIT"   
+ramBase   = "RAMBASE"
 
 -- | Generalized Forth code generator
-codeGenerate ::  TargetPrimitive (IM t) => (GNUDirective -> t) -> (Int -> Int) -> Dictionary (IM t) -> IM t
+codeGenerate ::  TargetPrimitive t => (GNUDirective -> t) -> (Int -> Int) -> Dictionary (IM t) -> IM t
 codeGenerate dir pad dict = header <> visit (_latest dict)  where
   visit Nothing = mempty
   visit (Just word) = visit (_link word) <> generate word
@@ -47,7 +50,7 @@ codeGenerate dir pad dict = header <> visit (_latest dict)  where
     in insRec (dir $ BYTE bytes) <>
        asciiRec <>
        labRec (C2.pack . nameMangle . C.unpack $ _name word) <> _doer word <> tail
-  header = libDoCol <> libRest
+  header = libDoCol <> libDoHere <> next <> libRest
 
 -- Ensure the name is something the assembler accepts.
 nameMangle :: String -> String

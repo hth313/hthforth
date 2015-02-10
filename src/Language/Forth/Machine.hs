@@ -9,7 +9,7 @@ module Language.Forth.Machine (FM, FState(..), CV, module Control.Monad.Trans.St
                                stack, rstack, ip, targetDict, dict, compilerFuns, variables, wids,
                                Compiler(..), defining, compile, litComma,
                                compileBranch, compileBranch0, recurse, closeDefining,
-                               startDefining, abortDefining, setImmediate, Create(..)) where
+                               startDefining, abortDefining, setImmediate, reserveSpace, Create(..)) where
 
 import Control.Lens
 import Control.Monad
@@ -49,7 +49,7 @@ data FState a = FState
   , _oldHandles :: [WordId]         -- ^ Unused handles after reading source files
   , _stringLiterals :: Map V.ByteString Addr
   , _compilerFuns :: Compiler a
-  , _targetDict :: forall t. (InstructionSet t, Primitive (IM t), TargetPrimitive (IM t)) =>
+  , _targetDict :: forall t. (InstructionSet t, Primitive (IM t), TargetPrimitive t) =>
                    TDict t          -- ^ Cross compiler dictionary
   }
 
@@ -77,6 +77,8 @@ data Compiler a = Compiler {
     -- ^ ABORT, stop whatever we are defining
   , _setImmediate :: FState a -> FState a
     -- ^ Set the immediate bit in the last defined word 
+  , _reserveSpace :: Cell -> FState a -> FState a
+  -- ^ Reserve space in data memory
   }
 
 -- | Data record used by startDefining
