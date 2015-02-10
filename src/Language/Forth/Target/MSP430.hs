@@ -128,11 +128,11 @@ colonToken tok = insRec $ Directive $ WORD [tok]
 
 instance TargetPrimitive Instr430 where
   wordToken sym = colonToken $ Identifier sym
-  literal val = colonToken (Identifier litName) <> colonToken val
-  docol = call (Imm (Identifier docolName))
-  dohere dict  = call (Imm (Identifier dohereName)) <>
-                 insRec (Directive $ WORD [Identifier ramBaseName + Value (dict^.hereRAM)])
-  next = jmp (Imm (Identifier nextName))
+  literal val = colonToken (Identifier litSymbol) <> colonToken val
+  docol = call (Imm (Identifier docolSymbol))
+  dohere dict  = call (Imm (Identifier dohereSymbol)) <>
+                 insRec (Directive $ WORD [Identifier ramBaseSymbol + Value (dict^.hereRAM)])
+  next = jmp (Imm (Identifier nextSymbol))
   libDoCol    = mempty -- TBD
   libDoHere   = mempty -- TBD
   libNext     = mempty -- TBD

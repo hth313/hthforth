@@ -93,17 +93,17 @@ colonToken tok = insRec $ Directive $ WORD [tok]
 
 instance TargetPrimitive ARMInstr where
   wordToken sym = colonToken $ E.Identifier sym
-  literal val = colonToken (E.Identifier litName) <> colonToken val
-  docol = insRec $ bl (Mem $ E.Identifier docolName)
-  dohere dict = insRec (bl (Mem $ E.Identifier dohereName)) <>
-                insRec (Directive $ WORD [E.Identifier ramBaseName + E.Value (dict^.hereRAM)])
-  next = insRec $ b (Mem $ E.Identifier nextName)
-  libDoCol = insLabRec docolName (str ip (PreIndexed rstack 4)) <>
+  literal val = colonToken (E.Identifier litSymbol) <> colonToken val
+  docol = insRec $ bl (Mem $ E.Identifier docolSymbol)
+  dohere dict = insRec (bl (Mem $ E.Identifier dohereSymbol)) <>
+                insRec (Directive $ WORD [E.Identifier ramBaseSymbol + E.Value (dict^.hereRAM)])
+  next = insRec $ b (Mem $ E.Identifier nextSymbol)
+  libDoCol = insLabRec docolSymbol (str ip (PreIndexed rstack 4)) <>
              insRec (mov ip (RegOp LR)) 
-  libDoHere = labRec dohereName <>
+  libDoHere = labRec dohereSymbol <>
               (pushStack tos) <>
               insRec (ldr tos (RegIndOffset LR 0))
-  libNext = insLabRec nextName (ldrh w (PostIndexed ip 2)) <>
+  libNext = insLabRec nextSymbol (ldrh w (PostIndexed ip 2)) <>
             insRec (ldr w (RegRegInd ftable w (OpLSL 2))) <>
             insRec (ldr PC (PostIndexed w 4))
   resetRStack = insRec (ldr rstack (RegIndOffset ftable rstackResetOffset)) 
