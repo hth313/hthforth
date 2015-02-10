@@ -590,8 +590,7 @@ smudge = updateState f  where
 -- | Close the word being defined.
 icloseDefining :: FState t -> FState t
 icloseDefining s =
-  let addToDict = latest.~(Just word)
-      word = (_definingWord defining) { _doer = (_defineFinalizer defining) cs }
+  let word = (_definingWord defining) { _doer = (_defineFinalizer defining) cs }
       Just defining = s^.dict.idefining
       vs = _compileList defining
       -- Compile the branch instructions using the patch list provided by
@@ -604,7 +603,7 @@ icloseDefining s =
         in  (loc, branchInstr)
       unWrap WrapRecurse = branch cs
       unWrap (WrapA a) = a
-  in s & dict.idefining.~Nothing & dict.idict%~addToDict
+  in s & dict.idefining.~Nothing & dict.idict.latest.~(Just word)
 
 here = updateState f  where
   f s | Just def <- s^.dict.idefining =
