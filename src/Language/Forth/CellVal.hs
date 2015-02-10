@@ -15,13 +15,9 @@ import Data.Int
 import Data.Ord
 import Data.Map (Map)
 import Data.Word
-import Language.Forth.Primitive (Primitive)
-import Language.Forth.TargetPrimitive (TargetPrimitive)
 import Language.Forth.Word
 import Data.Vector.Storable.ByteString (ByteString)
 import Language.Forth.Interpreter.Address
-import Translator.Assembler.Generate (IM)
-import Translator.Assembler.InstructionSet
 import Translator.Expression (Expr(Value))
 import Translator.Symbol
 
