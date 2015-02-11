@@ -96,7 +96,7 @@ instance TargetPrimitive ARMInstr where
   literal val = colonToken (E.Identifier litSymbol) <> colonToken val
   docol = insRec $ bl (Mem $ E.Identifier docolSymbol)
   dohere dict = insRec (bl (Mem $ E.Identifier dohereSymbol)) <>
-                insRec (Directive $ WORD [E.Identifier ramBaseSymbol + E.Value (dict^.hereRAM)])
+                insRec (Directive $ WORD [E.Identifier ramBaseSymbol + dict^.tdict.hereRAM])
   next = insRec $ b (Mem $ E.Identifier nextSymbol)
   libDoCol = insLabRec docolSymbol (str ip (PreIndexed rstack 4)) <>
              insRec (mov ip (RegOp LR)) 

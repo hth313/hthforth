@@ -131,7 +131,7 @@ instance TargetPrimitive Instr430 where
   literal val = colonToken (Identifier litSymbol) <> colonToken val
   docol = call (Imm (Identifier docolSymbol))
   dohere dict  = call (Imm (Identifier dohereSymbol)) <>
-                 insRec (Directive $ WORD [Identifier ramBaseSymbol + Value (dict^.hereRAM)])
+                 insRec (Directive $ WORD [Identifier ramBaseSymbol + dict^.tdict.hereRAM])
   next = jmp (Imm (Identifier nextSymbol))
   libDoCol    = mempty -- TBD
   libDoHere   = mempty -- TBD
@@ -164,4 +164,4 @@ pushStack r = decd W stack <>
 
 -- | Generate code for a dictionary for MSP430
 -- codeGenerateMSP430 :: (forall t. Dictionary (IM t)) -> ByteString
-codeGenerateMSP430 dict = emitCode $ codeGenerate Directive pad2 (bindMSP430 dict)
+codeGenerateMSP430 dict = emitCode $ codeGenerate Directive pad2 (bindMSP430 dict) 

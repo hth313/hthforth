@@ -67,7 +67,7 @@ addTokens vs s = s { _targetDict = (_targetDict s) { _tdefining = f <$> _tdefini
   where f d = d { _tcompileList = _tcompileList d <> vs }
 
 targetDictionary :: (InstructionSet t, Primitive (IM t), TargetPrimitive t) => TDict t
-targetDictionary = TDict dict Nothing 0 
+targetDictionary = TDict dict Nothing
     where dict = fst $ newDictionary extras
           extras = do
             addWord "RSP0" resetRStack      -- reset return stack

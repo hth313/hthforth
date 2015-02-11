@@ -31,7 +31,7 @@ import Language.Forth.Primitive
 import Language.Forth.Target
 import Language.Forth.Word
 import Translator.Assembler.Generate (IM)
-import Translator.Expression (BaseVal)
+import Translator.Expression (Expr(..))
 import Prelude hiding (drop, or, and)
 
 data IDict a = IDict {
@@ -56,7 +56,6 @@ data DefiningWrapper a = WrapA a | WrapB ([a] -> a) | WrapRecurse
 data TDict t = TDict {
     _tdict :: Dictionary (IM t)
   , _tdefining :: Maybe (TDefining t)
-  , _hereRAM :: BaseVal
 }
 
 data TDefining t = TDefining  {
@@ -64,8 +63,9 @@ data TDefining t = TDefining  {
   , _tcompileList :: IM t
 }
 
-newtype Dictionary a = Dictionary
+data Dictionary a = Dictionary
   { _latest :: LinkField a
+  , _hereRAM :: Expr         -- ^ datafield usage for targets
   }
 
 makeLenses ''IDict
@@ -84,7 +84,7 @@ makeLenses ''Dictionary
 
 -- Create a new basic dictionary.
 newDictionary :: Primitive a => State (Dictionary a, [WordId]) () -> (Dictionary a, [WordId])
-newDictionary extras = execState build (Dictionary Nothing, wordsIds)
+newDictionary extras = execState build (Dictionary Nothing (Value 0), wordsIds)
   where
     build = do
       addWord "EXIT"  exit
@@ -118,8 +118,8 @@ newDictionary extras = execState build (Dictionary Nothing, wordsIds)
 
 
 addWord name doer =
-  StateT $ \(Dictionary latest, i:is) -> 
-      return ((), (Dictionary (Just $ ForthWord name False latest i doer), is))
+  StateT $ \(Dictionary latest hereRAM, i:is) -> 
+      return ((), (Dictionary (Just $ ForthWord name False latest i doer) hereRAM, is))
 
 makeImmediate :: State (Dictionary a, [WordId]) ()
 makeImmediate = modify (_1%~setLatestImmediate)
@@ -127,5 +127,5 @@ makeImmediate = modify (_1%~setLatestImmediate)
 setLatestImmediate = latest._Just.immediateFlag.~True
 
 -- | Reserve space in data memory
-targetAllot :: BaseVal -> TDict t -> TDict t
-targetAllot n = hereRAM%~(+n)
+targetAllot :: Expr -> TDict t -> TDict t
+targetAllot n = tdict.hereRAM%~(+n)

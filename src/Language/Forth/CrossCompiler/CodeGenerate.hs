@@ -10,6 +10,7 @@ module Language.Forth.CrossCompiler.CodeGenerate (docolSymbol, dohereSymbol, nex
                                                   litSymbol, ramBaseSymbol, 
                                                   codeGenerate, nameMangle, nameString, pad2) where
 
+import Control.Lens
 import Data.Bits
 import Data.Char
 import Data.Monoid
@@ -38,6 +39,7 @@ ramBaseSymbol = "RAMBASE"
 -- | Generalized Forth code generator
 codeGenerate ::  TargetPrimitive t => (GNUDirective -> t) -> (Int -> Int) -> Dictionary (IM t) -> IM t
 codeGenerate dir pad dict = header <> visit (_latest dict)  where
+  dataSize = dict^.hereRAM
   visit Nothing = mempty
   visit (Just word) = visit (_link word) <> generate word
   generate word =
@@ -50,7 +52,11 @@ codeGenerate dir pad dict = header <> visit (_latest dict)  where
     in insRec (dir $ BYTE bytes) <>
        asciiRec <>
        labRec (C2.pack . nameMangle . C.unpack $ _name word) <> _doer word <> tail
-  header = libDoCol <> next <> libDoHere <> next <> libRest
+  header = datafields <> text <> libDoCol <> next <> libDoHere <> next <> libRest
+  datafields = insRec (dir $ SECTION "datafields" "b") <>
+               labRec ramBaseSymbol <>
+               insRec (dir $ FILL [dataSize])
+  text = insRec (dir $ TEXT Nothing)
 
 -- Ensure the name is something the assembler accepts.
 nameMangle :: String -> String

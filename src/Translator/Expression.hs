@@ -4,7 +4,7 @@
 
 -}
 
-module Translator.Expression (BaseVal, Expr(..), reduceExpr, reduce,
+module Translator.Expression (Expr(..), reduceExpr, reduce,
                               rangeCheck, signedRangeCheck, anyRangeCheck, rangeCheckRange,
                               rcInRange, rcMasked, rcRange, bottomp,
                               multiply, divide, modulo, shiftLeft, shiftRight,
