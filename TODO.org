@@ -1,10 +1,8 @@
 #+STARTUP: indent
+#+STARTUP: showall
 #+PROPERTY: Effort_ALL 0 0:10 0:30 1:00 2:00 3:00 4:00 5:00 6:00 7:00 8:00 10:00 12:00 14:00 16:00
 #+COLUMNS: %60ITEM(Task) %8Effort(Estimated Effort){:} %CLOCKSUM
-
-* Emacs
-** TODO add a font lock mode for forthblocks
-
+#+TODO: TODO | DONE CANCELED
 
 * Forth
 ** DONE implement some kind of load relative screen facility
@@ -42,16 +40,34 @@
 ** DONE Printing a negative number with EMIT cause a crash (Prelude.chr bad argument)
 ** DONE Get rid of the .fth file
 ** DONE Load more of core.fs
+** CANCELED Clean up cprim/cprim1
+- [X] Is it possible to get rid of cprim1 and use cprim instead? [drop it, seems not worth the trouble]
+- [X] Move it back into place
+** DONE Make create part of the Compiler record so we can create new words for targets
+** DONE searchDict should look perhaps look for whether a given word have been defined
+** DONE Fix type variable, from t to a in Interpreter
+** DONE If FIND cannot find a word being compiled when cross compiling, it does not leave compilation mode.
+** DONE Add INTERPRETER word to allow switching back to defining words for the interpreter
+** TODO Make more use of lens operators, now it is just done partly without too much thought
+** DONE Trying to run a word defined when cross compiling could give information that the word only exists for a target, now it prints '?' which technically is correct
+** DONE Put wids at top level, we do not need different number series
 ** TODO Prototype with a Cortex-M target, to see if tagless style also works fine with code generation
-*** TODO Target gnu or clang assembler
-*** TODO Take some inspiration from riscy pygmess forth for ARM
-*** TODO Code generate to suitable instructions, can probably be some more highlevel generic macros to make up colon definitions.
-*** TODO Extend the high level instructions with actual thumb2 assembler
-*** TODO Is it possible to keep the instructions in tagless final style?
-**** TODO Benefits woult be easy extensions from a generic core set to actual taget instructions
-**** TODO We probably only need to print the disassembler output thouh
+*** DONE Target gnu or clang assembler
+*** TODO Take some inspiration from riscy pygness forth for ARM
+*** DONE Code generate to suitable instructions, can probably be some more highlevel generic macros to make up colon definitions.
+*** DONE Extend the high level instructions with actual thumb2 assembler
+*** DONE Is it possible to keep the instructions in tagless final style?
+**** DONE Benefits woult be easy extensions from a generic core set to actual taget instructions
+**** DONE We probably only need to print the disassembler output though
 *** TODO Make use of monoid and switch to Data.Text to print out the assembler code
-** TODO Set up for Travis CI
+** DONE Set up for Travis CI
+** DONE Reformat TargetPrimitive.
+** DONE Target VARIABLE are not created, or at least not closed properly
+** DONE Need to add some library code for dohere
+** DONE Make ALLOT work on target
+** TODO Set up RAMBASE and reserve space in RAM memory
+** TODO constant in Primitive, is that good for targets?
+** DONE Use common name for DOCOL, NEXT and LIT
 ** DONE MOVE should not clobber memory, maybe use memmove?
 ** TODO Put in ANS numbers for words that are part of the standard.
 ** TODO Add some comment at the start of core.fs saying that this is core words with additions from other word sets that seemed suitable building blocks to be used in the core set.
@@ -60,7 +76,7 @@
 ** TODO ABORT" should check at runtime for non-zero input and conditionally abort
 ** TODO Should ABORT display 'ok'? Currently it does not, is that right?
 ** DONE Improve HERE so that it can be used for datafield on latest word
-* DONE Should +! be outside Primitive? Consider if words that are to be implemented using colon definitions, such as INTERPRET, QUIT and perhaps others should be outside as well
+** DONE Should +! be outside Primitive? Consider if words that are to be implemented using colon definitions, such as INTERPRET, QUIT and perhaps others should be outside as well
 ** TODO Many core words have different implementation in the interpreter compared to what can be expected on a target. WORD, IF and DO are examples. Figure out what to do with them. A mechanism to do conditional compilation is probably needed here.
 *** TODO Need a second core.fs file with things the target like, or some conditional compilation. We do not want to redefine control words for the interpreter. See [IF] on tools-ext
 *** TODO WORD can be handled using some mechanism to define a transient area (like HERE or offseted from HERE). I think some early Forth systems rely on that WORD put the name in a place suitable to a WORD header being created?
@@ -85,7 +101,8 @@ Idea: input is represented by InputSource which holds a ByteString, which is the
 ** TODO Control.Monad.Error, consider if it should be used (ErrorT)
 ** DONE the , word is just too complicated, it is better defined in Forth, which means that HERE/DP/ALLOT should be defined instead. It should also be transparent whether we are defining a data word or a colon definition. Thus, manipulating DP with an address that can point to either kind of word being defined would probably help a lot. DP is not defined from start, so this feature can only be used after it has been created.
 ** TODO try hlint
-** TODO literals can be compiled as sign extended half words, which should save space
+** TODO literals can be compiled as sign extended half words, which should save space, at least on targets that have larger cell size than token size
 ** TODO need a primitive that allows to specify and load a screen file
 ** TODO add command line switch to specify command line to be executed, like "LOAD 1"
 ** DONE There could be two different addresses, Address and ColonAddress so we know what we are writing to. This is because a data field use DataField, which is based on a Map, while a colon definition is a list. This will most likely show its need when "," is executed, though that will be the colon LITERAL for which we have a lambda, maybe control words will need it later.
+
