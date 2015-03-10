@@ -31,7 +31,7 @@ bindMSP430 :: Dictionary (IM Instr430) -> Dictionary (IM Instr430)
 bindMSP430 = id
 
 -- Forth machine registers
-tos   = RegOp R4
+tos   = RegOp R4           -- top of stack, cached in register
 w     = RegOp R5
 stack = RegOp R6
 ip    = RegOp R7
@@ -72,13 +72,13 @@ unary ctor s op = insRec $ ctor s op
 
 label = labRec . C.pack . nameMangle
 
--- | MSP430 instantiation of the Forth tagless final style typeclass.
+-- | Primitive words for MSP430.
 instance Primitive (IM Instr430) where
   exit     = pop W ip
   execute  = mov W tos ip <>
              popStack tos
-  lit c    = pushStack tos <>
-             mov W (indirect w) tos
+  lit _    = pushStack tos <>
+             mov W (indirectInc ip) tos
   swap     = mov W tos w <>
              mov W (indirect stack) tos <>
              mov W w (indirect stack)
@@ -158,7 +158,7 @@ popStack r = mov W (indirectInc stack) r
 
 -- Push given register to data stack. Pushing 'tos' effectively makes room
 -- for pushing a new value on the stack (by moving it to 'tos').
--- MSP430 cannot predecrement, so used decd to adjust data stack pointer.
+-- MSP430 cannot predecrement, so used 'decd' to adjust data stack pointer.
 pushStack r = decd W stack <>
               mov W r (indirect stack)
 

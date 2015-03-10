@@ -40,12 +40,12 @@ rstack = R11   -- return stack pointer
 rstackResetOffset = 0
 stackResetOffset  = 4
 
--- | CortexM instantiation of the Forth tagless final style typeclass.
+-- | Primitive words for Cortex-M.
 instance Primitive (IM ARMInstr) where
   exit     = popRStack ip
   execute  = insRec (mov ip (RegOp tos)) <>
              popStack tos
-  lit c    = pushStack tos <>
+  lit _    = pushStack tos <>
              insRec (ldr tos (PostIndexed ip 4))
   swap     = insRec (mov w (RegOp tos)) <>
              insRec (ldr tos (RegIndOffset stack 0)) <>
@@ -91,6 +91,7 @@ instance Primitive (IM ARMInstr) where
 
 colonToken tok = insRec $ Directive $ WORD [tok]
 
+-- | Target primitives for Cortex-M
 instance TargetPrimitive ARMInstr where
   wordToken sym = colonToken $ E.Identifier sym
   literal val = colonToken (E.Identifier litSymbol) <> colonToken val
