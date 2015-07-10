@@ -27,17 +27,17 @@ class TargetPrimitive t where
   next :: IM t
 
   -- | Actual implementation of NEXT in the library
-  libNext :: IM t
+  nextImpl :: IM t
 
   -- | Actual implementation of DOCOL in the library
-  libDoCol :: IM t
+  docolImpl :: IM t
 
   -- | Actual implementation of DOHERE in the library
-  libDoHere :: IM t
+  hereImpl :: IM t
 
   -- | Any extra needed library code
-  libRest :: Monoid (IM t) => IM t
-  libRest = mempty
+  libCode :: Monoid (IM t) => IM t
+  libCode = mempty
 
   -- | Reset the stacks
   resetStack  :: IM t

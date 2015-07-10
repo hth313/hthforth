@@ -46,13 +46,13 @@ codeGenerate dir pad dict = header <> visit (_latest dict)  where
     let (bytes, chars) = nameString pad (C.unpack $ _name word)
         asciiRec | null chars = mempty
                  | otherwise = insRec $ dir $ ASCII [C.pack chars]
-        tail | _name word == "EXIT" = libNext
+        tail | _name word == "EXIT" = nextImpl
              | primitiveTargetWord word = next
              | otherwise = insEmpty
     in insRec (dir $ BYTE bytes) <>
        asciiRec <>
        labRec (C2.pack . nameMangle . C.unpack $ _name word) <> _doer word <> tail
-  header = datafields <> text <> libDoCol <> next <> libDoHere <> next <> libRest
+  header = datafields <> text <> docolImpl <> next <> hereImpl <> next <> libCode
   datafields = insRec (dir $ SECTION "datafields" "b") <>
                labRec ramBaseSymbol <>
                insRec (dir $ FILL [dataSize])

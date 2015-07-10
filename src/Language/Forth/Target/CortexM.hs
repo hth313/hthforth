@@ -99,15 +99,17 @@ instance TargetPrimitive ARMInstr where
   dohere dict = insRec (bl (Mem $ E.Identifier dohereSymbol)) <>
                 insRec (Directive $ WORD [E.Identifier ramBaseSymbol + dict^.tdict.hereRAM])
   next = insRec $ b (Mem $ E.Identifier nextSymbol)
-  libDoCol = insLabRec docolSymbol (str ip (PreIndexed rstack 4)) <>
-             insRec (mov ip (RegOp LR)) 
-  libDoHere = labRec dohereSymbol <>
+
+  docolImpl = insLabRec docolSymbol (str ip (PreIndexed rstack 4)) <>
+              insRec (mov ip (RegOp LR))
+  hereImpl  = labRec dohereSymbol <>
               (pushStack tos) <>
               insRec (ldr tos (RegIndOffset LR 0))
-  libNext = insLabRec nextSymbol (ldrh w (PostIndexed ip 2)) <>
-            insRec (ldr w (RegRegInd ftable w (OpLSL 2))) <>
-            insRec (ldr PC (PostIndexed w 4))
-  resetRStack = insRec (ldr rstack (RegIndOffset ftable rstackResetOffset)) 
+  nextImpl  = insLabRec nextSymbol (ldrh w (PostIndexed ip 2)) <>
+              insRec (ldr w (RegRegInd ftable w (OpLSL 2))) <>
+              insRec (ldr PC (PostIndexed w 4))
+
+  resetRStack = insRec (ldr rstack (RegIndOffset ftable rstackResetOffset))
   resetStack  = insRec (ldr  stack (RegIndOffset ftable  stackResetOffset))
 
 token lab = insRec $ Directive $ WORD lab
