@@ -9,7 +9,8 @@ module Language.Forth.Machine (FM, FState(..), CV, module Control.Monad.Trans.St
                                stack, rstack, ip, targetDict, dict, compilerFuns, variables, wids,
                                Compiler(..), defining, compile, litComma,
                                compileBranch, compileBranch0, recurse, closeDefining,
-                               startDefining, abortDefining, setImmediate, reserveSpace, Create(..)) where
+                               startDefining, abortDefining, setImmediate, reserveSpace,
+                               Create(..), CreateStyle(..)) where
 
 import Control.Lens
 import Control.Monad
@@ -76,17 +77,19 @@ data Compiler a = Compiler {
   , _abortDefining :: FState a -> FState a
     -- ^ ABORT, stop whatever we are defining
   , _setImmediate :: FState a -> FState a
-    -- ^ Set the immediate bit in the last defined word 
+    -- ^ Set the immediate bit in the last defined word
   , _reserveSpace :: Cell -> FState a -> FState a
   -- ^ Reserve space in data memory
   }
 
 -- | Data record used by startDefining
-data Create a = Create { 
+data Create a = Create {
     createName :: V.ByteString
   , finalizer :: [a] -> a
-  , usingCreate :: Bool
+  , createStyle :: CreateStyle
 }
+
+data CreateStyle = DOCOL | CREATE | DOCONST Expr deriving Eq
 
 makeLenses ''FState
 makeLenses ''Compiler

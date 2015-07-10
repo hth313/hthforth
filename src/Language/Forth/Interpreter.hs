@@ -57,7 +57,7 @@ initialState target =
   FState [] [] [] target dict IntMap.empty wids [] Map.empty icompiler targetDictionary
     where (dict, wids) = interpreterDictionary
 
-icompiler = Compiler defining icompile ilitComma xcompileBranch xcompileBranch irecurse istartDefining 
+icompiler = Compiler defining icompile ilitComma xcompileBranch xcompileBranch irecurse istartDefining
                      icloseDefining abortDefining imm ireserveSpace
     where defining = isJust._idefining._dict
           abortDefining = dict.idefining.~Nothing
@@ -75,7 +75,7 @@ initialVarStorage = gets _target >>=
           mapM_ g [(tregWid, 100)]
 
 interpreterDictionary :: (IDict (FM a ()), [WordId])
-interpreterDictionary = (IDict dict Nothing, wids) 
+interpreterDictionary = (IDict dict Nothing, wids)
   where (dict, wids) = newDictionary extras
         extras = do
           addWord "ROT" rot
@@ -211,7 +211,7 @@ instance Primitive (FM a ()) where
             in newState s { _stack = flag : ss }
         | null (_stack s) = emptyStack s
         | otherwise = abortWith "bad input to 0<" s
-  constant = docol [xword, create' head False, compileComma, smudge, exit]
+  constant = dpop >>= \x -> docol [xword, create' (const $ lit x) (DOCONST $ cellToExpr x), smudge, exit]
 
   umstar = umstar'
   ummod = ummod'
@@ -266,8 +266,8 @@ quit = ipdo [ (modify (\s -> s { _rstack = [], _stack = Val 0 : _stack s }) >> n
 
 plusStore = docol [dup, fetch, rot, plus, swap, store, exit]
 
-create = docol [xword, create' docol True, exit]
-colon = docol [lit (Val (-1)), state, store, xword, create' docol False, exit]
+create = docol [xword, create' docol CREATE, exit]
+colon = docol [lit (Val (-1)), state, store, xword, create' docol DOCOL, exit]
 semicolon = docol [cprim1 compile (XT Nothing (Just exit) (Just $ symbol exitName)), lit (Val 0), state, store, smudge, exit]
 compileComma = dpop >>= \x -> cprim1 compile x
 immediate = updateState $ \s -> newState $ s^.compilerFuns.setImmediate $ s
@@ -328,10 +328,10 @@ ipdo ip' = modify (\s -> s { _ip = ip' }) >> next
 
 -- | Search dictionary for given named word.
 searchDict :: ByteString -> FM a (Maybe (ForthWord (FM a())), Maybe Symbol)
-searchDict n = gets (\s -> (f (s^.dict.idict.latest), 
+searchDict n = gets (\s -> (f (s^.dict.idict.latest),
                                nameSymbol <$> f ((arbitraryTargetDict s)^.tdict.latest)))
   where f jw@(Just word) | n == word^.name = jw
-                         | otherwise = f (word^.link) 
+                         | otherwise = f (word^.link)
         f Nothing = Nothing
 
 -- | Main loop for the interpreter
@@ -499,7 +499,7 @@ countedText (Address (Just (Addr wid off))) = updateStateVal "" $ \s ->
       otherwise -> abortWith "expected address pointing to char buffer" s
 countedText _ = abortMessage "expected address" >> return B.empty
 
-xt word = XT (_wordId <$> word) (_doer <$> word) 
+xt word = XT (_wordId <$> word) (_doer <$> word)
 
 -- | Find the name (counted string) in the dictionary
 --   ( c-addr -- c-addr 0 | xt 1 | xt -1 )
@@ -558,7 +558,7 @@ xcompileBranch _ = error "do not call xcompileBranch"
 
 irecurse = tackOn WrapRecurse
 
-tackOn x = dict.idefining._Just.compileList%~(<>V.singleton x)   
+tackOn x = dict.idefining._Just.compileList%~(<>V.singleton x)
 
 isdefining s = (s^.compilerFuns.defining) s
 
@@ -573,11 +573,11 @@ create' finalizer usingCreate = updateState f  where
         in newState $ (s^.compilerFuns.startDefining) (Create name finalizer usingCreate) (s & stack.~ss)
       | otherwise = abortWith "missing word name" s
 
-istartDefining Create{..} s = 
+istartDefining Create{..} s =
   let wid : wids' = s^.wids
       linkhead = s^.dict.idict.latest
       (variables', code, cl)
-        | usingCreate = (IntMap.insert (unWordId wid) (newDataField (_target s) (unWordId wid) 0) (_variables s), V.fromList (map WrapA [litAdr wid, exit]), s^.compilerFuns.closeDefining)
+        | createStyle == CREATE = (IntMap.insert (unWordId wid) (newDataField (_target s) (unWordId wid) 0) (_variables s), V.fromList (map WrapA [litAdr wid, exit]), s^.compilerFuns.closeDefining)
         | otherwise = (_variables s, V.empty, id)
       defining = IDefining code [] finalizer (ForthWord createName False linkhead wid abort)
   in cl $ s & variables.~variables' & wids.~wids' & dict.idefining.~(Just defining)

@@ -53,8 +53,10 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
   setImmediate s = s
   startDefining Create{..} s = s { _targetDict = startDefining1 $ _targetDict s }
     where startDefining1 dict = f $ dict { _tdefining = Just (TDefining createName doer) }
-            where (f, doer) | usingCreate = (closeDefining1, dohere dict)
-                            | otherwise   = (id, docol)
+            where (f, doer) = case createStyle of
+                                CREATE    -> (closeDefining1, dohere dict)
+                                DOCOL     -> (id, docol)
+                                DOCONST e -> (closeDefining1, doconst e)
   closeDefining s = s { _targetDict = closeDefining1 $ _targetDict s }
   closeDefining1 dict = dict & tdefining.~Nothing & tdict.latest.~Just newWord
     where newWord = ForthWord name False (_latest $ _tdict dict) targetColonWordId
