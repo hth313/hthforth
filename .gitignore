@@ -8,3 +8,6 @@
 *.p_o-boot
 dist
 doc/Manual/_build
+.cabal-sandbox
+cabal.sandbox.config
+cabal.config
