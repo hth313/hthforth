@@ -59,16 +59,44 @@
 *** DONE Is it possible to keep the instructions in tagless final style?
 **** DONE Benefits woult be easy extensions from a generic core set to actual taget instructions
 **** DONE We probably only need to print the disassembler output though
-*** TODO Make use of monoid and switch to Data.Text to print out the assembler code
+*** DONE Make use of monoid an dswitch to Data.Text to print out the assembler code
 ** DONE Set up for Travis CI
 ** DONE Reformat TargetPrimitive.
 ** DONE Target VARIABLE are not created, or at least not closed properly
 ** DONE Need to add some library code for dohere
 ** DONE Make ALLOT work on target
-** TODO Set up RAMBASE and reserve space in RAM memory
+** DONE Set up RAMBASE and reserve space in RAM memory
 ** TODO constant in Primitive, is that good for targets?
+- [ ] figure out if 'constant' should be used, or the new 'doconst'
+- [ ] add modifiers, like FLASH, that control different placement memories, other targets could have further alternatives, ponder over if it should be part of TargetPrimitive or defined at Forth level, though we do not have any target specific Forth code
+- [ ] make it possible to generate inline code to push the constant and then to next
+- [ ] need to get the stack value as expression and embed it in the defining record
+- [ ] for arm, push a pc relative constant, but it has to be stored after the 'b next', which means there is a need for a local label?
+** TODO Make it possible to build constant tables somehow, that is, a here pointer to the constant data area compiled into the body of the word, see how the standard deals with this
+- [ ] Constant tables need to have something like CCREATE or FLASH-CREATE, see if there is any standard on this
+- [ ] Writable data tables are also possible, these are created using CREATE, ALLOT to zerofill(?) and comma (,) and (C,) to write initialized data
+- [ ] need some startup code to populate writable data tables
 ** DONE Use common name for DOCOL, NEXT and LIT
+** TODO Think through the distinction of interpreter and cross compiler. Ref http://www.threaded-interpreter.org/manual/howtos/chap_howto_cross_compiler.html
+- [ ] Compiler defining words can be in the interpreter side, or both. This depends on if we are building an image or a system for the target, suitable words can be used here to control behavior
+- [ ] INTERPRETER and especially CROSS-COMPILER are misleading. We are actually building for the cross compiler or target, maybe revise naming here
+- [ ] TARGET could mean we are generating words for target only
+- [ ] CROSS-COMPILER could mean we are generating words for cross compiler (current interpreter) only
+- [ ] CROSS-COMPILER-SYSTEM could indicate that we want to steer words to the cross compiler (current interpreter) and for target system (active if we are building a system)
+- [ ] TARGET-FORTH-SYSTEM specify that we are building for a full target system
+- [ ] TARGET-STANDALONE specify that we are building for a standalone system (target cannot compile)
+** TODO Implementation references
+http://amforth.sourceforge.net/TG/Implementation.html
+http://www.calcentral.com/~forth/forth/
+http://www.forth.org/eforth.html
 ** DONE MOVE should not clobber memory, maybe use memmove?
+** TODO Use (BRANCH) and (BRANCH0) as target words to implement branches, look at amforth reference above for ideas on how to do it
+** TODO Start writing the documention, get all non-standard words into it as we go
+** TODO Get to a position where we can build and test target code
+- [ ] get GAS into place
+- [ ] use qemu as simulator and see if it is possible to automate test code
+- [ ] get it running under travis or jenkins
+- [ ] add the available Forth standard test code and run it
 ** TODO Put in ANS numbers for words that are part of the standard.
 ** TODO Add some comment at the start of core.fs saying that this is core words with additions from other word sets that seemed suitable building blocks to be used in the core set.
 ** TODO dot on an address gives 'empty stack', which is not true, partially fixed, now it complains that it cannot perform 0< on a non-number
@@ -105,4 +133,3 @@ Idea: input is represented by InputSource which holds a ByteString, which is the
 ** TODO need a primitive that allows to specify and load a screen file
 ** TODO add command line switch to specify command line to be executed, like "LOAD 1"
 ** DONE There could be two different addresses, Address and ColonAddress so we know what we are writing to. This is because a data field use DataField, which is based on a Map, while a colon definition is a list. This will most likely show its need when "," is executed, though that will be the colon LITERAL for which we have a lambda, maybe control words will need it later.
-
