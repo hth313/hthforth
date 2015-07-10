@@ -6,8 +6,9 @@
 
 -}
 
-module Language.Forth.CrossCompiler.CodeGenerate (docolSymbol, dohereSymbol, nextSymbol, 
-                                                  litSymbol, ramBaseSymbol, 
+module Language.Forth.CrossCompiler.CodeGenerate (docolSymbol, doconstSymbol,
+                                                  dohereSymbol, nextSymbol,
+                                                  litSymbol, ramBaseSymbol,
                                                   codeGenerate, nameMangle, nameString, pad2) where
 
 import Control.Lens
@@ -29,11 +30,12 @@ import Translator.Symbol (Symbol)
 
 
 -- | Some predefined symbols for specific purposes in a target
-docolSymbol, dohereSymbol, nextSymbol, litSymbol, ramBaseSymbol :: Symbol
-docolSymbol   = "DOCOL" 
+docolSymbol, doconstSymbol, dohereSymbol, nextSymbol, litSymbol, ramBaseSymbol :: Symbol
+docolSymbol   = "DOCOL"
+doconstSymbol = "DOCONST"
 dohereSymbol  = "DOHERE"
-nextSymbol    = "NEXT" 
-litSymbol     = "LIT"   
+nextSymbol    = "NEXT"
+litSymbol     = "LIT"
 ramBaseSymbol = "RAMBASE"
 
 -- | Generalized Forth code generator

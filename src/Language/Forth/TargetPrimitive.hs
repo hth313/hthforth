@@ -23,7 +23,10 @@ class TargetPrimitive t where
   -- | Slice of code to compile a datafield pointer
   dohere :: TDict t -> IM t
 
-  -- | Normal way to end a primitive word  
+  -- | Slice of code to compile a constant as a separate word
+  doconst :: Expr -> IM t
+
+  -- | Normal way to end a primitive word
   next :: IM t
 
   -- | Actual implementation of NEXT in the library
@@ -41,4 +44,4 @@ class TargetPrimitive t where
 
   -- | Reset the stacks
   resetStack  :: IM t
-  resetRStack :: IM t              
+  resetRStack :: IM t

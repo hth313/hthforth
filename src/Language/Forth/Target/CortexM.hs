@@ -98,6 +98,7 @@ instance TargetPrimitive ARMInstr where
   docol = insRec $ bl (Mem $ E.Identifier docolSymbol)
   dohere dict = insRec (bl (Mem $ E.Identifier dohereSymbol)) <>
                 insRec (Directive $ WORD [E.Identifier ramBaseSymbol + dict^.tdict.hereRAM])
+  doconst e = insRec (bl (Mem $ E.Identifier doconstSymbol))
   next = insRec $ b (Mem $ E.Identifier nextSymbol)
 
   docolImpl = insLabRec docolSymbol (str ip (PreIndexed rstack 4)) <>
