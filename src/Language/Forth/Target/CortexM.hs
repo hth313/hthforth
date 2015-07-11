@@ -97,17 +97,21 @@ instance TargetPrimitive ARMInstr where
   docol = insRec $ bl (Mem $ E.Identifier docolSymbol)
   dohere dict = insRec (bl (Mem $ E.Identifier dohereSymbol)) <>
                 insRec (Directive $ WORD [E.Identifier ramBaseSymbol + dict^.tdict.hereRAM])
-  doconst e = insRec (bl (Mem $ E.Identifier doconstSymbol))
-  next = insRec $ b (Mem $ E.Identifier nextSymbol)
+  doconst e = insRec (bl (Mem $ E.Identifier doconstSymbol)) <>
+              token [e]
+  next    = insRec $ b (Mem $ E.Identifier nextSymbol)
+  lit = pushStack tos <>
+        insRec (ldr tos (PostIndexed ip 4))
 
-  docolImpl = insLabRec docolSymbol (str ip (PreIndexed rstack 4)) <>
-              insRec (mov ip (RegOp LR))
-  hereImpl  = labRec dohereSymbol <>
-              (pushStack tos) <>
-              insRec (ldr tos (RegIndOffset LR 0))
-  nextImpl  = insLabRec nextSymbol (ldrh w (PostIndexed ip 2)) <>
-              insRec (ldr w (RegRegInd ftable w (OpLSL 2))) <>
-              insRec (ldr PC (PostIndexed w 4))
+  docolImpl   = insRec (str ip (PreIndexed rstack 4)) <>
+                insRec (mov ip (RegOp LR))
+  doconstImpl = pushStack tos <>
+                insRec (ldr tos (PostIndexed LR 4))
+  hereImpl    = (pushStack tos) <>
+                insRec (ldr tos (RegIndOffset LR 0))
+  nextImpl    = insRec (ldrh w (PostIndexed ip 2)) <>
+                insRec (ldr w (RegRegInd ftable w (OpLSL 2))) <>
+                insRec (ldr PC (PostIndexed w 4))
 
   resetRStack = insRec (ldr rstack (RegIndOffset ftable rstackResetOffset))
   resetStack  = insRec (ldr  stack (RegIndOffset ftable  stackResetOffset))

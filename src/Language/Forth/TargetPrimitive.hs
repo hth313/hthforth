@@ -20,20 +20,27 @@ class TargetPrimitive t where
   -- | Slice of code that will be first in a colon definition
   docol :: IM t
 
+  -- | Slice of code that is first on a constant definition
+  doconst :: Expr -> IM t
+
   -- | Slice of code to compile a datafield pointer
   dohere :: TDict t -> IM t
 
-  -- | Slice of code to compile a constant as a separate word
-  doconst :: Expr -> IM t
-
   -- | Normal way to end a primitive word
   next :: IM t
+
+  -- | Word that will pick up the following embedded literal value
+  --   and push it on the stack.
+  lit :: IM t
 
   -- | Actual implementation of NEXT in the library
   nextImpl :: IM t
 
   -- | Actual implementation of DOCOL in the library
   docolImpl :: IM t
+
+  -- | Actual implementation of DOCONST in the library
+  doconstImpl :: IM t
 
   -- | Actual implementation of DOHERE in the library
   hereImpl :: IM t

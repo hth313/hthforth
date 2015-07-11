@@ -54,7 +54,12 @@ codeGenerate dir pad dict = header <> visit (_latest dict)  where
     in insRec (dir $ BYTE bytes) <>
        asciiRec <>
        labRec (nameMangle . C2.pack . C.unpack $ _name word) <> _doer word <> tail
-  header = datafields <> text <> docolImpl <> next <> hereImpl <> next <> libCode
+  header = datafields <>
+           text <>
+           labRec docolSymbol   <> docolImpl <> next <>
+           labRec doconstSymbol <> doconstImpl <> next <>
+           labRec dohereSymbol  <> hereImpl <> next <>
+           libCode
   datafields = insRec (dir $ SECTION "datafields" "b") <>
                labRec ramBaseSymbol <>
                insRec (dir $ FILL [dataSize])
