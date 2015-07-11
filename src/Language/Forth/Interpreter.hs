@@ -94,7 +94,6 @@ interpreterDictionary = (IDict dict Nothing, wids)
           addWord "INTERPRET" interpret
           addWord ":" colon
           addWord ";" semicolon >> makeImmediate
-          addWord "SMUDGE" smudge
           addWord "CREATE" create
           addWord "DOES>" does
           addWord "COMPILE," compileComma
@@ -211,7 +210,7 @@ instance Primitive (FM a ()) where
             in newState s { _stack = flag : ss }
         | null (_stack s) = emptyStack s
         | otherwise = abortWith "bad input to 0<" s
-  constant = dpop >>= \x -> docol [xword, create' (const $ lit x) (DOCONST $ cellToExpr x), smudge, exit]
+  constant = dpop >>= \x -> docol [xword, create' (const $ lit x) (DOCONST $ cellToExpr x), makeAvailable, exit]
 
   umstar = umstar'
   ummod = ummod'
@@ -268,7 +267,7 @@ plusStore = docol [dup, fetch, rot, plus, swap, store, exit]
 
 create = docol [xword, create' docol CREATE, exit]
 colon = docol [lit (Val (-1)), state, store, xword, create' docol DOCOL, exit]
-semicolon = docol [cprim1 compile (XT Nothing (Just exit) (Just $ symbol exitName)), lit (Val 0), state, store, smudge, exit]
+semicolon = docol [cprim1 compile (XT Nothing (Just exit) (Just $ symbol exitName)), lit (Val 0), state, store, makeAvailable, exit]
 compileComma = dpop >>= \x -> cprim1 compile x
 immediate = updateState $ \s -> newState $ s^.compilerFuns.setImmediate $ s
 
@@ -582,8 +581,7 @@ istartDefining Create{..} s =
       defining = IDefining code [] finalizer (ForthWord createName False linkhead wid abort)
   in cl $ s & variables.~variables' & wids.~wids' & dict.idefining.~(Just defining)
 
--- | Smudge, terminate defining of a word and make it available.
-smudge = updateState f  where
+makeAvailable = updateState f  where
   f s | isdefining s = newState $ s^.compilerFuns.closeDefining $ s
       | otherwise = notDefining s
 
