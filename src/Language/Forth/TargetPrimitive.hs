@@ -45,3 +45,7 @@ class TargetPrimitive t where
   -- | Reset the stacks
   resetStack  :: IM t
   resetRStack :: IM t
+
+  -- | Optionally substitute a word with a native implementation
+  substNative :: ForthWord (IM t) -> ForthWord (IM t)
+  substNative = id

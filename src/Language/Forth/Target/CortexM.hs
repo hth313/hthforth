@@ -114,6 +114,16 @@ instance TargetPrimitive ARMInstr where
   resetStack  = insRec (ldr  stack (RegIndOffset ftable  stackResetOffset))
 
 token lab = insRec $ Directive $ WORD lab
+  substNative word = case word^.name of
+                       "ROT" -> word & doer.~(popStack w     <>
+                                              popStack temp1 <>
+                                              pushStack w    <>
+                                              pushStack tos  <>
+                                              insRec (mov tos (RegOp temp1)) <>
+                                              next)
+                       otherwise -> word
+
+
 
 popStack = popXStack stack
 popRStack = popXStack rstack
