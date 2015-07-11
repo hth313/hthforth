@@ -77,8 +77,6 @@ instance Primitive (IM Instr430) where
   exit     = pop W ip
   execute  = mov W tos ip <>
              popStack tos
-  lit _    = pushStack tos <>
-             mov W (indirectInc ip) tos
   swap     = mov W tos w <>
              mov W (indirect stack) tos <>
              mov W w (indirect stack)

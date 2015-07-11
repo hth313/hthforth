@@ -10,9 +10,6 @@
 
 module Language.Forth.Primitive (Primitive(..)) where
 
-import Language.Forth.CellVal
-
-
 {- | The Forth builtin primitives.
 
      Tagless final style relies on some type 'a' to fold on.
@@ -24,7 +21,6 @@ import Language.Forth.CellVal
 class Primitive a where
   exit :: a
   execute :: a
-  lit :: CellVal a -> a
   swap, drop, dup, over, rto, tor, rfetch :: a
   fetch, cfetch :: a
   store, cstore :: a

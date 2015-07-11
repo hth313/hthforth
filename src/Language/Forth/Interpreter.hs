@@ -147,11 +147,6 @@ instance Primitive (FM a ()) where
              next
            otherwise -> abortMessage "IP not on rstack"
   execute = call =<< dpop
-  lit (Text text) = modify (\s ->
-                       let u = fromIntegral $ C.length text
-                           (caddr, s') = addrString text s
-                       in  s' { _stack = Val u : caddr : _stack s' }) >> next
-  lit val = dpush val >> next
   swap = updateState f  where
      f s | s0 : s1 : ss <- _stack s = newState s { _stack = s1 : s0 : ss }
          | otherwise = emptyStack s
@@ -214,6 +209,12 @@ instance Primitive (FM a ()) where
 
   umstar = umstar'
   ummod = ummod'
+
+lit (Text text) = modify (\s ->
+                            let u = fromIntegral $ C.length text
+                                (caddr, s') = addrString text s
+                            in  s' { _stack = Val u : caddr : _stack s' }) >> next
+lit val = dpush val >> next
 
 -- | Invoke compiler primitive, intercepting the error condition that
 --   we are currently not in compilation mode.

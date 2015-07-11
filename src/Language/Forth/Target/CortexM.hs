@@ -46,8 +46,6 @@ instance Primitive (IM ARMInstr) where
   exit     = popRStack ip
   execute  = insRec (mov ip (RegOp tos)) <>
              popStack tos
-  lit _    = pushStack tos <>
-             insRec (ldr tos (PostIndexed ip 4))
   swap     = insRec (mov w (RegOp tos)) <>
              insRec (ldr tos (RegIndOffset stack 0)) <>
              insRec (str w (RegIndOffset stack 0))
