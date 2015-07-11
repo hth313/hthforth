@@ -30,6 +30,7 @@ bindCortexM = id
 
 -- Registers assigned for specific use
 w = R0         -- scratch
+temp1 = R1
 tos  = R4      -- top of data stack value
 ip = R6        -- interpretive pointer
 ftable = R7    -- base regiser for flash token table
@@ -93,7 +94,7 @@ colonToken tok = insRec $ Directive $ WORD [tok]
 
 -- | Target primitives for Cortex-M
 instance TargetPrimitive ARMInstr where
-  wordToken sym = colonToken $ E.Identifier sym
+  wordToken sym = colonToken $ E.Identifier (nameMangle sym)
   literal val = colonToken (E.Identifier litSymbol) <> colonToken val
   docol = insRec $ bl (Mem $ E.Identifier docolSymbol)
   dohere dict = insRec (bl (Mem $ E.Identifier dohereSymbol)) <>
@@ -113,7 +114,6 @@ instance TargetPrimitive ARMInstr where
   resetRStack = insRec (ldr rstack (RegIndOffset ftable rstackResetOffset))
   resetStack  = insRec (ldr  stack (RegIndOffset ftable  stackResetOffset))
 
-token lab = insRec $ Directive $ WORD lab
   substNative word = case word^.name of
                        "ROT" -> word & doer.~(popStack w     <>
                                               popStack temp1 <>
@@ -124,6 +124,7 @@ token lab = insRec $ Directive $ WORD lab
                        otherwise -> word
 
 
+token lab = insRec $ Directive $ WORD lab
 
 popStack = popXStack stack
 popRStack = popXStack rstack

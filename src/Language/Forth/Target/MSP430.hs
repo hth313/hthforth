@@ -70,7 +70,7 @@ xor_ = binary XOR
 binary ctor s op1 op2 = insRec $ ctor s op1 op2
 unary ctor s op = insRec $ ctor s op
 
-label = labRec . C.pack . nameMangle
+label = labRec . nameMangle . C.pack
 
 -- | Primitive words for MSP430.
 instance Primitive (IM Instr430) where
@@ -127,7 +127,7 @@ instance Primitive (IM Instr430) where
 colonToken tok = insRec $ Directive $ WORD [tok]
 
 instance TargetPrimitive Instr430 where
-  wordToken sym = colonToken $ Identifier sym
+  wordToken sym = colonToken $ Identifier (nameMangle sym)
   literal val = colonToken (Identifier litSymbol) <> colonToken val
   docol = call (Imm (Identifier docolSymbol))
   dohere dict  = call (Imm (Identifier dohereSymbol)) <>

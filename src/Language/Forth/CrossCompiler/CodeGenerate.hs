@@ -26,7 +26,7 @@ import Language.Forth.Word
 import Translator.Expression
 import Translator.Assembler.Directive
 import Translator.Assembler.Generate
-import Translator.Symbol (Symbol)
+import Translator.Symbol
 
 
 -- | Some predefined symbols for specific purposes in a target
@@ -53,31 +53,12 @@ codeGenerate dir pad dict = header <> visit (_latest dict)  where
              | otherwise = insEmpty
     in insRec (dir $ BYTE bytes) <>
        asciiRec <>
-       labRec (C2.pack . nameMangle . C.unpack $ _name word) <> _doer word <> tail
+       labRec (nameMangle . C2.pack . C.unpack $ _name word) <> _doer word <> tail
   header = datafields <> text <> docolImpl <> next <> hereImpl <> next <> libCode
   datafields = insRec (dir $ SECTION "datafields" "b") <>
                labRec ramBaseSymbol <>
                insRec (dir $ FILL [dataSize])
   text = insRec (dir $ TEXT Nothing)
-
--- Ensure the name is something the assembler accepts.
-nameMangle :: String -> String
-nameMangle s = prepend $ concatMap mangle s
-  where mangle '@' = "_Fetch_"
-        mangle '!' = "_Store_"
-        mangle '+' = "_Plus_"
-        mangle '-' = "_Minus_"
-        mangle '*' = "_Star_"
-        mangle '/' = "_Slash_"
-        mangle '\'' = "_Tick_"
-        mangle '=' = "_Equal_"
-        mangle '>' = "_GreaterThan_"
-        mangle '<' = "_LessThan_"
-        mangle '"' = "_Quote_"
-        mangle '\\' = "_BackSlash_"
-        mangle c = [c]
-        prepend s@(c:cs) | isDigit c = '_' : s
-                         | otherwise = s
 
 toExpr = Value . fromIntegral
 
