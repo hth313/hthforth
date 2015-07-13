@@ -3,22 +3,23 @@ keep pace with the development of the proposed Forth 200x standard
 (currently called Forth-2012).
 Visit http://www.forth200x.org for more information.
 
-This Forth can be used standalone, just build it using Haskell
-cabal. Another use would be as an embedded scripting language in
-a Haskell application.
-However, the main idea is to make it act as a cross compiler for
-embedded systems development.
+The main idea with this Forth is to implement a cross compiler
+for embedded systems development.
 
-Current status is that all core words are in place for the interpreter.
-The next step will be to implement a cross compiler.
-(Prototyping with a CortexM target has started).
+Forth works differently from many other languages in that it lacks syntax
+and is not suitable to parse using normal parsing techniques.
+Instead, one has to build a Forth system from another Forth system which
+acts as a bootstrapper, a technique that is called meta compiling in
+the Forth world.
+This Forth is meant to be such meta compiler, or more correctly, a cross
+compiler, as the intended target will be different.
 
-Forth works differently from many other languages in that it basically
-lacks syntax and is not suitable to parse using normal parsing techniques.
-Instead, one has to build a Forth system from another Forth system which acts as
-a bootstrapper, a technique that is called meta compiling in the Forth
-world. This Forth is meant to be such meta compiler, or perhaps more
-correctly, a cross compiler, as the intended target will be different.
+Haskell is the implementation language used here. The cross compiler
+can be built using Haskell cabal.
+
+Current status is that all core words are in place for the hosted Forth.
+The cross compiler is able to compile a subset of the language
+and produce sketchy assembler output for Cortex-M.
 
 To build hthforth, you will need to have Haskell installed. The
 current version of GHC used is 7.8.3, but 7.6.3 should also work well.
@@ -34,12 +35,29 @@ When started, there is a very small subset of core words available. To
 bring more words in:
 LOAD-SOURCE src/lib/core.fs
 
+After loading the core words, you can enable the cross compiler:
+CROSS-COMPILER
+
+At this point a small amount of words and library code are availalbe.
+You can load more words and even try something on your own:
+LOAD-SOURCE src/lib/target-core.fs
+5 CONSTANT FIVE
+VARIABLE XXX
+
+At any point, you can generate assembler output to a desired target
+using a suitable DUMP- word:
+DUMP-CORTEXM arm.s
+DUMP-MSP430 430.s
+
+This gives a source file 'arm.s' using Cortex-M assembler. The MSP430 output
+(which is even more stetchy at this point) will be written to '430.s'.
+
 To exit hthforth, type BYE or press Ctrl-C.
 
 Haskeline is used, so you have full command line history and editing
 available.
 
-August 2014, Håkan Thörngren, hth313@gmail.com
+July 2015, Håkan Thörngren, hth313@gmail.com
 
 There is also a Trello board for this project available at
 https://trello.com/b/HNLHA3en/hthforth which is currently
