@@ -268,7 +268,7 @@ plusStore = docol [dup, fetch, rot, plus, swap, store, exit]
 
 create = docol [xword, create' docol CREATE, exit]
 colon = docol [lit (Val (-1)), state, store, xword, create' docol DOCOL, exit]
-semicolon = docol [cprim1 compile (XT Nothing (Just exit) (Just $ symbol exitName)), lit (Val 0), state, store, makeAvailable, exit]
+semicolon = docol [cprim1 compile (XT Nothing (Just exit) (Just $ symbol exitName)), lit (Val 0), state, store, reveal, exit]
 compileComma = dpop >>= \x -> cprim1 compile x
 immediate = updateState $ \s -> newState $ s^.compilerFuns.setImmediate $ s
 
@@ -582,7 +582,7 @@ istartDefining Create{..} s =
       defining = IDefining code [] finalizer (ForthWord createName False linkhead wid abort)
   in cl $ s & variables.~variables' & wids.~wids' & dict.idefining.~(Just defining)
 
-makeAvailable = updateState f  where
+reveal = updateState f  where
   f s | isdefining s = newState $ s^.compilerFuns.closeDefining $ s
       | otherwise = notDefining s
 
