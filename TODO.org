@@ -77,6 +77,17 @@
 - [ ] Writable data tables are also possible, these are created using CREATE, ALLOT to zerofill(?) and comma (,) and (C,) to write initialized data
 - [ ] need some startup code to populate writable data tables
 ** DONE Use common name for DOCOL, NEXT and LIT
+** DONE Rename smudge to something more meaningful for people that are not familiar with that concept
+** TODO Is there a double memory indirection on CortexM?
+** TODO Should we change name of DOHERE to something else? DOPTR perhaps?
+** TODO Is COMPILE-ONLY a good way to mark words that have no interpretation semantics? Seems so, but it may have implications in that you cannot TICK such word, and that seems to be a very controversal topic in the Forth community. It can become untickable by FIND not being allowed to find it, and that may or may not be desirable?
+** TODO Cannot define a CONSTANT in a target
+** TODO Also questionable why 'constant' is part of Primitive
+** TODO What about 'lit' in Primitive, is that really to be there as a target currently ignores its argument?
+** TODO Add a file with basic high level target words, i.e. those that the host defines in Interpreter.hs
+** TODO Refactor core.fs to be host-core.fs and target-core.fs with no duplicated definitions
+** DONE Refactor nameMangle, it should be in Symbol
+** TODO Implement a means of targets to override a colon definition with native code if it makes sense, ROT is probably a good example
 ** TODO Think through the distinction of interpreter and cross compiler. Ref http://www.threaded-interpreter.org/manual/howtos/chap_howto_cross_compiler.html
 - [ ] Compiler defining words can be in the interpreter side, or both. This depends on if we are building an image or a system for the target, suitable words can be used here to control behavior
 - [ ] INTERPRETER and especially CROSS-COMPILER are misleading. We are actually building for the cross compiler or target, maybe revise naming here
