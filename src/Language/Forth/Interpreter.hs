@@ -205,7 +205,7 @@ instance Primitive (FM a ()) where
             in newState s { _stack = flag : ss }
         | null (_stack s) = emptyStack s
         | otherwise = abortWith "bad input to 0<" s
-  constant = dpop >>= \x -> docol [xword, create' (const $ lit x) (DOCONST $ cellToExpr x), makeAvailable, exit]
+  constant = dpop >>= \x -> docol [xword, create' (const $ lit x) (DOCONST $ cellToExpr x), exit]
 
   umstar = umstar'
   ummod = ummod'
@@ -578,7 +578,10 @@ istartDefining Create{..} s =
       linkhead = s^.dict.idict.latest
       (variables', code, cl)
         | createStyle == CREATE = (IntMap.insert (unWordId wid) (newDataField (_target s) (unWordId wid) 0) (_variables s), V.fromList (map WrapA [litAdr wid, exit]), s^.compilerFuns.closeDefining)
-        | otherwise = (_variables s, V.empty, id)
+        | otherwise = (_variables s, V.empty, reveal)
+        where reveal = case createStyle of
+                         DOCOL -> id  -- do not reveal immediately
+                         otherwise -> s^.compilerFuns.closeDefining
       defining = IDefining code [] finalizer (ForthWord createName False linkhead wid abort)
   in cl $ s & variables.~variables' & wids.~wids' & dict.idefining.~(Just defining)
 
