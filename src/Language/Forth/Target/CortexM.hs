@@ -29,7 +29,7 @@ bindCortexM :: Dictionary (IM ARMInstr) -> Dictionary (IM ARMInstr)
 bindCortexM = id
 
 -- Registers assigned for specific use
-w = R0         -- scratch
+w = R0         -- work
 temp1 = R1
 tos  = R4      -- top of data stack value
 ip = R6        -- interpretive pointer
@@ -106,9 +106,10 @@ instance TargetPrimitive ARMInstr where
   docolImpl   = insRec (str ip (PreIndexed rstack 4)) <>
                 insRec (mov ip (RegOp LR))
   doconstImpl = pushStack tos <>
-                insRec (ldr tos (PostIndexed LR 4))
-  hereImpl    = (pushStack tos) <>
                 insRec (ldr tos (RegIndOffset LR 0))
+  hereImpl    = (pushStack tos) <>
+                insRec (ldr tos (RegIndOffset LR 0)) <>
+                insRec (ldr tos (RegIndOffset tos 0))
   nextImpl    = insRec (ldrh w (PostIndexed ip 2)) <>
                 insRec (ldr w (RegRegInd ftable w (OpLSL 2))) <>
                 insRec (ldr PC (PostIndexed w 4))
