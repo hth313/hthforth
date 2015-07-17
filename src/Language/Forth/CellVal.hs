@@ -30,7 +30,6 @@ data CellVal a =
   | Val Cell                -- ^ A numeric value
   | XT (Maybe WordId) (Maybe a) (Maybe Symbol)
                             -- ^ Execution token
-  | XTSym Symbol            -- ^ Target symbol
   | IP [a]                  -- ^ Pushed interpretive pointer
   | Text ByteString         -- ^ Some text buffer
   | HereColon WordId Int    -- ^ Pointer inside word being defined
