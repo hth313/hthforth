@@ -48,7 +48,7 @@ codeGenerate dir pad dict = header <> visit (_latest dict)  where
     let (bytes, chars) = nameString pad (C.unpack $ _name word)
         asciiRec | null chars = mempty
                  | otherwise = insRec $ dir $ ASCII [C.pack chars]
-        tail | _name word == "EXIT" = nextImpl
+        tail | _name word == "EXIT" = labRec nextSymbol <> nextImpl
              | primitiveTargetWord word = next
              | otherwise = insEmpty
     in insRec (dir $ BYTE bytes) <>
