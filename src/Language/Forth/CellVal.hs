@@ -18,7 +18,7 @@ import Data.Word
 import Language.Forth.Word
 import Data.Vector.Storable.ByteString (ByteString)
 import Language.Forth.Interpreter.Address
-import Translator.Expression (Expr(Value))
+import Translator.Expression (Expr(Value, Identifier))
 import Translator.Symbol
 
 type Cell = Int32
@@ -129,3 +129,4 @@ isZero (Address Nothing) = True
 isZero _ = False
 
 cellToExpr (Val n) = Value $ fromIntegral n
+cellToExpr (XT _ _ (Just sym)) = Identifier $ nameMangle sym
