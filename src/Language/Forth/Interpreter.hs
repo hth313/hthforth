@@ -623,7 +623,7 @@ backpatch = updateState f  where
       | otherwise = notDefining s
 
 backslash = docol body
-  where body = toIn : fetch : inputLine : fetch : over : plus : inputLineLength : fetch : rot : minus : loop
+  where body = toIn : fetch : inputLine : fetch : over : plus : inputLineLength : fetch : rot : minus : dup : branch0 found : loop
         loop = lit (Val 1) : minus : dup : branch0 eol : over : cfetch : lit (Val 10) : minus : branch0 found : swap : lit (Val 1) : plus : swap : branch loop : eol
         eol = drop : drop : inputLineLength : fetch : toIn : store : exit : found
         found = [inputLineLength, fetch, swap, minus, toIn, store, drop, exit]
