@@ -3,6 +3,7 @@ module Util.Memory (Memory(..), newMemory, bufferMemory, validAddress,
 
 import Foreign.ForeignPtr (withForeignPtr)
 import Foreign.Ptr (plusPtr)
+import Control.Applicative ((<$>))
 import Data.Word
 import Data.Vector.Storable.ByteString (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
@@ -32,11 +33,13 @@ bufferMemory start buf =
 validAddress :: Address a => a -> Memory a -> Bool
 validAddress adr mem = adr >= baseAddress mem && adr <= endAddress mem
 
-read8 :: Address a => a -> Memory a -> Word8
-read8 adr mem = B.index (chunk mem) (offsetOf adr $ baseAddress mem)
+read8 :: Address a => a -> Memory a -> Maybe Word8
+read8 adr mem
+  | validAddress adr mem = Just $ B.index (chunk mem) (offsetOf adr $ baseAddress mem)
+  | otherwise = Nothing
 
-read32 :: Address a => a -> Memory a -> Word32
-read32 adr mem = toValue 4 (map fetch [0..3]) mem
+read32 :: Address a => a -> Memory a -> Maybe Word32
+read32 adr mem = toValue 4 mem <$> (sequence $ map fetch [0..3])
     where fetch n = read8 (addAddress adr n) mem
 
 write8 :: Address a => Word8 -> a -> Memory a -> IO ()
@@ -44,7 +47,7 @@ write8 val adr mem =
     let i = offsetOf adr $ baseAddress mem
     in unsafeUpdate val (chunk mem) i
 
-toValue n bytes mem =
+toValue n mem bytes =
     sum $ map (uncurry shiftL) (zip (map fromIntegral bytes) (shifts n mem))
 
 shifts n mem = case endian mem of

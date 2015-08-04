@@ -437,13 +437,13 @@ newState s = return (Right (), s)
 cfetch' = updateState f  where
   f s | Address (Just adr@(Addr wid _)) : rest <- _stack s =
           case IntMap.lookup (unWordId wid) (_variables s) of
-            Just (BufferField buf) ->
-              let c = Val $ fromIntegral $ read8 adr buf
+            Just (BufferField buf) | Just val <- read8 adr buf ->
+              let c = Val (fromIntegral val)
               in  newState s { _stack = c : rest }
             Nothing -> abortWith "C@ - no valid address" s
             Just (DataField cm) | Just (Byte x) <- read8CM adr cm ->
               newState s { _stack = Val (fromIntegral x) : rest }
-            otherwise -> abortWith "C@ - no byte found in cell memory" s
+            otherwise -> abortWith "C@ - no defined value found in cell memory" s
       | null (_stack s) = emptyStack s
       | otherwise = abortWith "bad C@ address" s
 
