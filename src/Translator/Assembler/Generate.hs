@@ -43,10 +43,12 @@ spaces14 = replicate 14 ' '
 
 nl = fromByteString "\n"
 
+fromSymbol = fromString . unintern
+
 emitRec (InsRec i) = fromByteString "              " <> ppi (disassemble i) <> nl
-emitRec (LabRec lab) = fromByteString lab <> fromByteString ":" <> nl
-emitRec (InsLabRec lab i) = fromByteString lab <> fromByteString ":" <>
-                            fromString (drop (1 + fromIntegral (C.length lab)) spaces14) <>
+emitRec (LabRec lab) = fromSymbol lab <> fromByteString ":" <> nl
+emitRec (InsLabRec lab i) = fromSymbol lab <> fromByteString ":" <>
+                            fromString (drop (1 + fromIntegral (length $ unintern lab)) spaces14) <>
                             ppi (disassemble i) <> nl
 emitRec EmptyRec = nl
 ppi (mne, Nothing) = fromString mne

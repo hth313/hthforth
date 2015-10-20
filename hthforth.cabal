@@ -27,6 +27,7 @@ Library
                , filepath >= 1.2
                , haskeline >= 0.7.0.0
                , lens >= 4.7
+               , symbol >= 0.2
                , transformers >= 0.3 && < 0.5
                , vector >= 0.9
                , vector-bytestring >= 0.0.0.1

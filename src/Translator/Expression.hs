@@ -37,7 +37,7 @@ data Expr = Value BaseVal | Identifier Symbol |
 -- Show expression, mostly intended for interactive use at the moment
 instance Show Expr where
     show (Value n) = show n
-    show (Identifier id) = B.unpack id
+    show (Identifier ident) = unintern ident
     show (Binary (op,_) e1 e2) = show e1 ++ op ++ show e2
     show (Unary (op,_) e) = op ++ show e
     show (Select n elts) = "select " ++ show n ++ " of " ++ show elts
@@ -76,7 +76,7 @@ instance Bits Expr where
     testBit (Value x) n = (x .&. (1 `shiftL` n)) /= 0
     popCount (Value x) = popCount x
 
-locationCounter = Identifier (B.pack "*")
+locationCounter = Identifier $ mkSymbol "*"
 
 -- Traverse an expression and apply a reducing function to each sub-expression.
 reduceExpr f e = rex e

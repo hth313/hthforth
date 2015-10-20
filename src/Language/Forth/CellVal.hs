@@ -129,4 +129,4 @@ isZero (Address Nothing) = True
 isZero _ = False
 
 cellToExpr (Val n) = Value $ fromIntegral n
-cellToExpr (XT _ _ (Just sym)) = Identifier $ nameMangle sym
+cellToExpr (XT _ _ (Just sym)) = Identifier sym

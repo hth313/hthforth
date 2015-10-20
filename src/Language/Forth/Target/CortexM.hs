@@ -92,7 +92,7 @@ colonToken tok = insRec $ Directive $ WORD [tok]
 
 -- | Target primitives for Cortex-M
 instance TargetPrimitive ARMInstr where
-  wordToken sym = colonToken $ E.Identifier (nameMangle sym)
+  wordToken sym = colonToken $ E.Identifier sym
   literal val = colonToken (E.Identifier litSymbol) <> colonToken val
   docol = insRec $ bl (Mem $ E.Identifier docolSymbol)
   dohere dict = insRec (bl (Mem $ E.Identifier dohereSymbol)) <>

@@ -4,16 +4,18 @@
 
 -}
 
-module Translator.Symbol (Symbol, nameMangle) where
+module Translator.Symbol (mkSymbol, nameMangle, module Data.Symbol) where
 
-import Data.ByteString.Char8 (ByteString, pack, unpack)
+import Data.Symbol
 import Data.Char
 
-type Symbol = ByteString
+
+-- | Convert a string to a symbol
+mkSymbol = intern
 
   -- Ensure the name is something the assembler accepts.
-nameMangle :: Symbol -> Symbol
-nameMangle = pack . prepend . concatMap mangle . unpack
+nameMangle :: String -> Symbol
+nameMangle = mkSymbol . prepend . concatMap mangle
   where mangle '@' = "_Fetch_"
         mangle '!' = "_Store_"
         mangle '+' = "_Plus_"

@@ -45,7 +45,7 @@ import Language.Forth.Target
 import Language.Forth.Target.CortexM (codeGenerateCortexM)
 import Language.Forth.Target.MSP430 (codeGenerateMSP430)
 import Language.Forth.Word
-import Translator.Symbol (Symbol)
+import Translator.Symbol
 import Translator.Assembler.InstructionSet
 import Translator.Assembler.Generate (IM)
 import Util.Memory
@@ -249,9 +249,11 @@ xif   = docol [here, icompileBranch branch0, exit]
 xelse = docol [here, icompileBranch branch, here, rot, backpatch, exit]
 xthen = docol [here, swap, backpatch, exit]
 
-xdo = docol [cprim1 compile (XT Nothing (Just pdo) (Just $ symbol pdoName)), here, exit]
-loop = xloop (XT Nothing (Just ploop) (Just $ symbol ploopName))
-plusLoop = xloop (XT Nothing (Just pplusLoop) (Just $ symbol pploopName))
+toSymbol = nameMangle . C.unpack
+
+xdo = docol [cprim1 compile (XT Nothing (Just pdo) (Just $ toSymbol pdoName)), here, exit]
+loop = xloop (XT Nothing (Just ploop) (Just $ toSymbol ploopName))
+plusLoop = xloop (XT Nothing (Just pplusLoop) (Just $ toSymbol pploopName))
 leave = updateState f  where
   f s | _ : rs@(limit : _) <- _rstack s = newState s { _rstack = limit : rs }
       | otherwise = emptyStack s
@@ -268,7 +270,7 @@ plusStore = docol [dup, fetch, rot, plus, swap, store, exit]
 
 create = docol [xword, create' docol CREATE, exit]
 colon = docol [lit (Val (-1)), state, store, xword, create' docol DOCOL, exit]
-semicolon = docol [cprim1 compile (XT Nothing (Just exit) (Just $ symbol exitName)), lit (Val 0), state, store, reveal, exit]
+semicolon = docol [cprim1 compile (XT Nothing (Just exit) (Just $ toSymbol exitName)), lit (Val 0), state, store, reveal, exit]
 compileComma = dpop >>= \x -> cprim1 compile x
 immediate = updateState $ \s -> newState $ s^.compilerFuns.setImmediate $ s
 

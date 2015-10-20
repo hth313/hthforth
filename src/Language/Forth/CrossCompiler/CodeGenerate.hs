@@ -53,7 +53,7 @@ codeGenerate dir pad dict = header <> visit (_latest dict)  where
              | otherwise = insEmpty
     in insRec (dir $ BYTE bytes) <>
        asciiRec <>
-       labRec (nameMangle . C2.pack . C.unpack $ _name word) <> _doer word <> tail
+       labRec (nameMangle $ C.unpack $ _name word) <> _doer word <> tail
   header = datafields <>
            text <>
            labRec docolSymbol   <> docolImpl <> next <>

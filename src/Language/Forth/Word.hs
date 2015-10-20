@@ -6,7 +6,7 @@
 
 module Language.Forth.Word (ForthWord(..), WordId(..), LinkField, immediateFlag,
                             name, link, doer, wordId, symbol, nameSymbol,
-                            exitName, pdoName, ploopName, pploopName, 
+                            exitName, pdoName, ploopName, pploopName,
                             targetColonWordId, primitiveTargetWord) where
 
 import Control.Lens
@@ -14,6 +14,7 @@ import Data.Char
 import Data.Vector.Storable.ByteString.Char8 (ByteString)
 import qualified Data.Vector.Storable.ByteString.Char8 as B
 import qualified Data.ByteString.Char8 as L
+import Translator.Symbol
 
 -- | Unique identifier for words.
 newtype WordId = WordId { unWordId :: Int } deriving (Eq, Ord)
@@ -38,7 +39,7 @@ instance Eq (ForthWord a) where
 instance Show (ForthWord a) where
     show = B.unpack . _name
 
-symbol = L.pack . B.unpack
+symbol = mkSymbol . B.unpack
 nameSymbol = symbol . _name
 
 exitName, pdoName, ploopName, pploopName :: ByteString
