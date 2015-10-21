@@ -7,7 +7,7 @@
 
 module Language.Forth.Dictionary (newDictionary, IDict(..), TDict(..), Dictionary(..),
                                   idict, idefining, compileList,
-                                  latest, tdict, tdefining, tcompileList, wordName,
+                                  latest, tdict, tdefining, twids, tcompileList, wordName,
                                   DefiningWrapper(..), TDefining(..), hereRAM,
                                   IDefining(..),
                                   definingWord, patchList,
@@ -56,6 +56,7 @@ data DefiningWrapper a = WrapA a | WrapB ([a] -> a) | WrapRecurse
 data TDict t = TDict {
     _tdict :: Dictionary (IM t)
   , _tdefining :: Maybe (TDefining t)
+  , _twids :: [WordId]
 }
 
 data TDefining t = TDefining  {

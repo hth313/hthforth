@@ -8,8 +8,7 @@ module Language.Forth.Word (ForthWord(..), WordId(..), WordKind(..),
                             LinkField, immediateFlag,
                             name, link, doer, wordId, wordKind,
                             symbol, nameSymbol,
-                            exitName, pdoName, ploopName, pploopName,
-                            targetColonWordId) where
+                            exitName, pdoName, ploopName, pploopName) where
 
 import Control.Lens
 import Data.Char
@@ -52,8 +51,3 @@ exitName   = "EXIT"
 pdoName    = "(DO)"
 ploopName  = "(LOOP)"
 pploopName = "(+LOOP)"
-
--- | Obtain an identity for a high level target word. At the moment we
---   just give them the same number what is different from native words
---   created newDictionary.
-targetColonWordId = WordId 0

@@ -58,9 +58,12 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
                                 DOCOL     -> (id, docol)
                                 DOCONST e -> (closeDefining1, doconst e)
   closeDefining s = s { _targetDict = closeDefining1 $ _targetDict s }
-  closeDefining1 dict = dict & tdefining.~Nothing & tdict.latest.~Just newWord
-    where newWord = ForthWord name False (_latest $ _tdict dict) targetColonWordId Colon
-                    (_tcompileList (fromJust $ _tdefining dict))
+  closeDefining1 dict = dict & tdefining.~Nothing &
+                               tdict.latest.~Just newWord &
+                               twids.~twids'
+    where newWord = ForthWord name False (_latest $ _tdict dict) wid Colon
+                              (_tcompileList (fromJust $ _tdefining dict))
+          (wid : twids') = dict^.twids
           name = _wordName (fromJust $ _tdefining dict)
   reserveSpace n s = s { _targetDict = targetAllot (fromIntegral n) (_targetDict s) }
 
@@ -69,8 +72,8 @@ addTokens vs s = s { _targetDict = (_targetDict s) { _tdefining = f <$> _tdefini
   where f d = d { _tcompileList = _tcompileList d <> vs }
 
 targetDictionary :: (InstructionSet t, Primitive (IM t), TargetPrimitive t) => TDict t
-targetDictionary = TDict dict Nothing
-    where dict = fst $ newDictionary extras
+targetDictionary = (TDict dict Nothing wids)
+    where (dict, wids) = newDictionary extras
           extras = do
             addWord "RSP0" Native resetRStack      -- reset return stack
             addWord "SP0"  Native resetStack       -- reset data stack
