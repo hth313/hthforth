@@ -59,9 +59,9 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
                                 DOCONST e -> (closeDefining1, doconst e)
   closeDefining s = s { _targetDict = closeDefining1 $ _targetDict s }
   closeDefining1 dict = dict & tdefining.~Nothing & tdict.latest.~Just newWord
-    where newWord = ForthWord name False (_latest $ _tdict dict) targetColonWordId
+    where newWord = ForthWord name False (_latest $ _tdict dict) targetColonWordId Colon
                     (_tcompileList (fromJust $ _tdefining dict))
-          name = _wordName (fromJust $ _tdefining dict) 
+          name = _wordName (fromJust $ _tdefining dict)
   reserveSpace n s = s { _targetDict = targetAllot (fromIntegral n) (_targetDict s) }
 
 addTokens :: (forall t. (InstructionSet t, Primitive (IM t), TargetPrimitive t) => IM t) -> FState a -> FState a
@@ -72,8 +72,8 @@ targetDictionary :: (InstructionSet t, Primitive (IM t), TargetPrimitive t) => T
 targetDictionary = TDict dict Nothing
     where dict = fst $ newDictionary extras
           extras = do
-            addWord "RSP0" resetRStack      -- reset return stack
-            addWord "SP0"  resetStack       -- reset data stack
+            addWord "RSP0" Native resetRStack      -- reset return stack
+            addWord "SP0"  Native resetStack       -- reset data stack
 
 -- | Dummy binding a target dictionary is a kludge that can be used in certain situations
 --   when we do not care which target it is, but the type system insists that it must know,

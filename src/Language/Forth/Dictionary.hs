@@ -87,39 +87,39 @@ newDictionary :: Primitive a => State (Dictionary a, [WordId]) () -> (Dictionary
 newDictionary extras = execState build (Dictionary Nothing (Value 0), wordsIds)
   where
     build = do
-      addWord "EXIT"  exit
-      addWord "EXECUTE" execute
-      addWord "SWAP" swap
-      addWord "DROP" drop
-      addWord "OVER" over
-      addWord "DUP"  dup
-      addWord "R>"   rto
-      addWord ">R"   tor
-      addWord "R@"   rfetch
-      addWord "+"    plus
-      addWord "-"    minus
-      addWord "AND"  and
-      addWord "OR"   or
-      addWord "XOR"  xor
-      addWord "2*"   twoStar
-      addWord "2/"   twoSlash
-      addWord "LSHIFT" lshift
-      addWord "RSHIFT" rshift
-      addWord "0="   zerop
-      addWord "0<"   lt0
-      addWord "!"    store
-      addWord "C!"   cstore
-      addWord "@"    fetch
-      addWord "C@"   cfetch
-      addWord "CONSTANT" constant
-      addWord "UM*" umstar
-      addWord "UM/MOD" ummod
+      addWord "EXIT"  Native exit
+      addWord "EXECUTE" Native execute
+      addWord "SWAP" Native swap
+      addWord "DROP" Native drop
+      addWord "OVER" Native over
+      addWord "DUP"  Native dup
+      addWord "R>"   Native rto
+      addWord ">R"   Native tor
+      addWord "R@"   Native rfetch
+      addWord "+"    Native plus
+      addWord "-"    Native minus
+      addWord "AND"  Native and
+      addWord "OR"   Native or
+      addWord "XOR"  Native xor
+      addWord "2*"   Native twoStar
+      addWord "2/"   Native twoSlash
+      addWord "LSHIFT" Native lshift
+      addWord "RSHIFT" Native rshift
+      addWord "0="   Native zerop
+      addWord "0<"   Native lt0
+      addWord "!"    Native store
+      addWord "C!"   Native cstore
+      addWord "@"    Native fetch
+      addWord "C@"   Native cfetch
+      addWord "CONSTANT" Native constant
+      addWord "UM*" Native umstar
+      addWord "UM/MOD" Native ummod
       extras
 
 
-addWord name doer =
-  StateT $ \(Dictionary latest hereRAM, i:is) -> 
-      return ((), (Dictionary (Just $ ForthWord name False latest i doer) hereRAM, is))
+addWord name kind doer =
+  StateT $ \(Dictionary latest hereRAM, i:is) ->
+      return ((), (Dictionary (Just $ ForthWord name False latest i kind doer) hereRAM, is))
 
 makeImmediate :: State (Dictionary a, [WordId]) ()
 makeImmediate = modify (_1%~setLatestImmediate)

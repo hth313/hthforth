@@ -49,7 +49,7 @@ codeGenerate dir pad dict = header <> visit (_latest dict)  where
         asciiRec | null chars = mempty
                  | otherwise = insRec $ dir $ ASCII [C.pack chars]
         tail | _name word == "EXIT" = labRec nextSymbol <> nextImpl
-             | primitiveTargetWord word = next
+             | word^.wordKind == Native = next
              | otherwise = insEmpty
     in insRec (dir $ BYTE bytes) <>
        asciiRec <>

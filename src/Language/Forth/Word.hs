@@ -4,10 +4,12 @@
 
 -}
 
-module Language.Forth.Word (ForthWord(..), WordId(..), LinkField, immediateFlag,
-                            name, link, doer, wordId, symbol, nameSymbol,
+module Language.Forth.Word (ForthWord(..), WordId(..), WordKind(..),
+                            LinkField, immediateFlag,
+                            name, link, doer, wordId, wordKind,
+                            symbol, nameSymbol,
                             exitName, pdoName, ploopName, pploopName,
-                            targetColonWordId, primitiveTargetWord) where
+                            targetColonWordId) where
 
 import Control.Lens
 import Data.Char
@@ -23,12 +25,15 @@ instance Show WordId where
 
 type LinkField a = Maybe (ForthWord a)
 
+data WordKind = Native | Colon | InterpreterNative deriving Eq
+
 -- | A Forth word
 data ForthWord a = ForthWord
   { _name :: ByteString
   , _immediateFlag :: Bool
   , _link :: LinkField a
   , _wordId :: WordId
+  , _wordKind :: WordKind
   , _doer :: a
   }
 makeLenses ''ForthWord
@@ -52,7 +57,3 @@ pploopName = "(+LOOP)"
 --   just give them the same number what is different from native words
 --   created newDictionary.
 targetColonWordId = WordId 0
-
--- | Test whether the given word is a primitive word. This test is only valid for
---   target words.
-primitiveTargetWord word = (targetColonWordId /= _wordId word)

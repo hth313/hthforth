@@ -78,65 +78,65 @@ interpreterDictionary :: (IDict (FM a ()), [WordId])
 interpreterDictionary = (IDict dict Nothing, wids)
   where (dict, wids) = newDictionary extras
         extras = do
-          addWord "ROT" rot
-          addWord "EVALUATE" evaluate
-          addWord "FALSE" false
-          addWord "TRUE" true
-          addWord "STATE" state
-          addWord ">IN" toIn
-          addWord "#INBUF" inputBuffer
-          addWord "INPUT-LINE" inputLine
-          addWord "#INPUT-LINE" inputLineLength
-          addWord "SOURCE-ID" sourceID
-          addWord "\\"   backslash >> makeImmediate
-          addWord "QUIT" quit
-          addWord "ABORT" abort
-          addWord "INTERPRET" interpret
-          addWord ":" colon
-          addWord ";" semicolon >> makeImmediate
-          addWord "CREATE" create
-          addWord "DOES>" does
-          addWord "COMPILE," compileComma
-          addWord "IMMEDIATE" immediate
-          addWord "HERE" here
-          addWord "BYE" (liftIO exitSuccess)
-          addWord "LOAD-SOURCE" loadSource
-          addWord "+!"   plusStore
-          addWord "IF" xif >> makeImmediate
-          addWord "ELSE" xelse >> makeImmediate
-          addWord "THEN" xthen >> makeImmediate
-          addWord "DO" xdo >> makeImmediate
-          addWord pdoName pdo
-          addWord "LOOP" loop >> makeImmediate
-          addWord ploopName ploop
-          addWord "+LOOP" plusLoop >> makeImmediate
-          addWord pploopName pplusLoop
-          addWord "LEAVE" leave
-          addWord "I" rfetch
-          addWord "BEGIN" begin >> makeImmediate
-          addWord "UNTIL" until >> makeImmediate
-          addWord "AGAIN" again >> makeImmediate
-          addWord "WHILE" while >> makeImmediate
-          addWord "REPEAT" repeat >> makeImmediate
-          addWord "EMIT" emit
-          addWord "MOVE" move
-          addWord "FIND" find
-          addWord "TREG" treg
-          addWord "PAD" pad
-          addWord "STRING," compileString
-          addWord "LIT," (dpop >>= \x -> cprim1 litComma x)
-          addWord "ALLOT" allot
-          addWord ">BODY" toBody
-          addWord "ACCEPT" accept
-          addWord "ALIGN" align
-          addWord "ALIGNED" aligned
-          addWord "DEPTH" depth
-          addWord "KEY" key
-          addWord "RECURSE" (cprim recurse)
-          addWord "CROSS-COMPILER" crossCompileSetup
-          addWord "INTERPRETER" interpreterCompileSetup
-          addWord "DUMP-CORTEXM" (targetCodegen codeGenerateCortexM)
-          addWord "DUMP-MSP430" (targetCodegen codeGenerateMSP430)
+          addWord "ROT" InterpreterNative rot
+          addWord "EVALUATE" InterpreterNative evaluate
+          addWord "FALSE" InterpreterNative false
+          addWord "TRUE" InterpreterNative true
+          addWord "STATE" InterpreterNative state
+          addWord ">IN" InterpreterNative toIn
+          addWord "#INBUF" InterpreterNative inputBuffer
+          addWord "INPUT-LINE" InterpreterNative inputLine
+          addWord "#INPUT-LINE" InterpreterNative inputLineLength
+          addWord "SOURCE-ID" InterpreterNative sourceID
+          addWord "\\" InterpreterNative backslash >> makeImmediate
+          addWord "QUIT" InterpreterNative quit
+          addWord "ABORT" InterpreterNative abort
+          addWord "INTERPRET" InterpreterNative interpret
+          addWord ":" InterpreterNative colon
+          addWord ";" InterpreterNative semicolon >> makeImmediate
+          addWord "CREATE" InterpreterNative create
+          addWord "DOES>" InterpreterNative does
+          addWord "COMPILE," InterpreterNative compileComma
+          addWord "IMMEDIATE" InterpreterNative immediate
+          addWord "HERE" InterpreterNative here
+          addWord "BYE" InterpreterNative (liftIO exitSuccess)
+          addWord "LOAD-SOURCE" InterpreterNative loadSource
+          addWord "+!"   InterpreterNative plusStore
+          addWord "IF" InterpreterNative xif >> makeImmediate
+          addWord "ELSE" InterpreterNative xelse >> makeImmediate
+          addWord "THEN" InterpreterNative xthen >> makeImmediate
+          addWord "DO" InterpreterNative xdo >> makeImmediate
+          addWord pdoName InterpreterNative pdo
+          addWord "LOOP" InterpreterNative loop >> makeImmediate
+          addWord ploopName InterpreterNative ploop
+          addWord "+LOOP" InterpreterNative plusLoop >> makeImmediate
+          addWord pploopName InterpreterNative pplusLoop
+          addWord "LEAVE" InterpreterNative leave
+          addWord "I" InterpreterNative rfetch
+          addWord "BEGIN" InterpreterNative begin >> makeImmediate
+          addWord "UNTIL" InterpreterNative until >> makeImmediate
+          addWord "AGAIN" InterpreterNative again >> makeImmediate
+          addWord "WHILE" InterpreterNative while >> makeImmediate
+          addWord "REPEAT" InterpreterNative repeat >> makeImmediate
+          addWord "EMIT" InterpreterNative emit
+          addWord "MOVE" InterpreterNative move
+          addWord "FIND" InterpreterNative find
+          addWord "TREG" InterpreterNative treg
+          addWord "PAD" InterpreterNative pad
+          addWord "STRING," InterpreterNative compileString
+          addWord "LIT," InterpreterNative (dpop >>= \x -> cprim1 litComma x)
+          addWord "ALLOT" InterpreterNative allot
+          addWord ">BODY" InterpreterNative toBody
+          addWord "ACCEPT" InterpreterNative accept
+          addWord "ALIGN" InterpreterNative align
+          addWord "ALIGNED" InterpreterNative aligned
+          addWord "DEPTH" InterpreterNative depth
+          addWord "KEY" InterpreterNative key
+          addWord "RECURSE" InterpreterNative (cprim recurse)
+          addWord "CROSS-COMPILER" InterpreterNative crossCompileSetup
+          addWord "INTERPRETER" InterpreterNative interpreterCompileSetup
+          addWord "DUMP-CORTEXM" InterpreterNative (targetCodegen codeGenerateCortexM)
+          addWord "DUMP-MSP430" InterpreterNative (targetCodegen codeGenerateMSP430)
 
 
 -- | Foundation of the Forth interpreter
@@ -584,7 +584,7 @@ istartDefining Create{..} s =
         where reveal = case createStyle of
                          DOCOL -> id  -- do not reveal immediately
                          otherwise -> s^.compilerFuns.closeDefining
-      defining = IDefining code [] finalizer (ForthWord createName False linkhead wid abort)
+      defining = IDefining code [] finalizer (ForthWord createName False linkhead wid Colon abort)
   in cl $ s & variables.~variables' & wids.~wids' & dict.idefining.~(Just defining)
 
 reveal = updateState f  where
