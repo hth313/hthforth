@@ -14,6 +14,7 @@ import Control.Lens
 import Data.Int
 import Data.Monoid hiding (Any)
 import Data.ByteString.Lazy (ByteString)
+import Data.IntMap (IntMap)
 import Language.Forth.CellVal
 import Language.Forth.CrossCompiler.CodeGenerate
 import Language.Forth.Dictionary
@@ -25,7 +26,8 @@ import Translator.Assembler.Generate
 import Translator.Assembler.Target.ARM
 
 -- | Bind a polymorphic target dictionary to be an CortexM specific one
-bindCortexM :: Dictionary (IM ARMInstr) -> Dictionary (IM ARMInstr)
+bindCortexM :: (Dictionary (IM ARMInstr), IntMap (ForthWord (IM ARMInstr))) ->
+               (Dictionary (IM ARMInstr), IntMap (ForthWord (IM ARMInstr)))
 bindCortexM = id
 
 -- Registers assigned for specific use
@@ -126,6 +128,7 @@ instance TargetPrimitive ARMInstr where
                                               next)
                        otherwise -> word
 
+  tokenTableLine = Just $ \n -> insRec $ Directive $ LONG [n]
 
 token lab = insRec $ Directive $ WORD lab
 
@@ -146,5 +149,6 @@ multiShift ins = popStack w <>
                  insRec (ins tos w (RegOp tos))
 
 -- | Generate code for a dictionary for Cortex-M
--- codeGenerateCortexM :: (forall t. Dictionary (IM t)) -> ByteString
-codeGenerateCortexM dict = emitCode $ codeGenerate Directive pad2 (bindCortexM dict)
+--codeGenerateCortexM :: (forall t. (Dictionary (IM t), IntMap (ForthWord (IM t)))) -> ByteString
+codeGenerateCortexM (dict, allwords) =
+  emitCode $ codeGenerate Directive pad2 (bindCortexM (dict, allwords))

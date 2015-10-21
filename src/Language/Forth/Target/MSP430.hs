@@ -16,6 +16,8 @@ import Data.Bits
 import Data.Int
 import Data.Monoid
 import Data.ByteString.Lazy (ByteString)
+import Data.IntMap (IntMap)
+import qualified Data.Set as Set
 import Language.Forth.CellVal
 import Language.Forth.CrossCompiler.CodeGenerate
 import Language.Forth.Dictionary
@@ -25,9 +27,12 @@ import Language.Forth.Word
 import Translator.Assembler.Generate
 import Translator.Assembler.Target.MSP430
 import Translator.Expression
+import Translator.Symbol
+
 
 -- | Bind a polymorphic target dictionary to be an MSP430 specific one
-bindMSP430 :: Dictionary (IM Instr430) -> Dictionary (IM Instr430)
+bindMSP430 :: (Dictionary (IM Instr430), IntMap (ForthWord (IM Instr430))) ->
+              (Dictionary (IM Instr430), IntMap (ForthWord (IM Instr430)))
 bindMSP430 = id
 
 -- Forth machine registers
@@ -70,7 +75,7 @@ xor_ = binary XOR
 binary ctor s op1 op2 = insRec $ ctor s op1 op2
 unary ctor s op = insRec $ ctor s op
 
-label = labRec . nameMangle
+label = labRec . mkSymbol
 
 -- | Primitive words for MSP430.
 instance Primitive (IM Instr430) where
@@ -141,6 +146,7 @@ instance TargetPrimitive Instr430 where
   nextImpl    = mempty -- TBD
   resetRStack = mempty -- TBD
   resetStack  = mempty -- TBD
+  reservedLabels _ = Set.fromList [mkSymbol (p:b) | p <- ['l', 'r'], b <- [shiftloop, shiftskip]]
 
 -- Helper function for implementing LSHIFT and RSHIFT
 multiShift t shift =
@@ -153,8 +159,11 @@ multiShift t shift =
   dec W tos     <>
   jnc loop      <>
   mov W w tos
-    where loop = t : "shiftloop"
-          skip = t : "shiftskip"
+    where loop = t : shiftloop
+          skip = t : shiftskip
+
+shiftloop = "shiftloop"
+shiftskip = "shiftskip"
 
 -- Pop data stack to given register
 popStack r = mov W (indirectInc stack) r
@@ -167,4 +176,5 @@ pushStack r = decd W stack <>
 
 -- | Generate code for a dictionary for MSP430
 -- codeGenerateMSP430 :: (forall t. Dictionary (IM t)) -> ByteString
-codeGenerateMSP430 dict = emitCode $ codeGenerate Directive pad2 (bindMSP430 dict)
+codeGenerateMSP430 (dict, allwords) =
+  emitCode $ codeGenerate Directive pad2 (bindMSP430 (dict, allwords))

@@ -5,9 +5,11 @@
 
 -}
 
-module Language.Forth.Dictionary (newDictionary, IDict(..), TDict(..), Dictionary(..),
+module Language.Forth.Dictionary (newInterpreterDictionary, newTargetDictionary,
+                                  IDict(..), TDict(..), Dictionary(..),
                                   idict, idefining, compileList,
-                                  latest, tdict, tdefining, twids, tcompileList, wordName,
+                                  latest, tdict, tdefining, twids, twords,
+                                  tcompileList, wordName,
                                   DefiningWrapper(..), TDefining(..), hereRAM,
                                   IDefining(..),
                                   definingWord, patchList,
@@ -21,6 +23,7 @@ import Control.Lens hiding (over)
 import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State hiding (state)
+import Data.IntMap (IntMap)
 import Data.Vector.Storable.ByteString.Char8 (ByteString)
 import Data.Vector (Vector)
 import Language.Forth.Interpreter.Address
@@ -49,7 +52,7 @@ data IDefining a = IDefining {
   , _definingWord :: ForthWord a
 }
 
--- | Wrapper for words being compile. This is used to keep track of branches
+-- | Wrapper for words being compiled. This is used to keep track of branches
 --   that are waiting to have their address fixed.
 data DefiningWrapper a = WrapA a | WrapB ([a] -> a) | WrapRecurse
 
@@ -57,6 +60,7 @@ data TDict t = TDict {
     _tdict :: Dictionary (IM t)
   , _tdefining :: Maybe (TDefining t)
   , _twids :: [WordId]
+  , _twords :: IntMap (ForthWord (IM t))
 }
 
 data TDefining t = TDefining  {
@@ -78,14 +82,21 @@ makeLenses ''Dictionary
 -- Word identities are used to identify a particular word in a unique way.
 -- They are used to find mutable datafields, which are stored separately in
 -- the Forth state of the interpreter.
--- Some words (typically variables) that are needed early get their word
--- identity preallocated here and we use the tail for the rest of words.
-(stateWId : toInWId : inputBufferWId : inputLineWId :
- inputLineLengthWId : wordBufferWId : sourceIDWid : tregWid : wordsIds) = map WordId [0..]
+-- Some words (typically variables) in the interpreter that are needed early
+-- get their word identity preallocated here and we use the tail for the
+-- rest of words.
+allIds@(stateWId : toInWId : inputBufferWId : inputLineWId :
+        inputLineLengthWId : wordBufferWId : sourceIDWid :
+        tregWid : wordsIds) = map WordId [0..]
+
+newInterpreterDictionary, newTargetDictionary ::
+  Primitive a => State (Dictionary a, [WordId]) () -> (Dictionary a, [WordId])
+newInterpreterDictionary = newDictionary wordsIds
+newTargetDictionary = newDictionary allIds
 
 -- Create a new basic dictionary.
-newDictionary :: Primitive a => State (Dictionary a, [WordId]) () -> (Dictionary a, [WordId])
-newDictionary extras = execState build (Dictionary Nothing (Value 0), wordsIds)
+newDictionary :: Primitive a => [WordId] -> State (Dictionary a, [WordId]) () -> (Dictionary a, [WordId])
+newDictionary wids extras = execState build (Dictionary Nothing (Value 0), wids)
   where
     build = do
       addWord "EXIT"  Native exit

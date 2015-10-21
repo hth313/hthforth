@@ -2,6 +2,9 @@
 module Language.Forth.TargetPrimitive (TargetPrimitive(..)) where
 
 import Data.Monoid
+import Data.Proxy
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Language.Forth.Dictionary
 import Language.Forth.Word
 import Translator.Assembler.Generate (IM)
@@ -56,3 +59,13 @@ class TargetPrimitive t where
   -- | Optionally substitute a word with a native implementation
   substNative :: ForthWord (IM t) -> ForthWord (IM t)
   substNative = id
+
+  -- | Build a token table. Given a table index, generate a line for the table.
+  tokenTableLine :: Maybe (Expr -> IM t)
+  tokenTableLine = Nothing
+
+  -- | Reserved labels gives the set of predefined labels used internally
+  --   by a target. This is to avoid potential clashes with labels generated
+  --   for words.
+  reservedLabels :: Proxy t -> Set Symbol
+  reservedLabels _ = Set.empty

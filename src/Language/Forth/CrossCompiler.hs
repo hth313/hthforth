@@ -19,6 +19,7 @@ import Control.Applicative
 import Control.Lens
 import qualified Data.Map as Map
 import qualified Data.Vector as V
+import qualified Data.IntMap as IntMap
 import Data.Maybe
 import Data.Monoid
 import Language.Forth.CellVal
@@ -60,7 +61,8 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
   closeDefining s = s { _targetDict = closeDefining1 $ _targetDict s }
   closeDefining1 dict = dict & tdefining.~Nothing &
                                tdict.latest.~Just newWord &
-                               twids.~twids'
+                               twids.~twids' &
+                               twords%~(IntMap.insert (unWordId wid) newWord)
     where newWord = ForthWord name False (_latest $ _tdict dict) wid Colon
                               (_tcompileList (fromJust $ _tdefining dict))
           (wid : twids') = dict^.twids
@@ -72,8 +74,11 @@ addTokens vs s = s { _targetDict = (_targetDict s) { _tdefining = f <$> _tdefini
   where f d = d { _tcompileList = _tcompileList d <> vs }
 
 targetDictionary :: (InstructionSet t, Primitive (IM t), TargetPrimitive t) => TDict t
-targetDictionary = (TDict dict Nothing wids)
-    where (dict, wids) = newDictionary extras
+targetDictionary = (TDict dict Nothing wids nativeWords)
+    where (dict, wids) = newTargetDictionary extras
+          nativeWords = IntMap.fromList $ (dict^.latest) & wordList
+          wordList Nothing = []
+          wordList (Just word) = (unWordId $ word^.wordId, word) : (word^.link & wordList)
           extras = do
             addWord "RSP0" Native resetRStack      -- reset return stack
             addWord "SP0"  Native resetStack       -- reset data stack

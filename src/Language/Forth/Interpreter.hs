@@ -76,7 +76,7 @@ initialVarStorage = gets _target >>=
 
 interpreterDictionary :: (IDict (FM a ()), [WordId])
 interpreterDictionary = (IDict dict Nothing, wids)
-  where (dict, wids) = newDictionary extras
+  where (dict, wids) = newTargetDictionary extras
         extras = do
           addWord "ROT" InterpreterNative rot
           addWord "EVALUATE" InterpreterNative evaluate
@@ -249,7 +249,7 @@ xif   = docol [here, icompileBranch branch0, exit]
 xelse = docol [here, icompileBranch branch, here, rot, backpatch, exit]
 xthen = docol [here, swap, backpatch, exit]
 
-toSymbol = nameMangle . C.unpack
+toSymbol = mkSymbol . C.unpack
 
 xdo = docol [cprim1 compile (XT Nothing (Just pdo) (Just $ toSymbol pdoName)), here, exit]
 loop = xloop (XT Nothing (Just ploop) (Just $ toSymbol ploopName))
@@ -671,8 +671,7 @@ loadSource = docol [xword, makeTempBuffer, evaluate, releaseTempBuffer, exit] wh
 targetCodegen codeGenerate = docol [xword, dump, exit]
   where dump = do
           outputfile <- popFilename
-          dict <- gets (\s -> s^.targetDict.tdict)
-          let text = codeGenerate dict
+          text <- liftM codeGenerate $ gets (\s -> (s^.targetDict.tdict, s^.targetDict.twords))
           mres <- liftIO $ try $ withFile outputfile WriteMode (flip L.hPut text)
           case mres of
             Left (e :: IOException) -> abortMessage $ show e

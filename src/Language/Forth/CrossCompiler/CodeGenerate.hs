@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {- |
 
    Generic code generator.
@@ -9,13 +10,20 @@
 module Language.Forth.CrossCompiler.CodeGenerate (docolSymbol, doconstSymbol,
                                                   dohereSymbol, nextSymbol,
                                                   litSymbol, ramBaseSymbol,
-                                                  codeGenerate, nameMangle, nameString, pad2) where
+                                                  codeGenerate, nameString, pad2) where
 
 import Control.Lens
+import Control.Monad
+import Control.Monad.Trans.State
 import Data.Bits
 import Data.Char
+import Data.IntMap (IntMap)
+import qualified Data.IntMap as IntMap
+import qualified Data.Map as Map
 import Data.Monoid
+import Data.Proxy
 import Data.Word
+import qualified Data.Set as Set
 import Data.Vector.Storable.ByteString (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
 import qualified Data.Vector.Storable.ByteString.Char8 as C
@@ -37,13 +45,20 @@ dohereSymbol  = "DOHERE"
 nextSymbol    = "NEXT"
 litSymbol     = "LIT"
 ramBaseSymbol = "RAMBASE"
+tokenSymbol   = "TokenTable"
+
+localLabels = [ docolSymbol, doconstSymbol, dohereSymbol, nextSymbol,
+                litSymbol, ramBaseSymbol, tokenSymbol ]
 
 -- | Generalized Forth code generator
-codeGenerate ::  TargetPrimitive t => (GNUDirective -> t) -> (Int -> Int) -> Dictionary (IM t) -> IM t
-codeGenerate dir pad dict = header <> visit (_latest dict)  where
+codeGenerate ::  forall t. TargetPrimitive t => (GNUDirective -> t) -> (Int -> Int) -> (Dictionary (IM t), IntMap (ForthWord (IM t))) -> IM t
+codeGenerate dir pad (dict, words) = evalState codeGenerate1 newLabels  where
+  codeGenerate1 = liftM2 (\body tt -> header <> tt <> natives <> body)
+                         (visit $ _latest dict) tokenTable
+  reserved = (reservedLabels (Proxy :: Proxy t)) `Set.union` (Set.fromList localLabels)
   dataSize = dict^.hereRAM
-  visit Nothing = mempty
-  visit (Just word) = visit (_link word) <> generate (substNative word)
+  visit Nothing = return mempty
+  visit (Just word) = liftM2 (<>) (visit $ _link word) (generate $ substNative word)
   generate word =
     let (bytes, chars) = nameString pad (C.unpack $ _name word)
         asciiRec | null chars = mempty
@@ -51,18 +66,31 @@ codeGenerate dir pad dict = header <> visit (_latest dict)  where
         tail | _name word == "EXIT" = labRec nextSymbol <> nextImpl
              | word^.wordKind == Native = next
              | otherwise = insEmpty
-    in insRec (dir $ BYTE bytes) <>
-       asciiRec <>
-       labRec (nameMangle $ C.unpack $ _name word) <> _doer word <> tail
-  header = datafields <>
-           text <>
-           labRec docolSymbol   <> docolImpl <> next <>
+    in liftM (\label -> insRec (dir $ BYTE bytes) <>
+                        asciiRec <>
+                        labRec label <> _doer word <> tail)
+         (addWordLabel word)
+  addWordLabel word = state $ addEntityLabel (_wordId word) (C.unpack $ _name word) reserved
+  lookupWordLabel word = gets $ \labels -> labels^.toLabel & (Map.lookup (_wordId word))
+  header = datafields <>  text
+  natives = labRec docolSymbol   <> docolImpl <> next <>
            labRec doconstSymbol <> doconstImpl <> next <>
            labRec dohereSymbol  <> hereImpl <> next <>
            libCode
-  datafields = insRec (dir $ SECTION "datafields" "b") <>
-               labRec ramBaseSymbol <>
-               insRec (dir $ FILL [dataSize])
+  tokenTable = case tokenTableLine of
+                 Just entry ->
+                   let tt (n, (m, word)) =
+                         let fillers = mconcat $ replicate (m - n) (entry $ Value 0)
+                         in liftM (\(Just label) -> fillers <> entry (Identifier label))
+                              (lookupWordLabel word)
+                   in liftM (\t -> labRec tokenSymbol <> mconcat t) $
+                            mapM tt $ zip [0..] (IntMap.assocs words)
+                 otherwise -> return mempty
+
+  datafields | dataSize > 0 = insRec (dir $ SECTION "datafields" "w") <>
+                              labRec ramBaseSymbol <>
+                              insRec (dir $ FILL [dataSize])
+             | otherwise = mempty
   text = insRec (dir $ TEXT Nothing)
 
 toExpr = Value . fromIntegral
