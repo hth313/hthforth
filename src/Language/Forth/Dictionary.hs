@@ -7,7 +7,7 @@
 
 module Language.Forth.Dictionary (newInterpreterDictionary, newTargetDictionary,
                                   IDict(..), TDict(..), Dictionary(..),
-                                  idict, idefining, compileList,
+                                  idict, iwids, idefining, compileList,
                                   latest, tdict, tdefining, twids, twords, tlabels,
                                   tcompileList, wordName,
                                   DefiningWrapper(..), TDefining(..), hereRAM,
@@ -40,8 +40,9 @@ import Translator.Symbol
 import Prelude hiding (drop, or, and)
 
 data IDict a = IDict {
-    _idict  :: Dictionary a,
-    _idefining :: Maybe (IDefining a)
+    _idict  :: Dictionary a
+  , _iwids :: [WordId]
+  , _idefining :: Maybe (IDefining a)
 }
 
 -- | The defining state for the interpreter.

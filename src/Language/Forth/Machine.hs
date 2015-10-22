@@ -6,7 +6,7 @@
 -}
 
 module Language.Forth.Machine (FM, FState(..), CV, module Control.Monad.Trans.State,
-                               stack, rstack, ip, targetDict, dict, compilerFuns, variables, wids,
+                               stack, rstack, ip, targetDict, dict, compilerFuns, variables,
                                Compiler(..), defining, compile, litComma,
                                compileBranch, compileBranch0, recurse, closeDefining,
                                startDefining, abortDefining, setImmediate, reserveSpace,
@@ -46,7 +46,6 @@ data FState a = FState
   , _target :: Target
   , _dict   :: IDict (FM a ())      -- ^ Dictionary of Forth words for interpreter
   , _variables :: IntMap (DataField (FM a ()))
-  , _wids :: [WordId]
   , _oldHandles :: [WordId]         -- ^ Unused handles after reading source files
   , _stringLiterals :: Map V.ByteString Addr
   , _compilerFuns :: Compiler a

@@ -53,9 +53,9 @@ import Prelude hiding (drop, until, repeat)
 import qualified Prelude as Prelude
 
 
-initialState target =
-  FState [] [] [] target dict IntMap.empty wids [] Map.empty icompiler targetDictionary
-    where (dict, wids) = interpreterDictionary
+initialState target = FState [] [] [] target interpreterDictionary
+                             IntMap.empty [] Map.empty icompiler targetDictionary
+
 
 icompiler = Compiler defining icompile ilitComma xcompileBranch xcompileBranch irecurse istartDefining
                      icloseDefining abortDefining imm ireserveSpace
@@ -74,8 +74,8 @@ initialVarStorage = gets _target >>=
                    (sourceIDWid, 0)]
           mapM_ g [(tregWid, 100)]
 
-interpreterDictionary :: (IDict (FM a ()), [WordId])
-interpreterDictionary = (IDict dict Nothing, wids)
+interpreterDictionary :: IDict (FM a ())
+interpreterDictionary = IDict dict wids Nothing
   where (dict, wids, _) = newTargetDictionary extras Nothing
         extras = do
           addWord "ROT" InterpreterNative rot
@@ -584,7 +584,7 @@ create' finalizer usingCreate = updateState f  where
       | otherwise = abortWith "missing word name" s
 
 istartDefining Create{..} s =
-  let wid : wids' = s^.wids
+  let wid : wids' = s^.dict.iwids
       linkhead = s^.dict.idict.latest
       (variables', code, cl)
         | createStyle == CREATE = (IntMap.insert (unWordId wid) (newDataField (_target s) (unWordId wid) 0) (_variables s), V.fromList (map WrapA [litAdr wid, exit]), s^.compilerFuns.closeDefining)
@@ -593,7 +593,7 @@ istartDefining Create{..} s =
                          DOCOL -> id  -- do not reveal immediately
                          otherwise -> s^.compilerFuns.closeDefining
       defining = IDefining code [] finalizer (ForthWord createName Nothing False linkhead wid Colon abort)
-  in cl $ s & variables.~variables' & wids.~wids' & dict.idefining.~(Just defining)
+  in cl $ s & variables.~variables' & dict.iwids.~wids' & dict.idefining.~(Just defining)
 
 reveal = updateState f  where
   f s | isdefining s = newState $ s^.compilerFuns.closeDefining $ s
@@ -658,9 +658,9 @@ loadSource = docol [xword, makeTempBuffer, evaluate, releaseTempBuffer, exit] wh
       Left (e :: IOException) -> abortMessage (show e)
       Right contents -> updateState $ \s ->
                let (handle, oldHandles', dict', s')
-                     | null (_oldHandles s) = let w:ws = s^.wids
+                     | null (_oldHandles s) = let w:ws = s^.dict.iwids
                                                   d = s^.dict.idict
-                                              in (w, [], d, s & wids.~ws)
+                                              in (w, [], d, s & dict.iwids.~ws)
                      | otherwise = (head $ _oldHandles s, tail $ _oldHandles s, s^.dict.idict, s)
                    adr = Address (Just (Addr handle 0))
                in newState $ (s' & dict.idict.~dict')
@@ -707,9 +707,9 @@ addrString text s =
     case Map.lookup text (_stringLiterals s) of
       Just addr -> (Address (Just addr), s)
       Nothing ->
-          let (k:ks) = s^.wids
+          let (k:ks) = s^.dict.iwids
               addr = Addr k 0
-              in (Address (Just addr), (s & wids.~ks)
+              in (Address (Just addr), (s & dict.iwids.~ks)
                                          { _stringLiterals = Map.insert text addr
                                                             (_stringLiterals s),
                                            _variables = IntMap.insert (unWordId k) (textBuffer k text) (_variables s) })
