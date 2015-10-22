@@ -32,18 +32,24 @@ import Language.Forth.Word
 import Translator.Assembler.InstructionSet
 import Translator.Assembler.Generate (IM)
 import qualified Data.ByteString.Lazy.Char8 as C
+import qualified Data.Vector.Storable.ByteString.Char8 as VC
 import Translator.Expression
+import Translator.Symbol
 
--- These imports (minor kludge) are for defining below binding to a specific target,
--- as I have yet to find a way to avoid it.
+-- These imports are for binding a target type variable to a specific target,
+-- which is sometimes needed. We pick Cortex-M in this case. In reality,
+-- any target would do as we will not really be using the target in those
+-- situations.
 import Translator.Assembler.Target.ARM (ARMInstr)
 import Language.Forth.Target.CortexM ()
 
+
 -- | The cross compiler
+-- crossCompiler :: (InstructionSet t, Primitive (IM t), TargetPrimitive t) => Compiler (IM t)
 crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 recurse startDefining
                          closeDefining abortDefining setImmediate reserveSpace where
   defining = isJust . _tdefining . arbitraryTargetDict
-  compile (XT _ _ (Just sym)) = addTokens $ wordToken sym
+  compile (XT _ _ (Just tt)) = addTokens $ wordToken tt
   compile val@Val{} = litComma val
   litComma val = addTokens $ literal $ cellToExpr val
   compileBranch = compileBranch0
@@ -62,11 +68,13 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
   closeDefining1 dict = dict & tdefining.~Nothing &
                                tdict.latest.~Just newWord &
                                twids.~twids' &
-                               twords%~(IntMap.insert (unWordId wid) newWord)
-    where newWord = ForthWord name False (_latest $ _tdict dict) wid Colon
+                               twords%~(IntMap.insert (unWordId wid) newWord) &
+                               tlabels.~tlabels'
+    where newWord = ForthWord name (Just sym) False (_latest $ _tdict dict) wid Colon
                               (_tcompileList (fromJust $ _tdefining dict))
           (wid : twids') = dict^.twids
           name = _wordName (fromJust $ _tdefining dict)
+          (sym, tlabels') = addEntityLabel wid (VC.unpack name) (dict^.tlabels)
   reserveSpace n s = s { _targetDict = targetAllot (fromIntegral n) (_targetDict s) }
 
 addTokens :: (forall t. (InstructionSet t, Primitive (IM t), TargetPrimitive t) => IM t) -> FState a -> FState a
@@ -74,8 +82,8 @@ addTokens vs s = s { _targetDict = (_targetDict s) { _tdefining = f <$> _tdefini
   where f d = d { _tcompileList = _tcompileList d <> vs }
 
 targetDictionary :: (InstructionSet t, Primitive (IM t), TargetPrimitive t) => TDict t
-targetDictionary = (TDict dict Nothing wids nativeWords)
-    where (dict, wids) = newTargetDictionary extras
+targetDictionary = TDict dict Nothing wids nativeWords labels
+    where (dict, wids, Just labels) = newTargetDictionary extras (Just newLabels)
           nativeWords = IntMap.fromList $ (dict^.latest) & wordList
           wordList Nothing = []
           wordList (Just word) = (unWordId $ word^.wordId, word) : (word^.link & wordList)
@@ -84,8 +92,6 @@ targetDictionary = (TDict dict Nothing wids nativeWords)
             addWord "SP0"  Native resetStack       -- reset data stack
 
 -- | Dummy binding a target dictionary is a kludge that can be used in certain situations
---   when we do not care which target it is, but the type system insists that it must know,
---   even though it does not matter.
---   Maybe there is a better way to do this, but I yet to find it.
+--   when we do not care which target it is, but the type system insists that it must know.
 arbitraryTargetDict :: FState a -> TDict ARMInstr
 arbitraryTargetDict = _targetDict

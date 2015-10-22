@@ -13,17 +13,13 @@ module Language.Forth.CrossCompiler.CodeGenerate (docolSymbol, doconstSymbol,
                                                   codeGenerate, nameString, pad2) where
 
 import Control.Lens
-import Control.Monad
-import Control.Monad.Trans.State
 import Data.Bits
 import Data.Char
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import Data.Monoid
-import Data.Proxy
 import Data.Word
-import qualified Data.Set as Set
 import Data.Vector.Storable.ByteString (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
 import qualified Data.Vector.Storable.ByteString.Char8 as C
@@ -47,31 +43,23 @@ litSymbol     = "LIT"
 ramBaseSymbol = "RAMBASE"
 tokenSymbol   = "TokenTable"
 
-localLabels = [ docolSymbol, doconstSymbol, dohereSymbol, nextSymbol,
-                litSymbol, ramBaseSymbol, tokenSymbol ]
-
 -- | Generalized Forth code generator
 codeGenerate ::  forall t. TargetPrimitive t => (GNUDirective -> t) -> (Int -> Int) -> (Dictionary (IM t), IntMap (ForthWord (IM t))) -> IM t
-codeGenerate dir pad (dict, words) = evalState codeGenerate1 newLabels  where
-  codeGenerate1 = liftM2 (\body tt -> header <> tt <> natives <> body)
-                         (visit $ _latest dict) tokenTable
-  reserved = (reservedLabels (Proxy :: Proxy t)) `Set.union` (Set.fromList localLabels)
+codeGenerate dir pad (dict, words) = header <> tokenTable <>
+                                     natives <> (visit $ _latest dict)  where
   dataSize = dict^.hereRAM
-  visit Nothing = return mempty
-  visit (Just word) = liftM2 (<>) (visit $ _link word) (generate $ substNative word)
+  visit Nothing = mempty
+  visit (Just word) = visit (_link word) <> generate (substNative word)
   generate word =
     let (bytes, chars) = nameString pad (C.unpack $ _name word)
+        Just sym = word^.wordSymbol
         asciiRec | null chars = mempty
                  | otherwise = insRec $ dir $ ASCII [C.pack chars]
         tail | _name word == "EXIT" = labRec nextSymbol <> nextImpl
              | word^.wordKind == Native = next
              | otherwise = insEmpty
-    in liftM (\label -> insRec (dir $ BYTE bytes) <>
-                        asciiRec <>
-                        labRec label <> _doer word <> tail)
-         (addWordLabel word)
-  addWordLabel word = state $ addEntityLabel (_wordId word) (C.unpack $ _name word) reserved
-  lookupWordLabel word = gets $ \labels -> labels^.toLabel & (Map.lookup (_wordId word))
+    in insRec (dir $ BYTE bytes) <> asciiRec <>
+       labRec sym <> _doer word <> tail
   header = datafields <>  text
   natives = labRec docolSymbol   <> docolImpl <> next <>
            labRec doconstSymbol <> doconstImpl <> next <>
@@ -81,11 +69,10 @@ codeGenerate dir pad (dict, words) = evalState codeGenerate1 newLabels  where
                  Just entry ->
                    let tt (n, (m, word)) =
                          let fillers = mconcat $ replicate (m - n) (entry $ Value 0)
-                         in liftM (\(Just label) -> fillers <> entry (Identifier label))
-                              (lookupWordLabel word)
-                   in liftM (\t -> labRec tokenSymbol <> mconcat t) $
-                            mapM tt $ zip [0..] (IntMap.assocs words)
-                 otherwise -> return mempty
+                             Just sym = word^.wordSymbol
+                         in fillers <> entry (Identifier sym)
+                   in labRec tokenSymbol <> mconcat (map tt $ zip [0..] (IntMap.assocs words))
+                 otherwise -> mempty
 
   datafields | dataSize > 0 = insRec (dir $ SECTION "datafields" "w") <>
                               labRec ramBaseSymbol <>

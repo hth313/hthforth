@@ -2,9 +2,9 @@
 module Language.Forth.TargetPrimitive (TargetPrimitive(..)) where
 
 import Data.Monoid
-import Data.Proxy
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Language.Forth.CellVal
 import Language.Forth.Dictionary
 import Language.Forth.Word
 import Translator.Assembler.Generate (IM)
@@ -14,8 +14,8 @@ import Translator.Symbol
 
 -- | Extension primitives for a target.
 class TargetPrimitive t where
-  -- | Compile a word/token as part of a colon definition
-  wordToken :: Symbol -> IM t
+  -- | Compile an address or token as part of a colon definition.
+  wordToken :: TargetToken -> IM t
 
   -- | Compile a literal as part of a colon definition
   literal :: Expr -> IM t
@@ -63,9 +63,3 @@ class TargetPrimitive t where
   -- | Build a token table. Given a table index, generate a line for the table.
   tokenTableLine :: Maybe (Expr -> IM t)
   tokenTableLine = Nothing
-
-  -- | Reserved labels gives the set of predefined labels used internally
-  --   by a target. This is to avoid potential clashes with labels generated
-  --   for words.
-  reservedLabels :: Proxy t -> Set Symbol
-  reservedLabels _ = Set.empty

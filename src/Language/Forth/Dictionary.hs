@@ -8,7 +8,7 @@
 module Language.Forth.Dictionary (newInterpreterDictionary, newTargetDictionary,
                                   IDict(..), TDict(..), Dictionary(..),
                                   idict, idefining, compileList,
-                                  latest, tdict, tdefining, twids, twords,
+                                  latest, tdict, tdefining, twids, twords, tlabels,
                                   tcompileList, wordName,
                                   DefiningWrapper(..), TDefining(..), hereRAM,
                                   IDefining(..),
@@ -25,6 +25,7 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.State hiding (state)
 import Data.IntMap (IntMap)
 import Data.Vector.Storable.ByteString.Char8 (ByteString)
+import qualified Data.Vector.Storable.ByteString.Char8 as C
 import Data.Vector (Vector)
 import Language.Forth.Interpreter.Address
 import Language.Forth.Interpreter.CellMemory
@@ -35,6 +36,7 @@ import Language.Forth.Target
 import Language.Forth.Word
 import Translator.Assembler.Generate (IM)
 import Translator.Expression (Expr(..))
+import Translator.Symbol
 import Prelude hiding (drop, or, and)
 
 data IDict a = IDict {
@@ -61,6 +63,7 @@ data TDict t = TDict {
   , _tdefining :: Maybe (TDefining t)
   , _twids :: [WordId]
   , _twords :: IntMap (ForthWord (IM t))
+  , _tlabels :: Labels WordId
 }
 
 data TDefining t = TDefining  {
@@ -90,14 +93,20 @@ allIds@(stateWId : toInWId : inputBufferWId : inputLineWId :
         tregWid : wordsIds) = map WordId [0..]
 
 newInterpreterDictionary, newTargetDictionary ::
-  Primitive a => State (Dictionary a, [WordId]) () -> (Dictionary a, [WordId])
+  Primitive a => State (Dictionary a, [WordId], Maybe (Labels WordId)) () ->
+                 Maybe (Labels WordId) ->
+                 (Dictionary a, [WordId], Maybe (Labels WordId))
 newInterpreterDictionary = newDictionary wordsIds
 newTargetDictionary = newDictionary allIds
 
 -- Create a new basic dictionary.
-newDictionary :: Primitive a => [WordId] -> State (Dictionary a, [WordId]) () -> (Dictionary a, [WordId])
-newDictionary wids extras = execState build (Dictionary Nothing (Value 0), wids)
-  where
+newDictionary :: Primitive a =>
+                 [WordId] ->
+                 State (Dictionary a, [WordId], Maybe (Labels WordId)) () ->
+                 Maybe (Labels WordId) ->
+                (Dictionary a, [WordId], Maybe (Labels WordId))
+newDictionary wids extras mLabels =
+  execState build (Dictionary Nothing (Value 0), wids, mLabels)  where
     build = do
       addWord "EXIT"  Native exit
       addWord "EXECUTE" Native execute
@@ -128,12 +137,17 @@ newDictionary wids extras = execState build (Dictionary Nothing (Value 0), wids)
       addWord "UM/MOD" Native ummod
       extras
 
-
 addWord name kind doer =
-  StateT $ \(Dictionary latest hereRAM, i:is) ->
-      return ((), (Dictionary (Just $ ForthWord name False latest i kind doer) hereRAM, is))
+  StateT $ \(Dictionary latest hereRAM, i:is, mlabels) ->
+    let (msym, mlabels') = case mlabels of
+                             Nothing -> (Nothing, Nothing)
+                             Just labels ->
+                               let (sym, labels') = addEntityLabel i (C.unpack name) labels
+                               in (Just sym, Just labels')
+        word = ForthWord name msym False latest i kind doer
+    in return ((), (Dictionary (Just word) hereRAM, is, mlabels'))
 
-makeImmediate :: State (Dictionary a, [WordId]) ()
+makeImmediate :: State (Dictionary a, [WordId], Maybe (Labels WordId)) ()
 makeImmediate = modify (_1%~setLatestImmediate)
 
 setLatestImmediate = latest._Just.immediateFlag.~True

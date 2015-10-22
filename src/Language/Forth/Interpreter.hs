@@ -76,7 +76,7 @@ initialVarStorage = gets _target >>=
 
 interpreterDictionary :: (IDict (FM a ()), [WordId])
 interpreterDictionary = (IDict dict Nothing, wids)
-  where (dict, wids) = newTargetDictionary extras
+  where (dict, wids, _) = newTargetDictionary extras Nothing
         extras = do
           addWord "ROT" InterpreterNative rot
           addWord "EVALUATE" InterpreterNative evaluate
@@ -249,11 +249,15 @@ xif   = docol [here, icompileBranch branch0, exit]
 xelse = docol [here, icompileBranch branch, here, rot, backpatch, exit]
 xthen = docol [here, swap, backpatch, exit]
 
-toSymbol = mkSymbol . C.unpack
+-- Find a target token from name
+targetToken n = liftM snd (searchDict n)
 
-xdo = docol [cprim1 compile (XT Nothing (Just pdo) (Just $ toSymbol pdoName)), here, exit]
-loop = xloop (XT Nothing (Just ploop) (Just $ toSymbol ploopName))
-plusLoop = xloop (XT Nothing (Just pplusLoop) (Just $ toSymbol pploopName))
+xdo = targetToken pdoName >>= \(Just tt) ->
+      docol [cprim1 compile (XT Nothing (Just pdo) (Just tt)), here, exit]
+loop = targetToken ploopName >>= \(Just tt) ->
+       xloop (XT Nothing (Just ploop) (Just tt))
+plusLoop = targetToken pploopName >>= \(Just tt) ->
+           xloop (XT Nothing (Just pplusLoop) (Just tt))
 leave = updateState f  where
   f s | _ : rs@(limit : _) <- _rstack s = newState s { _rstack = limit : rs }
       | otherwise = emptyStack s
@@ -270,7 +274,8 @@ plusStore = docol [dup, fetch, rot, plus, swap, store, exit]
 
 create = docol [xword, create' docol CREATE, exit]
 colon = docol [lit (Val (-1)), state, store, xword, create' docol DOCOL, exit]
-semicolon = docol [cprim1 compile (XT Nothing (Just exit) (Just $ toSymbol exitName)), lit (Val 0), state, store, reveal, exit]
+semicolon = targetToken exitName >>= \(Just tt) ->
+            docol [cprim1 compile (XT Nothing (Just exit) (Just tt)), lit (Val 0), state, store, reveal, exit]
 compileComma = dpop >>= \x -> cprim1 compile x
 immediate = updateState $ \s -> newState $ s^.compilerFuns.setImmediate $ s
 
@@ -329,12 +334,15 @@ branch0 loc = dpop >>= \n -> if | isZero n -> ipdo loc
 ipdo ip' = modify (\s -> s { _ip = ip' }) >> next
 
 -- | Search dictionary for given named word.
-searchDict :: ByteString -> FM a (Maybe (ForthWord (FM a())), Maybe Symbol)
+searchDict :: ByteString -> FM a (Maybe (ForthWord (FM a())), Maybe TargetToken)
 searchDict n = gets (\s -> (f (s^.dict.idict.latest),
-                               nameSymbol <$> f ((arbitraryTargetDict s)^.tdict.latest)))
+                               targetToken <$> f ((arbitraryTargetDict s)^.tdict.latest)))
   where f jw@(Just word) | n == word^.name = jw
                          | otherwise = f (word^.link)
         f Nothing = Nothing
+        targetToken word =
+          let Just sym = word^.wordSymbol
+          in TargetToken (word^.wordId) sym
 
 -- | Main loop for the interpreter
 mainLoop = do
@@ -584,7 +592,7 @@ istartDefining Create{..} s =
         where reveal = case createStyle of
                          DOCOL -> id  -- do not reveal immediately
                          otherwise -> s^.compilerFuns.closeDefining
-      defining = IDefining code [] finalizer (ForthWord createName False linkhead wid Colon abort)
+      defining = IDefining code [] finalizer (ForthWord createName Nothing False linkhead wid Colon abort)
   in cl $ s & variables.~variables' & wids.~wids' & dict.idefining.~(Just defining)
 
 reveal = updateState f  where

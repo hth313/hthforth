@@ -6,8 +6,7 @@
 
 module Language.Forth.Word (ForthWord(..), WordId(..), WordKind(..),
                             LinkField, immediateFlag,
-                            name, link, doer, wordId, wordKind,
-                            symbol, nameSymbol,
+                            name, wordSymbol, link, doer, wordId, wordKind,
                             exitName, pdoName, ploopName, pploopName) where
 
 import Control.Lens
@@ -29,6 +28,7 @@ data WordKind = Native | Colon | InterpreterNative deriving Eq
 -- | A Forth word
 data ForthWord a = ForthWord
   { _name :: ByteString
+  , _wordSymbol :: Maybe Symbol  -- ^ Symbol used, valid for target words
   , _immediateFlag :: Bool
   , _link :: LinkField a
   , _wordId :: WordId
@@ -42,9 +42,6 @@ instance Eq (ForthWord a) where
 
 instance Show (ForthWord a) where
     show = B.unpack . _name
-
-symbol = mkSymbol . B.unpack
-nameSymbol = symbol . _name
 
 exitName, pdoName, ploopName, pploopName :: ByteString
 exitName   = "EXIT"

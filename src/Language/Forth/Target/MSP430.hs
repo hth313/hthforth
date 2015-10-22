@@ -130,7 +130,7 @@ instance Primitive (IM Instr430) where
 colonToken tok = insRec $ Directive $ WORD [tok]
 
 instance TargetPrimitive Instr430 where
-  wordToken sym = colonToken $ Identifier sym
+  wordToken (TargetToken _ sym) = colonToken (Identifier sym)
   literal val = colonToken (Identifier litSymbol) <> colonToken val
   docol   = call (Imm (Identifier docolSymbol))
   doconst e = call (Imm (Identifier doconstSymbol)) <>
@@ -146,7 +146,7 @@ instance TargetPrimitive Instr430 where
   nextImpl    = mempty -- TBD
   resetRStack = mempty -- TBD
   resetStack  = mempty -- TBD
-  reservedLabels _ = Set.fromList [mkSymbol (p:b) | p <- ['l', 'r'], b <- [shiftloop, shiftskip]]
+--  reservedLabels _ = Set.fromList [mkSymbol (p:b) | p <- ['l', 'r'], b <- [shiftloop, shiftskip]]
 
 -- Helper function for implementing LSHIFT and RSHIFT
 multiShift t shift =

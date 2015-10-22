@@ -94,7 +94,7 @@ colonToken tok = insRec $ Directive $ WORD [tok]
 
 -- | Target primitives for Cortex-M
 instance TargetPrimitive ARMInstr where
-  wordToken sym = colonToken $ E.Identifier sym
+  wordToken (TargetToken wid _) = colonToken $ E.Value $ fromIntegral $ unWordId wid
   literal val = colonToken (E.Identifier litSymbol) <> colonToken val
   docol = insRec $ bl (Mem $ E.Identifier docolSymbol)
   dohere dict = insRec (bl (Mem $ E.Identifier dohereSymbol)) <>

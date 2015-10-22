@@ -7,7 +7,8 @@
 
 -}
 
-module Language.Forth.CellVal (Cell, CellVal(..), trueVal, falseVal, isValue, isAddress, isAny,
+module Language.Forth.CellVal (Cell, CellVal(..), TargetToken(..),
+                               trueVal, falseVal, isValue, isAddress, isAny,
                                bitSizeMaybe, isExecutionToken, isZero, cellToExpr) where
 
 import Data.Bits
@@ -23,12 +24,14 @@ import Translator.Symbol
 
 type Cell = Int32
 
+data TargetToken = TargetToken WordId Symbol
+
 -- | Cell values are what we can put into a data cell.
 --   We parameterize over some integer type size (cell).
 data CellVal a =
     Address (Maybe Addr)    -- ^ An address value
   | Val Cell                -- ^ A numeric value
-  | XT (Maybe WordId) (Maybe a) (Maybe Symbol)
+  | XT (Maybe WordId) (Maybe a) (Maybe TargetToken)
                             -- ^ Execution token
   | IP [a]                  -- ^ Pushed interpretive pointer
   | Text ByteString         -- ^ Some text buffer
@@ -129,4 +132,4 @@ isZero (Address Nothing) = True
 isZero _ = False
 
 cellToExpr (Val n) = Value $ fromIntegral n
-cellToExpr (XT _ _ (Just sym)) = Identifier sym
+cellToExpr (XT _ _ (Just (TargetToken _ sym))) = Identifier sym

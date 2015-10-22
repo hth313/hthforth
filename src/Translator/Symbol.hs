@@ -1,4 +1,3 @@
-{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-
 
@@ -13,8 +12,6 @@ import Data.Char
 import Control.Lens
 import qualified Data.Map as Map
 import Data.Map (Map)
-import qualified Data.Set as Set
-import Data.Set (Set)
 import Data.Symbol
 
 
@@ -36,11 +33,10 @@ makeLenses ''Labels
 -- | Given a suggested name associated with some entity, create
 --   a unique label for the entity.
 --   Returns the label and updated labels and entity mapping set.
-addEntityLabel :: Ord e => e -> String -> Set Symbol -> Labels e -> (Symbol, Labels e)
-addEntityLabel e name reserved labels =
+addEntityLabel :: Ord e => e -> String -> Labels e -> (Symbol, Labels e)
+addEntityLabel e name labels =
   let label = makeUnique (nameMangle name) 0
-      makeUnique name n | not (Map.member sym (labels^.fromLabel)),
-                          not (Set.member sym reserved) = sym
+      makeUnique name n | not (Map.member sym (labels^.fromLabel)) = sym
                         | otherwise = makeUnique name (n + 1)
         where sym | n == 0 = mkSymbol name
                   | otherwise = mkSymbol $ name ++ "_" ++ show n
