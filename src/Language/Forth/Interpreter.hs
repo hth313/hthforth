@@ -252,12 +252,12 @@ xthen = docol [here, swap, backpatch, exit]
 -- Find a target token from name
 targetToken n = liftM snd (searchDict n)
 
-xdo = targetToken pdoName >>= \(Just tt) ->
-      docol [cprim1 compile (XT Nothing (Just pdo) (Just tt)), here, exit]
-loop = targetToken ploopName >>= \(Just tt) ->
-       xloop (XT Nothing (Just ploop) (Just tt))
-plusLoop = targetToken pploopName >>= \(Just tt) ->
-           xloop (XT Nothing (Just pplusLoop) (Just tt))
+xdo = targetToken pdoName >>= \tt ->
+      docol [cprim1 compile (XT Nothing (Just pdo) tt), here, exit]
+loop = targetToken ploopName >>= \tt ->
+       xloop (XT Nothing (Just ploop) tt)
+plusLoop = targetToken pploopName >>= \tt ->
+           xloop (XT Nothing (Just pplusLoop) tt)
 leave = updateState f  where
   f s | _ : rs@(limit : _) <- _rstack s = newState s { _rstack = limit : rs }
       | otherwise = emptyStack s
@@ -274,8 +274,8 @@ plusStore = docol [dup, fetch, rot, plus, swap, store, exit]
 
 create = docol [xword, create' docol CREATE, exit]
 colon = docol [lit (Val (-1)), state, store, xword, create' docol DOCOL, exit]
-semicolon = targetToken exitName >>= \(Just tt) ->
-            docol [cprim1 compile (XT Nothing (Just exit) (Just tt)), lit (Val 0), state, store, reveal, exit]
+semicolon = targetToken exitName >>= \tt ->
+            docol [cprim1 compile (XT Nothing (Just exit) tt), lit (Val 0), state, store, reveal, exit]
 compileComma = dpop >>= \x -> cprim1 compile x
 immediate = updateState $ \s -> newState $ s^.compilerFuns.setImmediate $ s
 
