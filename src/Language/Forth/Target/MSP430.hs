@@ -130,6 +130,7 @@ instance Primitive (IM Instr430) where
 colonToken tok = insRec $ Directive $ WORD [tok]
 
 instance TargetPrimitive Instr430 where
+  cellValue e = insRec $ Directive $ LONG [e]
   wordToken (TargetToken _ sym) = colonToken (Identifier sym)
   literal val = colonToken (Identifier litSymbol) <> colonToken val
   docol   = call (Imm (Identifier docolSymbol))

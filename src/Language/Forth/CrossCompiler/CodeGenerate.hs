@@ -10,9 +10,11 @@
 module Language.Forth.CrossCompiler.CodeGenerate (docolSymbol, doconstSymbol,
                                                   dohereSymbol, nextSymbol,
                                                   litSymbol, ramBaseSymbol,
-                                                  codeGenerate, nameString, pad2) where
+                                                  codeGenerate, pad2) where
 
 import Control.Lens
+import Control.Monad
+import Control.Monad.Trans.State
 import Data.Bits
 import Data.Char
 import Data.IntMap (IntMap)
@@ -33,6 +35,12 @@ import Translator.Assembler.Generate
 import Translator.Symbol
 
 
+-- | The longest word name we allow
+maxNameLen = 32
+
+-- | Offset to previous word (backwards) by this number of bits
+linkSize = 20
+
 -- | Some predefined symbols for specific purposes in a target
 docolSymbol, doconstSymbol, dohereSymbol, nextSymbol, litSymbol, ramBaseSymbol :: Symbol
 docolSymbol   = "DOCOL"
@@ -45,26 +53,47 @@ tokenSymbol   = "TokenTable"
 
 -- | Generalized Forth code generator
 codeGenerate ::  forall t. TargetPrimitive t => (GNUDirective -> t) -> (Int -> Int) -> (Dictionary (IM t), IntMap (ForthWord (IM t))) -> IM t
-codeGenerate dir pad (dict, words) = header <> tokenTable <>
-                                     natives <> (visit $ _latest dict)  where
+codeGenerate dir pad (dict, words) =    header
+                                     <> tokenTable
+                                     <> natives
+                                     <> (evalState (visit $ _latest dict) (Value 0))  where
   dataSize = dict^.hereRAM
-  visit Nothing = mempty
-  visit (Just word) = visit (_link word) <> generate (substNative word)
-  generate word =
-    let (bytes, chars) = nameString pad (C.unpack $ _name word)
+  visit Nothing = return mempty
+  visit (Just word) = do
+    a <- visit (_link word)
+    (thisLabel, code) <- liftM (generate $ substNative word) get
+    put thisLabel
+    return $! a <> code
+  generate word prevLabel =
+    let (bytes, chars) = nameString pad name
+        name = take namelen fullname
+        namelen = min maxNameLen (length fullname)
+        fullname = C.unpack $ _name word
         Just sym = word^.wordSymbol
+        alignment | null bytes = mempty
+                  | otherwise = insRec (dir $ BYTE bytes)
         asciiRec | null chars = mempty
                  | otherwise = insRec $ dir $ ASCII [C.pack chars]
+        thisLabel = Identifier sym
+        status = ((thisLabel - prevLabel) `shiftLeft` linkSize)
+                 .|. (Value $ fromIntegral namelen)
+        compileXT = Value 0  -- TBD
         tail | _name word == "EXIT" = labRec nextSymbol <> nextImpl
              | word^.wordKind == Native = next
              | otherwise = insEmpty
-    in insRec (dir $ BYTE bytes) <> asciiRec <>
-       labRec sym <> _doer word <> tail
+    in (thisLabel,
+           alignment
+        <> asciiRec                    -- name field
+        <> cellValue status            -- link, name length and flags
+        <> cellValue compileXT
+        <> labRec sym <> _doer word    -- XT points here
+        <> tail)
   header = datafields <>  text
   natives = labRec docolSymbol   <> docolImpl <> next <>
            labRec doconstSymbol <> doconstImpl <> next <>
            labRec dohereSymbol  <> hereImpl <> next <>
            libCode
+  nameString pad name = (replicate (pad $ length name) 0, name)
   tokenTable = case tokenTableLine of
                  Just entry ->
                    let tt (n, (m, word)) =
@@ -81,14 +110,6 @@ codeGenerate dir pad (dict, words) = header <> tokenTable <>
   text = insRec (dir $ TEXT Nothing)
 
 toExpr = Value . fromIntegral
-
--- | Create a namestring, reversed and with bit 7 set in last character. Optionally
---   align the string.
-nameString :: (Int -> Int) -> String -> ([Expr], String)
-nameString pad s = align $ mark $ reverse s
-  where mark (c:cs) = ([n], cs)
-          where n = toExpr $ ord c .|. 0x80
-        align (ns, ss) = (replicate (pad $ length s) (Value 0) ++ ns, ss)
 
 -- | Pad to even 16-bit word
 pad2 :: Int -> Int

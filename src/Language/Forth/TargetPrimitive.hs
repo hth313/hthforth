@@ -14,6 +14,9 @@ import Translator.Symbol
 
 -- | Extension primitives for a target.
 class TargetPrimitive t where
+  -- | Compile given cell value (used when building header)
+  cellValue :: Expr -> IM t
+
   -- | Compile an address or token as part of a colon definition.
   wordToken :: TargetToken -> IM t
 
