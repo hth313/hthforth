@@ -23,6 +23,7 @@ and produce sketchy assembler output for Cortex-M.
 
 To build hthforth, you will need to have Haskell installed. The
 current version of GHC used is 7.8.3, but 7.6.3 should also work well.
+(GHC 7.10 has not yet been tried).
 
 With a suitable GHC, do the following in the top level directory:
 % cabal configure
@@ -52,12 +53,26 @@ DUMP-MSP430 430.s
 This gives a source file 'arm.s' using Cortex-M assembler. The MSP430 output
 (which is even more stetchy at this point) will be written to '430.s'.
 
+At the moment, the output is not accepted by the GNU assembler due to too
+advanced expressions (I am quite certain that it is too picky).
+Later on this need to be worked around, or try another assembler that
+actually can handle it.
+
+If you want to GNU assembler, install GNU binutils and build a cross assembler.
+
+For MSP430, use:
+./configure --target=msp430-elf
+
+For Cortex-M use:
+./configure --target=arm-elf
+
+
 To exit hthforth, type BYE or press Ctrl-C.
 
 Haskeline is used, so you have full command line history and editing
 available.
 
-July 2015, Håkan Thörngren, hth313@gmail.com
+October 2015, Håkan Thörngren, hth313@gmail.com
 
 There is also a Trello board for this project available at
 https://trello.com/b/HNLHA3en/hthforth which is currently
