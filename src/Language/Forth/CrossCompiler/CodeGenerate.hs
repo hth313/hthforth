@@ -59,11 +59,7 @@ codeGenerate dir pad (dict, words) =    header
                                      <> (evalState (visit $ _latest dict) (Value 0))  where
   dataSize = dict^.hereRAM
   visit Nothing = return mempty
-  visit (Just word) = do
-    a <- visit (_link word)
-    (thisLabel, code) <- liftM (generate $ substNative word) get
-    put thisLabel
-    return $! a <> code
+  visit (Just word) = liftM2 (<>) (visit (_link word)) (state $ generate (substNative word))
   generate word prevLabel =
     let (bytes, chars) = nameString pad name
         name = take namelen fullname
@@ -81,13 +77,13 @@ codeGenerate dir pad (dict, words) =    header
         tail | _name word == "EXIT" = labRec nextSymbol <> nextImpl
              | word^.wordKind == Native = next
              | otherwise = insEmpty
-    in (thisLabel,
-           alignment
+    in (   alignment
         <> asciiRec                    -- name field
         <> cellValue status            -- link, name length and flags
         <> cellValue compileXT
         <> labRec sym <> _doer word    -- XT points here
-        <> tail)
+        <> tail,
+        thisLabel)
   header = datafields <>  text
   natives = labRec docolSymbol   <> docolImpl <> next <>
            labRec doconstSymbol <> doconstImpl <> next <>
