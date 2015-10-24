@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternGuards #-}
 {-
 
   Symbolic expressions.
@@ -36,15 +37,22 @@ data Expr = Value BaseVal | Identifier Symbol |
 
 -- Show expression, mostly intended for interactive use at the moment
 instance Show Expr where
-    show (Value n) = show n
-    show (Identifier ident) = unintern ident
-    show (Binary (op,_) e1 e2) = show e1 ++ op ++ show e2
-    show (Unary (op,_) e) = op ++ show e
-    show (Select n elts) = "select " ++ show n ++ " of " ++ show elts
-    show (QMark t e1 e2) = "(" ++ show t ++ " ? " ++ show e1 ++ " : " ++ show e2 ++ ")"
-    show (Bottom err) = "_|_"
-    show UnknownExpr = "UnknownExpr"
-    show (Fetch e) = "Fetch(" ++ show e ++ ")"
+    show e = showExpr e (0, AssocLeft) Nothing
+
+showExpr (Value n) _ _ = show n
+showExpr (Identifier ident) _ _ = unintern ident
+showExpr e@(Binary (op,_) e1 e2) (parentPrec, parentAssoc) side
+  | prec > parentPrec = expression
+  | prec == parentPrec, side == (Just assoc) = expression
+  | otherwise = "(" ++ expression ++ ")"
+  where pa@(prec, assoc) = precedence e
+        expression = showExpr e1 pa (Just AssocLeft) ++ op ++ showExpr e2 pa (Just AssocRight)
+showExpr e@(Unary (op,_) sub) _ _ = op ++ showExpr sub (precedence e) Nothing
+showExpr (Select n elts) _ _ = "select " ++ show n ++ " of " ++ show elts
+showExpr (QMark t e1 e2) _ _ = "(" ++ show t ++ " ? " ++ show e1 ++ " : " ++ show e2 ++ ")"
+showExpr (Bottom err) _ _ = "_|_"
+showExpr UnknownExpr _ _ = "UnknownExpr"
+showExpr (Fetch e) _ _ = "Fetch(" ++ show e ++ ")"
 
 instance Eq Expr where
     Value e1 == Value e2 = e1 == e2
@@ -167,3 +175,29 @@ bool2Num f x y = case f x y of
 notn n = (if n /= 0 then 0 else 1)
 
 shiftFun f val n = f val (fromIntegral n)
+
+data Assoc = AssocLeft | AssocRight deriving Eq
+precedence (Binary (op, _) _ _) =
+  case op of
+    "*"  -> (8, AssocLeft)
+    "/"  -> (8, AssocLeft)
+    "%"  -> (8, AssocLeft)
+    "+"  -> (7, AssocLeft)
+    "-"  -> (7, AssocLeft)
+    "<<" -> (6, AssocLeft)
+    ">>" -> (6, AssocLeft)
+    ">"  -> (5, AssocLeft)
+    "<"  -> (5, AssocLeft)
+    ">=" -> (5, AssocLeft)
+    "<=" -> (5, AssocLeft)
+    "==" -> (4, AssocLeft)
+    "!=" -> (4, AssocLeft)
+    "&"  -> (3, AssocLeft)
+    "|"  -> (3, AssocLeft)
+    "^"  -> (3, AssocLeft)
+precedence (Unary (op, _) _) =
+  case op of
+    "~" -> (9, AssocRight)
+    "!" -> (9, AssocRight)
+    "-" -> (9, AssocRight)
+    "+" -> (9, AssocRight)
