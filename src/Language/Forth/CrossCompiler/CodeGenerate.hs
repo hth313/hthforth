@@ -36,7 +36,7 @@ import Translator.Symbol
 
 
 -- | The longest word name we allow
-maxNameLen = 32
+maxNameLen = 31
 
 -- | Offset to previous word (backwards) by this number of bits
 linkSize = 20
