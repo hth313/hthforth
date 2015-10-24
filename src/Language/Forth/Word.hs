@@ -5,7 +5,7 @@
 -}
 
 module Language.Forth.Word (ForthWord(..), WordId(..), WordKind(..),
-                            LinkField, immediateFlag,
+                            WordFlags(..), LinkField, wordFlags,
                             name, wordSymbol, link, doer, wordId, wordKind,
                             exitName, pdoName, ploopName, pploopName) where
 
@@ -25,11 +25,13 @@ type LinkField a = Maybe (ForthWord a)
 
 data WordKind = Native | Colon | InterpreterNative deriving Eq
 
+data WordFlags = Immediate | CompileOnly deriving Eq
+
 -- | A Forth word
 data ForthWord a = ForthWord
   { _name :: ByteString
   , _wordSymbol :: Maybe Symbol  -- ^ Symbol used, valid for target words
-  , _immediateFlag :: Bool
+  , _wordFlags :: [WordFlags]
   , _link :: LinkField a
   , _wordId :: WordId
   , _wordKind :: WordKind

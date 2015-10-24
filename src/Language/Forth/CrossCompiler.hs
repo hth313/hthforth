@@ -57,7 +57,8 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
   recurse s = s
   abortDefining s = s { _targetDict = abortDefining1 $ _targetDict s }
     where abortDefining1 dict = dict & tdefining.~Nothing
-  setImmediate s = s
+  setImmediate s = s { _targetDict = setImmediate1 $ _targetDict s }
+  setImmediate1 dict = dict & tdict%~setLatestImmediate
   startDefining Create{..} s = s { _targetDict = startDefining1 $ _targetDict s }
     where startDefining1 dict = f $ dict { _tdefining = Just (TDefining createName doer) }
             where (f, doer) = case createStyle of
@@ -70,7 +71,7 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
                                twids.~twids' &
                                twords%~(IntMap.insert (unWordId wid) newWord) &
                                tlabels.~tlabels'
-    where newWord = ForthWord name (Just sym) False (_latest $ _tdict dict) wid Colon
+    where newWord = ForthWord name (Just sym) [] (_latest $ _tdict dict) wid Colon
                               (_tcompileList (fromJust $ _tdefining dict))
           (wid : twids') = dict^.twids
           name = _wordName (fromJust $ _tdefining dict)

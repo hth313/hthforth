@@ -61,7 +61,7 @@ icompiler = Compiler defining icompile ilitComma xcompileBranch xcompileBranch i
                      icloseDefining abortDefining imm ireserveSpace
     where defining = isJust._idefining._dict
           abortDefining = dict.idefining.~Nothing
-          imm = dict.idict.latest._Just.immediateFlag.~True
+          imm = dict.idict%~setLatestImmediate
 
 initialVarStorage = gets _target >>=
   \t -> let f (wid, val) =
@@ -517,8 +517,8 @@ find = do
   caddr <- dpop
   (word, sym) <- searchDict =<< countedText caddr
   modify $ \s ->
-    let imm = case _immediateFlag <$> word of
-                Just True ->  1
+    let imm = case filter (Immediate==) ._wordFlags <$> word of
+                Just (Immediate:_) ->  1
                 otherwise -> -1
     in if (isJust word || isJust sym) then s { _stack = Val imm : xt word sym : _stack s }
        else s { _stack = Val 0 : caddr : _stack s }
@@ -592,7 +592,7 @@ istartDefining Create{..} s =
         where reveal = case createStyle of
                          DOCOL -> id  -- do not reveal immediately
                          otherwise -> s^.compilerFuns.closeDefining
-      defining = IDefining code [] finalizer (ForthWord createName Nothing False linkhead wid Colon abort)
+      defining = IDefining code [] finalizer (ForthWord createName Nothing [] linkhead wid Colon abort)
   in cl $ s & variables.~variables' & dict.iwids.~wids' & dict.idefining.~(Just defining)
 
 reveal = updateState f  where

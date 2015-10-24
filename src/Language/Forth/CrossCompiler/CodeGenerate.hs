@@ -73,7 +73,10 @@ codeGenerate dir pad (dict, words) =    header
         thisLabel = Identifier sym
         status = ((thisLabel - prevLabel) `shiftLeft` linkSize)
                  .|. (Value $ fromIntegral namelen)
-        compileXT = Value 0  -- TBD
+                 .|. (Value $ foldl (.|.) 0 (map flagval (word^.wordFlags)))
+          where flagval Immediate   = 1 `shiftL` 5
+                flagval CompileOnly = 1 `shiftL` 6
+        compileXT = Value 0
         tail | _name word == "EXIT" = labRec nextSymbol <> nextImpl
              | word^.wordKind == Native = next
              | otherwise = insEmpty

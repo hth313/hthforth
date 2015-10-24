@@ -145,13 +145,13 @@ addWord name kind doer =
                              Just labels ->
                                let (sym, labels') = addEntityLabel i (C.unpack name) labels
                                in (Just sym, Just labels')
-        word = ForthWord name msym False latest i kind doer
+        word = ForthWord name msym [] latest i kind doer
     in return ((), (Dictionary (Just word) hereRAM, is, mlabels'))
 
 makeImmediate :: State (Dictionary a, [WordId], Maybe (Labels WordId)) ()
 makeImmediate = modify (_1%~setLatestImmediate)
 
-setLatestImmediate = latest._Just.immediateFlag.~True
+setLatestImmediate = latest._Just.wordFlags%~(Immediate:)
 
 -- | Reserve space in data memory
 targetAllot :: Expr -> TDict t -> TDict t
