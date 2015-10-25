@@ -9,7 +9,8 @@ module Language.Forth.Dictionary (newInterpreterDictionary, newTargetDictionary,
                                   IDict(..), TDict(..), Dictionary(..),
                                   idict, iwids, idefining, compileList,
                                   latest, tdict, tdefining, twids, twords, tlabels,
-                                  tcompileList, wordName,
+                                  tcompileList, wordName, tdefiningSymbol, twid,
+                                  tLocals,
                                   DefiningWrapper(..), TDefining(..), hereRAM,
                                   IDefining(..),
                                   definingWord, patchList,
@@ -20,12 +21,13 @@ module Language.Forth.Dictionary (newInterpreterDictionary, newTargetDictionary,
                                   targetAllot,
                                   findTargetToken, findWord) where
 
-import Control.Lens hiding (over)
 import Control.Applicative
+import Control.Lens hiding (over)
 import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State hiding (state)
 import Data.IntMap (IntMap)
+import Data.IntSet (IntSet)
 import Data.Vector.Storable.ByteString.Char8 (ByteString)
 import qualified Data.Vector.Storable.ByteString.Char8 as C
 import Data.Vector (Vector)
@@ -71,6 +73,9 @@ data TDict t = TDict {
 
 data TDefining t = TDefining  {
     _wordName :: ByteString
+  , _tdefiningSymbol :: Symbol
+  , _twid :: WordId
+  , _tLocals :: IntSet         -- ^ Index for desired local labels
   , _tcompileList :: IM t
 }
 

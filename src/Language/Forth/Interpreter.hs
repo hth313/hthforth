@@ -132,7 +132,7 @@ interpreterDictionary = IDict dict wids Nothing
           addWord "ALIGNED" InterpreterNative aligned
           addWord "DEPTH" InterpreterNative depth
           addWord "KEY" InterpreterNative key
-          addWord "RECURSE" InterpreterNative (cprim recurse)
+          addWord "RECURSE" InterpreterNative (cprim recurse) >> makeImmediate
           addWord "CROSS-COMPILER" InterpreterNative crossCompileSetup
           addWord "INTERPRETER" InterpreterNative interpreterCompileSetup
           addWord "DUMP-CORTEXM" InterpreterNative (targetCodegen codeGenerateCortexM)

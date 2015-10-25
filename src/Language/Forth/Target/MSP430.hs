@@ -133,6 +133,7 @@ instance TargetPrimitive Instr430 where
   cellValue e = insRec $ Directive $ LONG [e]
   wordToken (TargetToken _ sym) = colonToken (Identifier sym)
   literal val = colonToken (Identifier litSymbol) <> colonToken val
+  labelOffset sym = colonToken $ Identifier sym - locationCounter
   docol   = call (Imm (Identifier docolSymbol))
   doconst e = call (Imm (Identifier doconstSymbol)) <>
               colonToken e

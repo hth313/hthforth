@@ -6,7 +6,8 @@
 -}
 
 module Translator.Symbol (mkSymbol, addEntityLabel, module Data.Symbol,
-                          newLabels, Labels(..), toLabel, fromLabel) where
+                          newLabels, Labels(..), toLabel, fromLabel,
+                          localSymbol) where
 
 import Data.Char
 import Control.Lens
@@ -44,6 +45,11 @@ addEntityLabel e name labels =
                       _fromLabel = Map.insert label e (_fromLabel labels) }  )
 
 newLabels = Labels Map.empty Map.empty
+
+-- | Create a local symbol based on a given symbol.
+localSymbol sym n =
+  let name = unintern sym
+  in intern $ "_" ++ name ++ "_" ++ show n
 
 -- Ensure the name is something the assembler accepts.
 nameMangle :: String -> String

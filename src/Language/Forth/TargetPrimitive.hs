@@ -23,6 +23,10 @@ class TargetPrimitive t where
   -- | Compile a literal as part of a colon definition
   literal :: Expr -> IM t
 
+  -- | Compile a relative branch offset, usually inserted after a BRANCH
+  --   of BRANCH0.
+  labelOffset :: Symbol -> IM t
+
   -- | Slice of code that will be first in a colon definition
   docol :: IM t
 
@@ -58,6 +62,10 @@ class TargetPrimitive t where
   -- | Reset the stacks
   resetStack  :: IM t
   resetRStack :: IM t
+
+  -- | Branch instructions
+  branch  :: IM t
+  branch0 :: IM t
 
   -- | Optionally substitute a word with a native implementation
   substNative :: ForthWord (IM t) -> ForthWord (IM t)

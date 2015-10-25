@@ -24,6 +24,8 @@ import Language.Forth.Word
 import qualified Translator.Expression as E
 import Translator.Assembler.Generate
 import Translator.Assembler.Target.ARM
+import Prelude hiding (EQ)
+
 
 -- | Bind a polymorphic target dictionary to be an CortexM specific one
 bindCortexM :: (Dictionary (IM ARMInstr), IntMap (ForthWord (IM ARMInstr))) ->
@@ -97,6 +99,7 @@ instance TargetPrimitive ARMInstr where
   cellValue e = insRec $ Directive $ LONG [e]
   wordToken (TargetToken wid _) = colonToken $ E.Value $ fromIntegral $ unWordId wid
   literal val = colonToken (E.Identifier litSymbol) <> colonToken val
+  labelOffset sym = colonToken $ E.Identifier sym - E.locationCounter
   docol = insRec $ bl (Mem $ E.Identifier docolSymbol)
   dohere dict = insRec (bl (Mem $ E.Identifier dohereSymbol)) <>
                 insRec (Directive $ WORD [E.Identifier ramBaseSymbol + dict^.tdict.hereRAM])
@@ -119,6 +122,13 @@ instance TargetPrimitive ARMInstr where
 
   resetRStack = insRec (ldr rstack (RegIndOffset ftable rstackResetOffset))
   resetStack  = insRec (ldr  stack (RegIndOffset ftable  stackResetOffset))
+
+  branch  = insRec (ldrsh w (RegIndOffset ip 0)) <>
+            insRec (adds ip ip (RegOp w))
+  branch0 = insRec (teq tos (Imm 0)) <>
+            popStack tos <>
+            insRec (B EQ Any (Mem $ E.Identifier "BRANCH")) <>
+            insRec (adds ip ip (Imm 2))
 
   substNative word = case word^.name of
                        "ROT" -> word & doer.~(popStack w     <>

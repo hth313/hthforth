@@ -9,16 +9,17 @@ module Translator.Assembler.Target.ARM (ARMInstr(..), CondExec(..), Reg(..), OpA
                                         Update(..), Shift(..), Suffix(..),
                                         module Translator.Assembler.Directive,
                                         adc, adcs, add, adds, ands, asr, asrs, b, bl, eors,
-                                        ldr, ldrb, ldrh,
+                                        ldr, ldrb, ldrh, ldrsb, ldrsh,
                                         lsl, lsls, lsr, lsrs, mov, movs, orrs,
                                         sbc, sbcs, str, strb, strh,
-                                        sub, subs, umull) where
+                                        sub, subs, teq, umull) where
 
 import Data.Char
 import Data.Int
 import Translator.Expression
 import Translator.Assembler.Directive
 import Translator.Assembler.InstructionSet
+import Prelude hiding (EQ, LT, GT)
 
 
 -- | ARM instruction set, with Thumb and Thumb2 as well as needed pseudo instructions.
@@ -32,6 +33,8 @@ data ARMInstr = ADD Update CondExec Suffix Reg Reg OpAdr Shift
               | LDR    CondExec Suffix Reg OpAdr
               | LDRB   CondExec Suffix Reg OpAdr
               | LDRH   CondExec Suffix Reg OpAdr
+              | LDRSB  CondExec Suffix Reg OpAdr
+              | LDRSH  CondExec Suffix Reg OpAdr
               | LSL Update CondExec Suffix Reg Reg OpAdr
               | LSR Update CondExec Suffix Reg Reg OpAdr
               | MOV Update CondExec Suffix Reg OpAdr
@@ -41,6 +44,7 @@ data ARMInstr = ADD Update CondExec Suffix Reg Reg OpAdr Shift
               | STRB   CondExec Suffix Reg OpAdr
               | STRH   CondExec Suffix Reg OpAdr
               | SUB Update CondExec Suffix Reg Reg OpAdr Shift
+              | TEQ CondExec Suffix Reg OpAdr
               | UMULL CondExec Reg Reg Reg Reg
               | Directive GNUDirective
 
@@ -58,6 +62,8 @@ eors  = i3 EOR S
 ldr   = LDR   AL Any
 ldrb  = LDRB  AL Any
 ldrh  = LDRH  AL Any
+ldrsb = LDRSB AL Any
+ldrsh = LDRSH AL Any
 lsl   = LSL U AL Any
 lsls  = LSL S AL Any
 lsr   = LSR U AL Any
@@ -72,6 +78,7 @@ strb  = STRB  AL Any
 strh  = STRH  AL Any
 sub   = i3 SUB U
 subs  = i3 SUB S
+teq   = TEQ AL Any
 umull = UMULL AL
 
 i3 ctor s x y z = ctor s AL Any x y z noShift
@@ -80,7 +87,23 @@ i3 ctor s x y z = ctor s AL Any x y z noShift
 data Update = U | S
 
 data CondExec = AL | EQ | NE | CS | CC | MI | PL | VS | VC | HI | LS | GE | LT | GT | LE
-                deriving (Show, Eq)
+                deriving Eq
+instance Show CondExec where
+  show AL = ""
+  show EQ = "eq"
+  show NE = "ne"
+  show CS = "cs"
+  show CC = "cc"
+  show MI = "MI"
+  show PL = "pl"
+  show VS = "vs"
+  show VC = "vc"
+  show HI = "hi"
+  show LS = "ls"
+  show GE = "ge"
+  show LT = "lt"
+  show GT = "gt"
+  show LE = "le"
 
 data Reg = R0 | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 | R10 | R11 | R12 |
            SP | LR | PC | NoReg deriving (Eq, Show)
@@ -135,6 +158,8 @@ instance InstructionSet ARMInstr where
         disasm (LDR c q d s)         = (m "ldr"   c q, Just [showReg d, op s])
         disasm (LDRB c q d s)        = (m "ldrb"  c q, Just [showReg d, op s])
         disasm (LDRH c q d s)        = (m "ldrh"  c q, Just [showReg d, op s])
+        disasm (LDRSB c q d s)       = (m "ldrsb" c q, Just [showReg d, op s])
+        disasm (LDRSH c q d s)       = (m "ldrsh" c q, Just [showReg d, op s])
         disasm (LSR f c q d s x)     = (m (fl "lsr" f) c q, Just (showReg d : showReg s : optop x))
         disasm (LSL f c q d s x)     = (m (fl "lsl" f) c q, Just (showReg d : showReg s : optop x))
         disasm (MOV S c q d s)       = (m "movs"  c q, Just [showReg d, op s])
@@ -145,6 +170,7 @@ instance InstructionSet ARMInstr where
         disasm (STRB c q d s)        = (m "strb"  c q, Just [showReg d, op s])
         disasm (STRH c q d s)        = (m "strh"  c q, Just [showReg d, op s])
         disasm (SUB f c q d s x sh)  = arith "sub" f c q d s x sh
+        disasm (TEQ c q r s)         = (m "teq"   c q, Just [showReg r, op s])
         disasm (UMULL c r1 r2 r3 r4) = (m "umull" c Any, Just (map showReg [r1, r2, r3, r4]))
 
         disasm (Directive dir)       = disassemble dir
