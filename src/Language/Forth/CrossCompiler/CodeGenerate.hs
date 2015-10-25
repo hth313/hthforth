@@ -88,10 +88,10 @@ codeGenerate dir pad (dict, words) =    header
         <> tail,
         thisLabel)
   header = datafields <>  text
-  natives = labRec docolSymbol   <> docolImpl <> next <>
-           labRec doconstSymbol <> doconstImpl <> next <>
-           labRec dohereSymbol  <> hereImpl <> next <>
-           libCode
+  natives = labRec docolSymbol   <> docolImpl   <> next <>
+            labRec doconstSymbol <> doconstImpl <> next <>
+            labRec dohereSymbol  <> hereImpl    <> next <>
+            libCode
   nameString pad name = (replicate (pad $ length name) 0, name)
   tokenTable = case tokenTableLine of
                  Just entry ->
