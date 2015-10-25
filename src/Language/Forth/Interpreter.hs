@@ -335,14 +335,8 @@ ipdo ip' = modify (\s -> s { _ip = ip' }) >> next
 
 -- | Search dictionary for given named word.
 searchDict :: ByteString -> FM a (Maybe (ForthWord (FM a())), Maybe TargetToken)
-searchDict n = gets (\s -> (f (s^.dict.idict.latest),
-                               targetToken <$> f ((arbitraryTargetDict s)^.tdict.latest)))
-  where f jw@(Just word) | n == word^.name = jw
-                         | otherwise = f (word^.link)
-        f Nothing = Nothing
-        targetToken word =
-          let Just sym = word^.wordSymbol
-          in TargetToken (word^.wordId) sym
+searchDict n = gets (\s -> (findWord (s^.dict.idict) n,
+                            findTargetToken ((arbitraryTargetDict s)^.tdict) n))
 
 -- | Main loop for the interpreter
 mainLoop = do

@@ -17,9 +17,11 @@ module Language.Forth.Dictionary (newInterpreterDictionary, newTargetDictionary,
                                   inputBufferWId, inputLineWId, tregWid,
                                   inputLineLengthWId, wordBufferWId, sourceIDWid,
                                   addWord, makeImmediate, setLatestImmediate,
-                                  targetAllot) where
+                                  targetAllot,
+                                  findTargetToken, findWord) where
 
 import Control.Lens hiding (over)
+import Control.Applicative
 import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State hiding (state)
@@ -156,3 +158,13 @@ setLatestImmediate = latest._Just.wordFlags%~(Immediate:)
 -- | Reserve space in data memory
 targetAllot :: Expr -> TDict t -> TDict t
 targetAllot n = tdict.hereRAM%~(+n)
+
+findTargetToken dict name = targetToken <$> findWord dict name  where
+  targetToken word =
+    let Just sym = word^.wordSymbol
+    in TargetToken (word^.wordId) sym
+
+findWord dict n = f (dict^.latest)
+  where f jw@(Just word) | n == word^.name = jw
+                         | otherwise = f (word^.link)
+        f Nothing = Nothing
