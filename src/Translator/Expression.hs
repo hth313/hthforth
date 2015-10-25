@@ -77,8 +77,8 @@ instance Bits Expr where
     (.|.) = ebitor
     xor = ebitxor
     complement = ebitcomplement
-    bitSize _ = case Value 0 of
-                  Value x -> bitSize x
+    bitSizeMaybe _ = case Value 0 of
+                       Value x -> bitSizeMaybe x
     isSigned e = True
     bit n = Value (1 `shiftL` n)
     testBit (Value x) n = (x .&. (1 `shiftL` n)) /= 0
