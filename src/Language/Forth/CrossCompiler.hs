@@ -79,8 +79,8 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
   reserveSpace n s = s { _targetDict = targetAllot (fromIntegral n) (_targetDict s) }
 
 addTokens :: (forall t. (InstructionSet t, Primitive (IM t), TargetPrimitive t) => IM t) -> FState a -> FState a
-addTokens vs s = s { _targetDict = (_targetDict s) { _tdefining = f <$> _tdefining (_targetDict s) } }
-  where f d = d { _tcompileList = _tcompileList d <> vs }
+addTokens vs s = s { _targetDict = (_targetDict s) & tdefining._Just.tcompileList%~(<> vs) }
+
 
 targetDictionary :: (InstructionSet t, Primitive (IM t), TargetPrimitive t) => TDict t
 targetDictionary = TDict dict Nothing wids nativeWords labels
