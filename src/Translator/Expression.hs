@@ -1,4 +1,5 @@
 {-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE CPP #-}
 {-
 
   Symbolic expressions.
@@ -77,8 +78,12 @@ instance Bits Expr where
     (.|.) = ebitor
     xor = ebitxor
     complement = ebitcomplement
+    bitSize _ = case Value 0 of
+                  Value x -> bitSize x
+#if __GLASGOW_HASKELL__ >= 708
     bitSizeMaybe _ = case Value 0 of
                        Value x -> bitSizeMaybe x
+#endif
     isSigned e = True
     bit n = Value (1 `shiftL` n)
     testBit (Value x) n = (x .&. (1 `shiftL` n)) /= 0
