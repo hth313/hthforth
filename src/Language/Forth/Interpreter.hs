@@ -57,7 +57,9 @@ initialState target = FState [] [] [] target interpreterDictionary
                              IntMap.empty [] Map.empty icompiler targetDictionary
 
 
-icompiler = Compiler defining icompile ilitComma xcompileBranch xcompileBranch irecurse istartDefining
+icompiler = Compiler defining icompile ilitComma
+                     (icompileBranch branch) (icompileBranch branch0)
+                     ibackpatch irecurse istartDefining
                      icloseDefining abortDefining imm ireserveSpace
     where defining = isJust._idefining._dict
           abortDefining = dict.idefining.~Nothing
@@ -226,6 +228,10 @@ cprim1 cf arg = updateState f  where
   f s | isdefining s = newState $ (s^.compilerFuns.cf) arg s
       | otherwise = notDefining s
 
+cprim2 cf a b = updateState f  where
+  f s | isdefining s = newState $ (s^.compilerFuns.cf) a b s
+      | otherwise = notDefining s
+
 -- variables
 state           = litAdr stateWId
 toIn            = litAdr toInWId
@@ -245,9 +251,9 @@ treg = litAdr tregWid
 pad = docol [treg, lit (Val 64), plus, exit]
 
 -- Control structures
-xif   = docol [here, icompileBranch branch0, exit]
-xelse = docol [here, icompileBranch branch, here, rot, backpatch, exit]
-xthen = docol [here, swap, backpatch, exit]
+xif   = docol [here, cprim compileBranch0, exit]
+xelse = docol [here, cprim compileBranch, here, rot, xbackpatch, exit]
+xthen = docol [here, swap, xbackpatch, exit]
 
 -- Find a target token from name
 targetToken n = liftM snd (searchDict n)
@@ -262,10 +268,10 @@ leave = updateState f  where
   f s | _ : rs@(limit : _) <- _rstack s = newState s { _rstack = limit : rs }
       | otherwise = emptyStack s
 begin = here
-until = docol [here, icompileBranch branch0, backpatch, exit]
-again = docol [here, icompileBranch branch, backpatch, exit]
-while = docol [here, icompileBranch branch0, exit]
-repeat = docol [swap, here, icompileBranch branch, backpatch, here, swap, backpatch, exit]
+until = docol [here, cprim compileBranch0, xbackpatch, exit]
+again = docol [here, cprim compileBranch, xbackpatch, exit]
+while = docol [here, cprim compileBranch0, exit]
+repeat = docol [swap, here, cprim compileBranch, xbackpatch, here, swap, xbackpatch, exit]
 
 quit = ipdo [ (modify (\s -> s { _rstack = [], _stack = Val 0 : _stack s }) >> next),
               sourceID, store, mainLoop ]
@@ -287,7 +293,7 @@ does = updateState f  where
       | otherwise = abortWith "IP not on rstack" s
 
 -- Helper function that compile the ending loop word
-xloop xt = docol [cprim1 compile xt, here, icompileBranch branch0, backpatch, exit]
+xloop xt = docol [cprim1 compile xt, here, cprim compileBranch0, xbackpatch, exit]
 
 -- | Runtime words for DO-LOOPs
 pdo = updateState f  where
@@ -553,12 +559,8 @@ ilitComma x = tackOn $ WrapA $ lit x
 
 -- | Compile a branch instruction. Branches need special handling when
 --   the colon definition is finailized.
-icompileBranch :: ([FM a ()] -> FM a ()) -> FM a ()
-icompileBranch dest = updateState f  where
-  f s | isdefining s = newState $ tackOn (WrapB dest) s
-      | otherwise = notDefining s
-
-xcompileBranch _ = error "do not call xcompileBranch"
+icompileBranch :: ([FM a ()] -> FM a ()) -> FState a -> FState a
+icompileBranch dest s = tackOn (WrapB dest) s
 
 irecurse = tackOn WrapRecurse
 
@@ -618,13 +620,26 @@ here = updateState f  where
       | Just word <- s^.dict.idict.latest, wid <- _wordId word,
         Just (DataField mem) <- IntMap.lookup (unWordId wid) (_variables s) =
           newState s { _stack = Address (Just (Addr wid (dpOffset mem))) : _stack s }
+      | Just colHere <- targetColonHere s =
+          newState s { _stack = colHere : _stack s }
       | otherwise = abortWith "HERE only partially implemented" s
 
-backpatch = updateState f  where
-  f s | Just def <- s^.dict.idefining,
-        HereColon _ loc : HereColon _ dest : ss <- s^.stack =
-          newState $ s & stack.~ss & dict.idefining._Just.patchList%~((:) (loc, dest))
-      | otherwise = notDefining s
+-- Insert branch destination, can actually do both back patching and
+-- normal inserts. Pop two here addresses from the stack for current
+-- colon definition, then use the active compiler to deal with inserting
+-- the actual branch destination, usually when closing the defining word.
+xbackpatch =
+  let pop2 s = case s^.stack of
+                 loc@HereColon{} : dest@HereColon{} : ss ->
+                   return (Right (loc, dest), s { _stack = ss })
+                 _:_:_ -> abortWith "expecting two HERE values" s
+                 otherwise -> emptyStack s
+  in do
+    (loc, dest) <-  updateStateVal (Val 0, Val 0) pop2
+    cprim2 backpatch loc dest
+
+ibackpatch (HereColon _ loc) (HereColon _ dest) s =
+  s & dict.idefining._Just.patchList%~((:) (loc, dest))
 
 backslash = docol body
   where body = toIn : fetch : inputLine : fetch : over : plus : inputLineLength : fetch : rot : minus : dup : branch0 found : loop

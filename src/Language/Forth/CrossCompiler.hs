@@ -13,11 +13,14 @@
 
 -}
 
-module Language.Forth.CrossCompiler (crossCompiler, targetDictionary, arbitraryTargetDict) where
+module Language.Forth.CrossCompiler (crossCompiler, targetDictionary,
+                                     arbitraryTargetDict, targetColonHere) where
 
 import Control.Applicative
 import Control.Lens
 import Data.Foldable (fold, foldMap)
+import Data.Function
+import Data.List
 import qualified Data.Map as Map
 import qualified Data.Vector as V
 import qualified Data.IntMap as IntMap
@@ -32,7 +35,7 @@ import Language.Forth.TargetPrimitive
 import Language.Forth.Target (TargetKey)
 import Language.Forth.Word
 import Translator.Assembler.InstructionSet
-import Translator.Assembler.Generate (IM, labRec, insList, recWrap)
+import Translator.Assembler.Generate (IM, labRec, insList, recWrap, sizeIM)
 import qualified Data.ByteString.Lazy.Char8 as C
 import qualified Data.Vector.Storable.ByteString.Char8 as VC
 import Translator.Expression
@@ -48,29 +51,27 @@ import Language.Forth.Target.CortexM ()
 
 -- | The cross compiler
 -- crossCompiler :: (InstructionSet t, Primitive (IM t), TargetPrimitive t) => Compiler (IM t)
-crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 recurse startDefining
+crossCompiler = Compiler defining compile litComma compileBranch compileBranch0
+                         backpatch recurse startDefining
                          closeDefining abortDefining setImmediate reserveSpace where
   defining = isJust . _tdefining . arbitraryTargetDict
   compile (XT _ _ (Just tt)) = addTokens $ wordToken tt
   compile val@Val{} = litComma val
   litComma val = addTokens $ literal $ cellToExpr val
-  compileBranch = compileBranch0
-  compileBranch0 val s = s
-  recurse s = s { _targetDict = recurse1 $ _targetDict s }
-    where recurse1 dict =
-            let Just defining = dict^.tdefining
-                g cl = cl <> wordToken ttBranch <>
-                       labelOffset (localSymbol (defining^.tdefiningSymbol) 1)
-                Just ttBranch = findBranch $ dict^.tdict
-            in dict & tdefining._Just.tcompileList%~g &
-                      tdefining._Just.tLocals%~(IntSet.insert 1)
+  compileBranch  s = s { _targetDict = addBranch findBranch 0 (_targetDict s) }
+  compileBranch0 s = s { _targetDict = addBranch findBranch0 0 (_targetDict s) }
+  backpatch (HereColon _ loc) (HereColon _ dest) s =
+    s { _targetDict = bp $ _targetDict s }
+      where bp dict = dict & tdefining._Just.tpatchList%~((:) (loc, dest)) &
+                      tdefining._Just.tLocals%~(IntSet.insert dest)
+  recurse s = s { _targetDict = addBranch findBranch0 1 $ _targetDict s }
   abortDefining s = s { _targetDict = abortDefining1 $ _targetDict s }
     where abortDefining1 dict = dict & tdefining.~Nothing
   setImmediate s = s { _targetDict = setImmediate1 $ _targetDict s }
   setImmediate1 dict = dict & tdict%~setLatestImmediate
   startDefining Create{..} s = s { _targetDict = startDefining1 $ _targetDict s }
     where startDefining1 dict =
-            f $ dict & tdefining.~(Just (TDefining createName sym wid IntSet.empty doer)) &
+            f $ dict & tdefining.~(Just (TDefining createName sym wid IntSet.empty doer [])) &
                        tlabels.~tlabels' &
                        twids.~wids'
               where (f, doer) = case createStyle of
@@ -84,15 +85,29 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0 
                                tdict.latest.~Just newWord &
                                twords%~(IntMap.insert (unWordId wid) newWord)
     where newWord = ForthWord name (Just sym) [] (dict^.tdict.latest) wid Colon body'
-          (Just (TDefining name sym wid locals body)) = dict^.tdefining
+          (Just (TDefining name sym wid locals body patchList)) = dict^.tdefining
+          bps = map (_1%~(1+)) $ sortBy (compare `on` fst) patchList
           body' | IntSet.null locals = body
-                | otherwise = f (zip [0..] (insList body)) (IntSet.toList locals)
-                where f nxs@((n, x):nxs') nls@(nl:nls')
-                        | nl == n = labRec (localSymbol sym n) <> f nxs nls'
-                        | otherwise = recWrap x <> f nxs' nls
-                      f nxs [] = mconcat $ map (recWrap . snd) nxs
+                | otherwise = f (zip [0..] (insList body)) (IntSet.toList locals) bps
+                where f nxs@((n, x):nxs') nls@(nl:nls') bps
+                        | nl == n = labRec (localSymbol sym n) <> f nxs nls' bps
+                      f nxs@((n, x):nxs') nls bps@((loc, dest):bps')
+                        | loc == n = labelOffset (localSymbol sym dest) <>
+                                         f nxs' nls bps'
+                      f nxs@((n, x):nxs') nls bps
+                        | otherwise = recWrap x <> f nxs' nls bps
+                      f nxs [] [] = mconcat $ map (recWrap . snd) nxs
   reserveSpace n s = s { _targetDict = targetAllot (fromIntegral n) (_targetDict s) }
-  findBranch dict = findTargetToken dict "BRANCH"
+  findBranch  dict = findTargetToken dict "BRANCH"
+  findBranch0 dict = findTargetToken dict "BRANCH0"
+  addBranch fb dest dict =
+    let Just defining = dict^.tdefining
+        g cl = cl <> wordToken ttBranch <>
+               labelOffset (localSymbol (defining^.tdefiningSymbol) dest)
+        Just ttBranch = fb $ dict^.tdict
+        addLocal | dest /= 0 = tdefining._Just.tLocals%~(IntSet.insert dest)
+                 | otherwise = id
+    in dict & tdefining._Just.tcompileList%~g & addLocal
 
 addTokens :: (forall t. (InstructionSet t, Primitive (IM t), TargetPrimitive t) => IM t) -> FState a -> FState a
 addTokens vs s = s { _targetDict = (_targetDict s) & tdefining._Just.tcompileList%~(<> vs) }
@@ -114,3 +129,9 @@ targetDictionary = TDict dict Nothing wids nativeWords labels
 --   when we do not care which target it is, but the type system insists that it must know.
 arbitraryTargetDict :: FState a -> TDict ARMInstr
 arbitraryTargetDict = _targetDict
+
+-- | Get the current offset for the target word being defined. This is the here value
+--   for a target colon definition.
+targetColonHere :: FState a -> Maybe (CV a)
+targetColonHere s = hereColon <$> ((arbitraryTargetDict s)^.tdefining)
+  where hereColon tdef = HereColon (tdef^.twid) (tdef^.tcompileList & sizeIM)

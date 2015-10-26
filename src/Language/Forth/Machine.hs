@@ -7,7 +7,7 @@
 
 module Language.Forth.Machine (FM, FState(..), CV, module Control.Monad.Trans.State,
                                stack, rstack, ip, targetDict, dict, compilerFuns, variables,
-                               Compiler(..), defining, compile, litComma,
+                               Compiler(..), defining, compile, litComma, backpatch,
                                compileBranch, compileBranch0, recurse, closeDefining,
                                startDefining, abortDefining, setImmediate, reserveSpace,
                                Create(..), CreateStyle(..)) where
@@ -62,10 +62,11 @@ data Compiler a = Compiler {
     -- ^ Compile a cell value to a colon definition
   , _litComma :: CV a -> FState a -> FState a
     -- ^ Compile a cell value from the stack
-  , _compileBranch :: CellVal a -> FState a -> FState a
+  , _compileBranch :: FState a -> FState a
     -- ^ Compile a unconditional branch instruction, not used by the interpreter
-  , _compileBranch0 :: CellVal a -> FState a -> FState a
+  , _compileBranch0 :: FState a -> FState a
     -- ^ Compile a conditional branch instruction, not used by the interpreter
+  , _backpatch :: CV a -> CV a -> FState a -> FState a
   , _recurse :: FState a -> FState a
     -- ^ Compile a recursive call back to the start of current definition
   , _startDefining ::Create (FM a ()) -> FState a -> FState a

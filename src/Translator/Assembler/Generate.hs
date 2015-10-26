@@ -6,7 +6,7 @@
 -}
 
 module Translator.Assembler.Generate (IM, insRec, insLabRec, insEmpty, labRec,
-                                      recWrap,
+                                      recWrap, sizeIM,
                                       insList, emitCode) where
 
 import Data.Monoid
@@ -48,6 +48,8 @@ spaces14 = replicate 14 ' '
 nl = fromByteString "\n"
 
 fromSymbol = fromString . unintern
+
+sizeIM = length . DL.toList
 
 -- | Get the instructions as a list.
 insList = DL.toList

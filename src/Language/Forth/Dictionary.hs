@@ -10,7 +10,7 @@ module Language.Forth.Dictionary (newInterpreterDictionary, newTargetDictionary,
                                   idict, iwids, idefining, compileList,
                                   latest, tdict, tdefining, twids, twords, tlabels,
                                   tcompileList, wordName, tdefiningSymbol, twid,
-                                  tLocals,
+                                  tLocals, tpatchList,
                                   DefiningWrapper(..), TDefining(..), hereRAM,
                                   IDefining(..),
                                   definingWord, patchList,
@@ -77,6 +77,7 @@ data TDefining t = TDefining  {
   , _twid :: WordId
   , _tLocals :: IntSet         -- ^ Index for desired local labels
   , _tcompileList :: IM t
+  , _tpatchList :: [(Int, Int)]               -- ^ (loc, dest) list to patch
 }
 
 data Dictionary a = Dictionary
