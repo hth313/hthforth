@@ -24,6 +24,7 @@ import Language.Forth.Word
 import qualified Translator.Expression as E
 import Translator.Assembler.Generate
 import Translator.Assembler.Target.ARM
+import Translator.Symbol
 import Prelude hiding (EQ)
 
 
@@ -129,17 +130,42 @@ instance TargetPrimitive ARMInstr where
             popStack tos <>
             insRec (B EQ Any (Mem $ E.Identifier "BRANCH")) <>
             insRec (adds ip ip (Imm 2))
-
+  loop = insRec (ldr w (RegIndOffset rstack 4)) <>
+         insRec (adds w w (Imm 1)) <>
+         insRec (str w (RegIndOffset rstack 4)) <>
+         insRec (ldr temp1 (RegIndOffset rstack 0)) <>
+         insRec (cmp w (RegOp temp1) noShift) <>
+         insRec (B NE Any (Mem $ E.Identifier "BRANCH")) <>
+         labRec loopLeave <>
+         insRec (adds ip ip (Imm 2)) <>
+         insRec (ldr w (PostIndexed rstack 8))
+  plusLoop = insRec (ldr w (RegIndOffset rstack 4)) <>
+             insRec (adds w w (RegOp tos)) <>
+             popStack tos <>
+             insRec (B CS Any (Mem $ E.Identifier loopLeave)) <>
+             insRec (ldr temp1 (RegIndOffset rstack 0)) <>
+             insRec (cmp w (RegOp temp1) noShift) <>
+             insRec (B CC Any (Mem $ E.Identifier loopLeave)) <>
+             insRec (str w (RegIndOffset rstack 4)) <>
+             insRec (B AL Any (Mem $ E.Identifier "BRANCH"))
   substNative word = case word^.name of
-                       "ROT" -> word & doer.~(popStack w     <>
-                                              popStack temp1 <>
-                                              pushStack w    <>
-                                              pushStack tos  <>
-                                              insRec (mov tos (RegOp temp1)) <>
-                                              next)
+                       "ROT" -> repl (popStack w     <>
+                                      popStack temp1 <>
+                                      pushStack w    <>
+                                      pushStack tos  <>
+                                      insRec (mov tos (RegOp temp1)) <>
+                                      next)
+                       "(DO)" -> repl (popStack w     <>
+                                       pushRStack w   <>
+                                       pushRStack tos <>
+                                       popStack tos <>
+                                       next)
                        otherwise -> word
+     where repl code = word & doer.~code
 
   tokenTableLine = Just $ \n -> insRec $ Directive $ LONG [n]
+
+loopLeave = mkSymbol "LoopLeave"
 
 token lab = insRec $ Directive $ WORD lab
 

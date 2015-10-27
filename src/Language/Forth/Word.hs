@@ -23,7 +23,7 @@ instance Show WordId where
 
 type LinkField a = Maybe (ForthWord a)
 
-data WordKind = Native | Colon | InterpreterNative deriving Eq
+data WordKind = Native | Colon | InterpreterNative | NativeOmitNext deriving Eq
 
 data WordFlags = Immediate | CompileOnly deriving Eq
 

@@ -8,7 +8,9 @@
 module Translator.Assembler.Target.ARM (ARMInstr(..), CondExec(..), Reg(..), OpAdr(..),
                                         Update(..), Shift(..), Suffix(..),
                                         module Translator.Assembler.Directive,
-                                        adc, adcs, add, adds, ands, asr, asrs, b, bl, eors,
+                                        noShift,
+                                        adc, adcs, add, adds, ands, asr, asrs, b, bl,
+                                        cmp, eors,
                                         ldr, ldrb, ldrh, ldrsb, ldrsh,
                                         lsl, lsls, lsr, lsrs, mov, movs, orrs,
                                         sbc, sbcs, str, strb, strh,
@@ -29,6 +31,7 @@ data ARMInstr = ADD Update CondExec Suffix Reg Reg OpAdr Shift
               | ASR Update CondExec Suffix Reg Reg OpAdr
               | B CondExec Suffix OpAdr
               | BL CondExec Suffix OpAdr
+              | CMP CondExec Suffix Reg OpAdr Shift
               | EOR Update CondExec Suffix Reg Reg OpAdr Shift
               | LDR    CondExec Suffix Reg OpAdr
               | LDRB   CondExec Suffix Reg OpAdr
@@ -58,6 +61,7 @@ asr   = ASR U AL Any
 asrs  = ASR S AL Any
 b     = B  AL Any
 bl    = BL AL Any
+cmp   = CMP   AL Any
 eors  = i3 EOR S
 ldr   = LDR   AL Any
 ldrb  = LDRB  AL Any
@@ -154,6 +158,7 @@ instance InstructionSet ARMInstr where
         disasm (ASR f c q d s x)     = (m (fl "asr" f)  c q, Just (showReg d :  showReg s : optop x))
         disasm (B c q d)             = (m "b"  c q, Just [show d])
         disasm (BL c q d)            = (m "bl" c q, Just [show d])
+        disasm (CMP c q d s sh)      = arith "cmp" U c q d NoReg s sh
         disasm (EOR f c q d s x sh)  = arith "eor" f c q d s x sh
         disasm (LDR c q d s)         = (m "ldr"   c q, Just [showReg d, op s])
         disasm (LDRB c q d s)        = (m "ldrb"  c q, Just [showReg d, op s])

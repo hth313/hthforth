@@ -79,7 +79,7 @@ codeGenerate dir pad (dict, words) =    header
         compileXT = Value 0
         tail | _name word == "EXIT" = labRec nextSymbol <> nextImpl
              | word^.wordKind == Native = next
-             | otherwise = insEmpty
+             | otherwise = mempty
     in (   alignment
         <> asciiRec                    -- name field
         <> cellValue status            -- link, name length and flags

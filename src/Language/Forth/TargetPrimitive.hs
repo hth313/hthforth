@@ -67,6 +67,10 @@ class TargetPrimitive t where
   branch  :: IM t
   branch0 :: IM t
 
+  -- | Loop instructions
+  loop :: IM t
+  plusLoop :: IM t
+
   -- | Optionally substitute a word with a native implementation
   substNative :: ForthWord (IM t) -> ForthWord (IM t)
   substNative = id

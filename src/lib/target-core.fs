@@ -10,3 +10,24 @@
 : 2DUP   OVER OVER ;
 : 2SWAP  ROT >R ROT R> ;
 : 2OVER  >R >R 2DUP R> R> 2SWAP ;
+
+\ Arithmetic and logical
+: 1+  1 + ;
+: 1-  1 - ;
+\ : INVERT  TRUE XOR ;
+\ : NEGATE  INVERT 1+ ;
+\ : DNEGATE  INVERT SWAP NEGATE SWAP OVER 0= - ;      \ word set DOUBLE
+: *  UM* DROP ;
+: S>D  DUP 0< ;
+\ : ABS  S>D IF NEGATE THEN ;
+\ : DABS  DUP 0< IF DNEGATE THEN ;                    \ word set DOUBLE
+
+\ Comparison
+: =  - 0= ;
+: <  - 0< ;
+: >  SWAP < ;
+: U<  2DUP XOR 0< IF SWAP DROP 0< EXIT THEN - 0< ;
+
+\ Loops
+: (DO)
+  R> ROT >R SWAP >R >R ;

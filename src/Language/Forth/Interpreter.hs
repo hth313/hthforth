@@ -59,6 +59,7 @@ initialState target = FState [] [] [] target interpreterDictionary
 
 icompiler = Compiler defining icompile ilitComma
                      (icompileBranch branch) (icompileBranch branch0)
+                     (icompileBranch ploop) (icompileBranch pplusLoop)
                      ibackpatch irecurse istartDefining
                      icloseDefining abortDefining imm ireserveSpace
     where defining = isJust._idefining._dict
@@ -109,10 +110,8 @@ interpreterDictionary = IDict dict wids Nothing
           addWord "THEN" InterpreterNative xthen >> makeImmediate
           addWord "DO" InterpreterNative xdo >> makeImmediate
           addWord pdoName InterpreterNative pdo
-          addWord "LOOP" InterpreterNative loop >> makeImmediate
-          addWord ploopName InterpreterNative ploop
-          addWord "+LOOP" InterpreterNative plusLoop >> makeImmediate
-          addWord pploopName InterpreterNative pplusLoop
+          addWord "LOOP" InterpreterNative (xloop compileLoop) >> makeImmediate
+          addWord "+LOOP" InterpreterNative (xloop compilePlusLoop) >> makeImmediate
           addWord "LEAVE" InterpreterNative leave
           addWord "I" InterpreterNative rfetch
           addWord "BEGIN" InterpreterNative begin >> makeImmediate
@@ -262,8 +261,6 @@ xtBuiltin name idoer = liftM f (searchDict name)
   where  f (word, tt) = XT (_wordId <$> word) (Just name) (Just idoer) tt
 
 xdo = xtBuiltin pdoName pdo >>= \xt -> docol [cprim1 compile xt, here, exit]
-loop = xtBuiltin ploopName ploop >>= \xt -> xloop xt
-plusLoop = xtBuiltin pploopName pplusLoop >>= \xt -> xloop xt
 leave = updateState f  where
   f s | _ : rs@(limit : _) <- _rstack s = newState s { _rstack = limit : rs }
       | otherwise = emptyStack s
@@ -293,25 +290,28 @@ does = updateState f  where
       | otherwise = abortWith "IP not on rstack" s
 
 -- Helper function that compile the ending loop word
-xloop xt = docol [cprim1 compile xt, here, cprim compileBranch0, xbackpatch, exit]
+xloop cf = docol [here, cprim cf, xbackpatch, exit]
 
 -- | Runtime words for DO-LOOPs
 pdo = updateState f  where
   f s | s0 : s1 : ss <- _stack s = newState s { _stack = ss,
                                                 _rstack = s0 : s1 : _rstack s }
       | otherwise = emptyStack s
-ploop = updateState $ rloopHelper (Val 1 +)
-pplusLoop = updateState $ \s -> case _stack s of
-                                  n : ss -> rloopHelper (n+) (s { _stack = ss })
+
+ploop loc = modify (rloopHelper (Val 1 +)) >> branch0 loc
+pplusLoop loc = do
+  modify $ \s -> case _stack s of
+                   n : ss -> rloopHelper (n+) (s { _stack = ss })
+  branch0 loc
+
 rloopHelper f s
   | i : r2@(limit : rs) <- _rstack s =
     let i' = f i
-    in newState $ if i' < limit
-                  then s { _rstack = i' : r2,
-                           _stack = falseVal : _stack s }
-                  else s { _rstack = rs,
-                           _stack = trueVal : _stack s }
-  | otherwise = emptyStack s
+    in if i' < limit && i' > i
+       then s { _rstack = i' : r2,
+                _stack = falseVal : _stack s }
+       else s { _rstack = rs,
+                _stack = trueVal : _stack s }
 
 -- | Helper for arithmetics
 binary :: (CV a -> CV a -> CV a) -> FM a ()

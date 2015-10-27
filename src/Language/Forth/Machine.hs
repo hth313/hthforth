@@ -9,6 +9,7 @@ module Language.Forth.Machine (FM, FState(..), CV, module Control.Monad.Trans.St
                                stack, rstack, ip, targetDict, dict, compilerFuns, variables,
                                Compiler(..), defining, compile, litComma, backpatch,
                                compileBranch, compileBranch0, recurse, closeDefining,
+                               compileLoop, compilePlusLoop,
                                startDefining, abortDefining, setImmediate, reserveSpace,
                                Create(..), CreateStyle(..)) where
 
@@ -66,6 +67,10 @@ data Compiler a = Compiler {
     -- ^ Compile a unconditional branch instruction
   , _compileBranch0 :: FState a -> FState a
     -- ^ Compile a conditional branch instruction
+  , _compileLoop :: FState a -> FState a
+    -- ^ Compile a (LOOP) instruction
+  , _compilePlusLoop :: FState a -> FState a
+    -- ^ Compile a (+LOOP) instruction
   , _backpatch :: CV a -> CV a -> FState a -> FState a
   , _recurse :: FState a -> FState a
     -- ^ Compile a recursive call back to the start of current definition
