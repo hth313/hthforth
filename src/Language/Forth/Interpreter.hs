@@ -196,9 +196,8 @@ instance Primitive (FM a ()) where
 
   zerop = updateState $ \s -> case _stack s of
                                 (Val 0) : ss         -> newState s { _stack = trueVal  : ss }
-                                Val{} : ss           -> newState s { _stack = falseVal : ss }
                                 Address Nothing : ss -> newState s { _stack = trueVal : ss }
-                                Address{} : ss       -> newState s { _stack = falseVal : ss }
+                                _ : ss               -> newState s { _stack = falseVal : ss }
                                 otherwise            -> emptyStack s
   lt0 = updateState f  where
     f s | (Val n) : ss <- _stack s =
