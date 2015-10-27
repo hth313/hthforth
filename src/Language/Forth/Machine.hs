@@ -63,9 +63,9 @@ data Compiler a = Compiler {
   , _litComma :: CV a -> FState a -> Either String (FState a)
     -- ^ Compile a cell value from the stack
   , _compileBranch :: FState a -> FState a
-    -- ^ Compile a unconditional branch instruction, not used by the interpreter
+    -- ^ Compile a unconditional branch instruction
   , _compileBranch0 :: FState a -> FState a
-    -- ^ Compile a conditional branch instruction, not used by the interpreter
+    -- ^ Compile a conditional branch instruction
   , _backpatch :: CV a -> CV a -> FState a -> FState a
   , _recurse :: FState a -> FState a
     -- ^ Compile a recursive call back to the start of current definition
