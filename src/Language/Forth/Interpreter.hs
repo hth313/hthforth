@@ -298,7 +298,7 @@ xloop xt = docol [cprim1 compile xt, here, cprim compileBranch0, xbackpatch, exi
 -- | Runtime words for DO-LOOPs
 pdo = updateState f  where
   f s | s0 : s1 : ss <- _stack s = newState s { _stack = ss,
-                                               _rstack = s0 : s1 : _rstack s }
+                                                _rstack = s0 : s1 : _rstack s }
       | otherwise = emptyStack s
 ploop = updateState $ rloopHelper (Val 1 +)
 pplusLoop = updateState $ \s -> case _stack s of
