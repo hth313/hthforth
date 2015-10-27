@@ -515,12 +515,12 @@ xt word = XT (_wordId <$> word) (_name <$> word) (_doer <$> word)
 --   ( c-addr -- c-addr 0 | xt 1 | xt -1 )
 find = do
   caddr <- dpop
-  (word, sym) <- searchDict =<< countedText caddr
+  (word, tt) <- searchDict =<< countedText caddr
   modify $ \s ->
     let imm = case filter (Immediate==) ._wordFlags <$> word of
                 Just (Immediate:_) ->  1
                 otherwise -> -1
-    in if (isJust word || isJust sym) then s { _stack = Val imm : xt word sym : _stack s }
+    in if (isJust word || isJust tt) then s { _stack = Val imm : xt word tt : _stack s }
        else s { _stack = Val 0 : caddr : _stack s }
   next
 
