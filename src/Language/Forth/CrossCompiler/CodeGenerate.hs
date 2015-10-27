@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -76,9 +77,10 @@ codeGenerate dir pad (dict, words) =    header
                  .|. (Value $ foldl (.|.) 0 (map flagval (word^.wordFlags)))
           where flagval Immediate   = 1 `shiftL` 5
                 flagval CompileOnly = 1 `shiftL` 6
+                flagval _           = 0
         compileXT = Value 0
         tail | _name word == "EXIT" = labRec nextSymbol <> nextImpl
-             | word^.wordKind == Native = next
+             | word^.wordKind == Native, word & hasFlag OmitNext = next
              | otherwise = mempty
     in (   alignment
         <> asciiRec                    -- name field

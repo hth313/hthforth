@@ -5,7 +5,7 @@
 -}
 
 module Language.Forth.Word (ForthWord(..), WordId(..), WordKind(..),
-                            WordFlags(..), LinkField, wordFlags,
+                            WordFlags(..), LinkField, wordFlags, hasFlag,
                             name, wordSymbol, link, doer, wordId, wordKind,
                             exitName, pdoName, ploopName, pploopName) where
 
@@ -23,9 +23,9 @@ instance Show WordId where
 
 type LinkField a = Maybe (ForthWord a)
 
-data WordKind = Native | Colon | InterpreterNative | NativeOmitNext deriving Eq
+data WordKind = Native | Colon | InterpreterNative deriving Eq
 
-data WordFlags = Immediate | CompileOnly deriving Eq
+data WordFlags = Immediate | CompileOnly | OmitNext deriving Eq
 
 -- | A Forth word
 data ForthWord a = ForthWord
@@ -44,6 +44,9 @@ instance Eq (ForthWord a) where
 
 instance Show (ForthWord a) where
     show = B.unpack . _name
+
+-- | Test if a word has a certain flag set
+hasFlag flag word = word^.wordFlags & not . elem flag
 
 exitName, pdoName, ploopName, pploopName :: ByteString
 exitName   = "EXIT"

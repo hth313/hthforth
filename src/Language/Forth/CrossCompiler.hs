@@ -73,7 +73,7 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0
   abortDefining s = s { _targetDict = abortDefining1 $ _targetDict s }
     where abortDefining1 dict = dict & tdefining.~Nothing
   setImmediate s = s { _targetDict = setImmediate1 $ _targetDict s }
-  setImmediate1 dict = dict & tdict%~setLatestImmediate
+  setImmediate1 dict = dict & tdict%~(addFlag Immediate)
   startDefining Create{..} s = s { _targetDict = startDefining1 $ _targetDict s }
     where startDefining1 dict =
             f $ dict & tdefining.~(Just (TDefining createName sym wid IntSet.empty doer [])) &
@@ -133,7 +133,7 @@ targetDictionary = TDict dict Nothing wids nativeWords labels
             addWord "BRANCH"   Native branch
             addWord "BRANCH0"  Native branch0
             addWord ploopName  Native loop
-            addWord pploopName NativeOmitNext plusLoop
+            addWord pploopName Native plusLoop >> addFlagM OmitNext
 
 -- | Dummy binding a target dictionary is a kludge that can be used in certain situations
 --   when we do not care which target it is, but the type system insists that it must know.

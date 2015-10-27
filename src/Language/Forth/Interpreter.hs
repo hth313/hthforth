@@ -64,7 +64,7 @@ icompiler = Compiler defining icompile ilitComma
                      icloseDefining abortDefining imm ireserveSpace
     where defining = isJust._idefining._dict
           abortDefining = dict.idefining.~Nothing
-          imm = dict.idict%~setLatestImmediate
+          imm = dict.idict%~(addFlag Immediate)
 
 initialVarStorage = gets _target >>=
   \t -> let f (wid, val) =

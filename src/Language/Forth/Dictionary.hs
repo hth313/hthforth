@@ -17,7 +17,7 @@ module Language.Forth.Dictionary (newInterpreterDictionary, newTargetDictionary,
                                   stateWId, toInWId,
                                   inputBufferWId, inputLineWId, tregWid,
                                   inputLineLengthWId, wordBufferWId, sourceIDWid,
-                                  addWord, makeImmediate, setLatestImmediate,
+                                  addWord, makeImmediate, addFlag, addFlagM,
                                   targetAllot,
                                   findTargetToken, findWord) where
 
@@ -157,9 +157,10 @@ addWord name kind doer =
     in return ((), (Dictionary (Just word) hereRAM, is, mlabels'))
 
 makeImmediate :: State (Dictionary a, [WordId], Maybe (Labels WordId)) ()
-makeImmediate = modify (_1%~setLatestImmediate)
+makeImmediate = addFlagM Immediate
 
-setLatestImmediate = latest._Just.wordFlags%~(Immediate:)
+addFlagM flag = modify (_1.latest._Just.wordFlags%~(flag:))
+addFlag flag = latest._Just.wordFlags%~(Immediate:)
 
 -- | Reserve space in data memory
 targetAllot :: Expr -> TDict t -> TDict t
