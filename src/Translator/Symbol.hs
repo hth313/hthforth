@@ -66,6 +66,7 @@ nameMangle = prepend . concatMap mangle
         mangle '<' = "_LessThan_"
         mangle '"' = "_Quote_"
         mangle '\\' = "_BackSlash_"
+        mangle n | not (isAlphaNum n) = "_" ++ show (ord n) ++ "_"
         mangle c = [c]
         prepend s@(c:cs) | isDigit c = '_' : s
                          | otherwise = s
