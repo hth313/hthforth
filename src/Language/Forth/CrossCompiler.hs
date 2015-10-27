@@ -55,8 +55,10 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0
                          backpatch recurse startDefining
                          closeDefining abortDefining setImmediate reserveSpace where
   defining = isJust . _tdefining . arbitraryTargetDict
-  compile (XT _ _ (Just tt)) = addTokens $ wordToken tt
+  compile (XT _ _ _ (Just tt)) = addTokens $ wordToken tt
   compile val@Val{} = litComma val
+  compile (XT _ (Just name) _ _) = const (Left $ VC.unpack name ++ " ? (not known to target)")
+  compile val = const (Left $ "cannot compile for target: " ++ show val)
   litComma val = addTokens $ literal $ cellToExpr val
   compileBranch  s = s { _targetDict = addBranch findBranch 0 (_targetDict s) }
   compileBranch0 s = s { _targetDict = addBranch findBranch0 0 (_targetDict s) }
@@ -109,8 +111,9 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0
                  | otherwise = id
     in dict & tdefining._Just.tcompileList%~g & addLocal
 
-addTokens :: (forall t. (InstructionSet t, Primitive (IM t), TargetPrimitive t) => IM t) -> FState a -> FState a
-addTokens vs s = s { _targetDict = (_targetDict s) & tdefining._Just.tcompileList%~(<> vs) }
+addTokens :: (forall t. (InstructionSet t, Primitive (IM t), TargetPrimitive t) => IM t) -> FState a -> Either String (FState a)
+addTokens vs s = Right $
+   s { _targetDict = (_targetDict s) & tdefining._Just.tcompileList%~(<> vs) }
 
 
 targetDictionary :: (InstructionSet t, Primitive (IM t), TargetPrimitive t) => TDict t

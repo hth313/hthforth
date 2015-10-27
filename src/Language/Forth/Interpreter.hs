@@ -225,7 +225,9 @@ cprim cf = updateState f  where
       | otherwise = notDefining s
 
 cprim1 cf arg = updateState f  where
-  f s | isdefining s = newState $ (s^.compilerFuns.cf) arg s
+  f s | isdefining s = case (s^.compilerFuns.cf) arg s of
+                         Right s -> newState s
+                         Left msg -> abortWith msg s
       | otherwise = notDefining s
 
 cprim2 cf a b = updateState f  where
@@ -255,15 +257,14 @@ xif   = docol [here, cprim compileBranch0, exit]
 xelse = docol [here, cprim compileBranch, here, rot, xbackpatch, exit]
 xthen = docol [here, swap, xbackpatch, exit]
 
--- Find a target token from name
-targetToken n = liftM snd (searchDict n)
+-- Find a target token from name (also return the word id of the interpreter
+-- version of the word).
+xtBuiltin name idoer = liftM f (searchDict name)
+  where  f (word, tt) = XT (_wordId <$> word) (Just name) (Just idoer) tt
 
-xdo = targetToken pdoName >>= \tt ->
-      docol [cprim1 compile (XT Nothing (Just pdo) tt), here, exit]
-loop = targetToken ploopName >>= \tt ->
-       xloop (XT Nothing (Just ploop) tt)
-plusLoop = targetToken pploopName >>= \tt ->
-           xloop (XT Nothing (Just pplusLoop) tt)
+xdo = xtBuiltin pdoName pdo >>= \xt -> docol [cprim1 compile xt, here, exit]
+loop = xtBuiltin ploopName ploop >>= \xt -> xloop xt
+plusLoop = xtBuiltin pploopName pplusLoop >>= \xt -> xloop xt
 leave = updateState f  where
   f s | _ : rs@(limit : _) <- _rstack s = newState s { _rstack = limit : rs }
       | otherwise = emptyStack s
@@ -280,8 +281,8 @@ plusStore = docol [dup, fetch, rot, plus, swap, store, exit]
 
 create = docol [xword, create' docol CREATE, exit]
 colon = docol [lit (Val (-1)), state, store, xword, create' docol DOCOL, exit]
-semicolon = targetToken exitName >>= \tt ->
-            docol [cprim1 compile (XT Nothing (Just exit) tt), lit (Val 0), state, store, reveal, exit]
+semicolon = xtBuiltin exitName exit >>= \xt ->
+  docol [cprim1 compile xt, lit (Val 0), state, store, reveal, exit]
 compileComma = dpop >>= \x -> cprim1 compile x
 immediate = updateState $ \s -> newState $ s^.compilerFuns.setImmediate $ s
 
@@ -411,8 +412,8 @@ next = do x <- StateT $ \s -> let (x:xs) = _ip s
 
 -- | Invoke an execution token.
 call :: CV a -> FM a ()
-call (XT _ (Just a) _) = a
-call (XT _ _ Just{}) = abortMessage "xt only known to a target"
+call (XT _ _ (Just a) _) = a
+call (XT _ _ _ Just{}) = abortMessage "xt only known to a target"
 call _ = abortMessage "not an execution token"
 
 -- | Data stack primitives
@@ -509,7 +510,7 @@ countedText (Address (Just (Addr wid off))) = updateStateVal "" $ \s ->
       otherwise -> abortWith "expected address pointing to char buffer" s
 countedText _ = abortMessage "expected address" >> return B.empty
 
-xt word = XT (_wordId <$> word) (_doer <$> word)
+xt word = XT (_wordId <$> word) (_name <$> word) (_doer <$> word)
 
 -- | Find the name (counted string) in the dictionary
 --   ( c-addr -- c-addr 0 | xt 1 | xt -1 )
@@ -549,13 +550,13 @@ xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, 
            otherwise -> abortWith "parseName failed" s
 
 -- | Interpreter - Compile given cell value
-icompile adr@Address{}      = tackOn $ WrapA $ lit adr
-icompile val@Val{}          = tackOn $ WrapA $ lit val
-icompile val@Text{}         = tackOn $ WrapA $ lit val
-icompile (XT _ (Just a) _ ) = tackOn $ WrapA $ a
+icompile adr@Address{}        = Right . (tackOn $ WrapA $ lit adr)
+icompile val@Val{}            = Right . (tackOn $ WrapA $ lit val)
+icompile val@Text{}           = Right . (tackOn $ WrapA $ lit val)
+icompile (XT _ _ (Just a) _ ) = Right . (tackOn $ WrapA $ a)
 
 -- | Interpreter - Compile a cell value from the stack.
-ilitComma x = tackOn $ WrapA $ lit x
+ilitComma x = Right . (tackOn $ WrapA $ lit x)
 
 -- | Compile a branch instruction. Branches need special handling when
 --   the colon definition is finailized.
@@ -773,7 +774,7 @@ ummod' = updateState f  where
     | otherwise = abortWith "bad input to UM/MOD" s
 
 toBody = updateState f  where
-  f s | XT (Just wid) a _ : ss <- _stack s = newState s { _stack = adrcv wid : ss }
+  f s | XT (Just wid) _ a _ : ss <- _stack s = newState s { _stack = adrcv wid : ss }
       | otherwise = abortWith "bad input to >BODY" s
 
 accept =

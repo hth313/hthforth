@@ -58,9 +58,9 @@ data FState a = FState
 data Compiler a = Compiler {
     _defining :: FState a -> Bool
     -- ^ Are we in a defining mode?
-  , _compile :: CV a -> FState a -> FState a
+  , _compile :: CV a -> FState a -> Either String (FState a)
     -- ^ Compile a cell value to a colon definition
-  , _litComma :: CV a -> FState a -> FState a
+  , _litComma :: CV a -> FState a -> Either String (FState a)
     -- ^ Compile a cell value from the stack
   , _compileBranch :: FState a -> FState a
     -- ^ Compile a unconditional branch instruction, not used by the interpreter
