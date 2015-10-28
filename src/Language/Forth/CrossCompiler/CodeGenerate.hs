@@ -1,4 +1,3 @@
-{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -80,7 +79,7 @@ codeGenerate dir pad (dict, words) =    header
                 flagval _           = 0
         compileXT = Value 0
         tail | _name word == "EXIT" = labRec nextSymbol <> nextImpl
-             | word^.wordKind == Native, word & hasFlag OmitNext = next
+             | word^.wordKind == Native = next
              | otherwise = mempty
     in (   alignment
         <> asciiRec                    -- name field

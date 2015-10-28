@@ -26,7 +26,7 @@ type LinkField a = Maybe (ForthWord a)
 
 data WordKind = Native | Colon | InterpreterNative deriving Eq
 
-data WordFlags = Immediate | CompileOnly | OmitNext deriving Eq
+data WordFlags = Immediate | CompileOnly deriving Eq
 
 -- | A Forth word
 data ForthWord a = ForthWord

@@ -135,7 +135,7 @@ targetDictionary = TDict dict Nothing wids nativeWords labels
             addWord "BRANCH"   Native branch
             addWord "BRANCH0"  Native branch0
             addWord ploopName  Native loop
-            addWord pploopName Native plusLoop >> addFlagM OmitNext
+            addWord pploopName Native plusLoop
             addWord pleaveName Native leave
 
 -- | Dummy binding a target dictionary is a kludge that can be used in certain situations
