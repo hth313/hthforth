@@ -528,9 +528,9 @@ find = do
   caddr <- dpop
   (word, tt) <- searchDict =<< countedText caddr
   modify $ \s ->
-    let imm = case filter (Immediate==) ._wordFlags <$> word of
-                Just (Immediate:_) ->  1
-                otherwise -> -1
+    let imm = case hasFlag Immediate <$> word of
+                Just True  ->  1
+                otherwise  -> -1
     in if (isJust word || isJust tt) then s { _stack = Val imm : xt word tt : _stack s }
        else s { _stack = Val 0 : caddr : _stack s }
   next
