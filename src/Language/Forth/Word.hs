@@ -47,7 +47,7 @@ instance Show (ForthWord a) where
     show = B.unpack . _name
 
 -- | Test if a word has a certain flag set
-hasFlag flag word = word^.wordFlags & not . elem flag
+hasFlag flag word = word^.wordFlags & elem flag
 
 exitName, pdoName, ploopName, pploopName, pleaveName :: ByteString
 exitName   = "EXIT"
