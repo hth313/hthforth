@@ -80,8 +80,8 @@
 : (
     SRC-SPAN IF
       DO
-        I C@ 41 = IF LEAVE THEN
         1 >IN +!
+        I C@ 41 = IF LEAVE THEN
       LOOP
     THEN
 ; IMMEDIATE

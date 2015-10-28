@@ -52,7 +52,7 @@ import Language.Forth.Target.CortexM ()
 -- | The cross compiler
 -- crossCompiler :: (InstructionSet t, Primitive (IM t), TargetPrimitive t) => Compiler (IM t)
 crossCompiler = Compiler defining compile litComma compileBranch compileBranch0
-                         compileLoop compilePlusLoop
+                         compileLoop compilePlusLoop compileLeave
                          backpatch recurse startDefining
                          closeDefining abortDefining setImmediate reserveSpace where
   defining = isJust . _tdefining . arbitraryTargetDict
@@ -65,6 +65,7 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0
   compileBranch0  s = s { _targetDict = addBranch findBranch0  0 (_targetDict s) }
   compileLoop     s = s { _targetDict = addBranch findLoop     0 (_targetDict s) }
   compilePlusLoop s = s { _targetDict = addBranch findPlusLoop 0 (_targetDict s) }
+  compileLeave    s = s { _targetDict = addBranch findLeave    0 (_targetDict s) }
   backpatch (HereColon _ loc) (HereColon _ dest) s =
     s { _targetDict = bp $ _targetDict s }
       where bp dict = dict & tdefining._Just.tpatchList%~((:) (loc, dest)) &
@@ -105,8 +106,9 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0
   reserveSpace n s = s { _targetDict = targetAllot (fromIntegral n) (_targetDict s) }
   findBranch   dict = findTargetToken dict "BRANCH"
   findBranch0  dict = findTargetToken dict "BRANCH0"
-  findLoop     dict = findTargetToken dict "(LOOP)"
-  findPlusLoop dict = findTargetToken dict "(+LOOP)"
+  findLoop     dict = findTargetToken dict ploopName
+  findPlusLoop dict = findTargetToken dict pploopName
+  findLeave    dict = findTargetToken dict pleaveName
   addBranch fb dest dict =
     let Just defining = dict^.tdefining
         g cl = cl <> wordToken ttBranch <>
@@ -134,6 +136,7 @@ targetDictionary = TDict dict Nothing wids nativeWords labels
             addWord "BRANCH0"  Native branch0
             addWord ploopName  Native loop
             addWord pploopName Native plusLoop >> addFlagM OmitNext
+            addWord pleaveName Native leave
 
 -- | Dummy binding a target dictionary is a kludge that can be used in certain situations
 --   when we do not care which target it is, but the type system insists that it must know.

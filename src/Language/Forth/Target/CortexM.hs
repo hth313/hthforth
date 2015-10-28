@@ -148,6 +148,8 @@ instance TargetPrimitive ARMInstr where
              insRec (B CC Any (Mem $ E.Identifier loopLeave)) <>
              insRec (str w (RegIndOffset rstack 4)) <>
              insRec (B AL Any (Mem $ E.Identifier "BRANCH"))
+  leave = insRec (ldr w (PostIndexed rstack 8))
+
   substNative word = case word^.name of
                        "ROT" -> repl (popStack w     <>
                                       popStack temp1 <>

@@ -70,6 +70,7 @@ class TargetPrimitive t where
   -- | Loop instructions
   loop :: IM t
   plusLoop :: IM t
+  leave :: IM t
 
   -- | Optionally substitute a word with a native implementation
   substNative :: ForthWord (IM t) -> ForthWord (IM t)

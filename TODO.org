@@ -53,7 +53,7 @@
 ** DONE Put wids at top level, we do not need different number series
 ** TODO Prototype with a Cortex-M target, to see if tagless style also works fine with code generation
 *** DONE Target gnu or clang assembler
-*** TODO Take some inspiration from riscy pygness forth for ARM
+*** TODO Take some inspiration from riscy pygness forth for ARM, use 16-bit tokenization table
 *** DONE Code generate to suitable instructions, can probably be some more highlevel generic macros to make up colon definitions.
 *** DONE Extend the high level instructions with actual thumb2 assembler
 *** DONE Is it possible to keep the instructions in tagless final style?
@@ -66,10 +66,10 @@
 ** DONE Need to add some library code for dohere
 ** DONE Make ALLOT work on target
 ** DONE Set up RAMBASE and reserve space in RAM memory
-** TODO constant in Primitive, is that good for targets?
-- [ ] figure out if 'constant' should be used, or the new 'doconst'
+** DONE constant in Primitive, is that good for targets?
+- [X] figure out if 'constant' should be used, or the new 'doconst'
 - [ ] add modifiers, like FLASH, that control different placement memories, other targets could have further alternatives, ponder over if it should be part of TargetPrimitive or defined at Forth level, though we do not have any target specific Forth code
-- [ ] make it possible to generate inline code to push the constant and then to next
+- [X] make it possible to generate inline code to push the constant and then do next
 - [ ] need to get the stack value as expression and embed it in the defining record
 - [ ] for arm, push a pc relative constant, but it has to be stored after the 'b next', which means there is a need for a local label?
 ** TODO Make it possible to build constant tables somehow, that is, a here pointer to the constant data area compiled into the body of the word, see how the standard deals with this
@@ -78,6 +78,8 @@
 - [ ] need some startup code to populate writable data tables
 ** DONE Use common name for DOCOL, NEXT and LIT
 ** DONE Rename smudge to something more meaningful for people that are not familiar with that concept
+** DONE ' word CONSTANT name casues a crash as we cannot compile an XT as a literal
+** TODO Literal constant should store the full cell address, but a compiled word needs to be a 16-bit token, how to handle that?
 ** TODO Is there a double memory indirection on CortexM?
 ** TODO Should we change name of DOHERE to something else? DOPTR perhaps?
 ** TODO Is COMPILE-ONLY a good way to mark words that have no interpretation semantics? Seems so, but it may have implications in that you cannot TICK such word, and that seems to be a very controversal topic in the Forth community. It can become untickable by FIND not being allowed to find it, and that may or may not be desirable?
@@ -144,3 +146,33 @@ Idea: input is represented by InputSource which holds a ByteString, which is the
 ** TODO need a primitive that allows to specify and load a screen file
 ** TODO add command line switch to specify command line to be executed, like "LOAD 1"
 ** DONE There could be two different addresses, Address and ColonAddress so we know what we are writing to. This is because a data field use DataField, which is based on a Map, while a colon definition is a list. This will most likely show its need when "," is executed, though that will be the colon LITERAL for which we have a lambda, maybe control words will need it later.
+** TODO Locals and quotations. It would be interestinf to implement locals using a high level mechanism that is in common use (TBD). Try to use the LOCALS word set as a basis for it, but do not feel constrained by it.
+*** TODO When doing this, consider implementing quotations and allow them to access the enclosing parent enviroment.
+*** TODO Arbitrary nesting of quotations should be allowed.
+*** TODO Store the enclosing frame as a local variable in the frame, i.e. as the first one. Moving up frames can be done using @
+*** TODO Use FP@ and FP! to adjust frame pointer, FP@ 1 CELL+ @ can be used to access local number 1, that way the code gets portable and reasonable fast. Better is to do the CELL+ at compile time. To access in previous frame, FP@ @ 1 CELL+ @  Using FP@ and FP! makes it possible to realize the frame pointer in a register. Only one FP register is needed, trying to use two will not work in various deeply nested environments with quotations.
+*** TODO Quotations can have its own locals, as well as accesssing the enclosing environemnt.
+*** TODO An xt should still be a simple code pointer, which means that a quotation which accesses the enclosing enviroment need a dynamic wrapper to set things up and restore when done, this can be created as part of setting up the environment for the parent. Make some simple native building words for this, rely a lot on colon code.
+** TODO Modernize FIND, WORD and the interpreter loop. These words are not as flexible as one might like (FIND cannot find IF in interpreter mode), they also use counted strings. xt is limited in that it does not allow access to the name of a word, or other fields that may exist. To be standard, FIND and friends need to exist, but they should be defined in terms of something else.
+- gforth have name tokens, which seems like a good idea http://www.complang.tuwien.ac.at/forth/gforth/Docs-html/Name-token.html
+- "The most elegant Forth interpreter" in comp.lang.forth contains something that might be worth considering when doing this.
+- PARSE-NAME ( "<spaces>name<space> -- caddr u )  is a good standard word to use
+- FIND-NAME ( caddr u -- nt | 0 ) get a name token
+- Get rid of state smart words, use separated compilation semantics, to mimic the standard closer. That means dual XT, which is an alternative approach compared to using IMMEDIATE. While I do not like dual XTs, it has the advantage of following the standard in a closer way. Need to ponder over this.
+- IN ( -- caddr ) the pointer in the input buffer, this is non-standard, but may be a more natural way to work with the input pointer.
+  Implement : >IN  IN SOURCE DROP - ;
+- ciforth uses PREFIX, should be worth looking at, the alternative is the less flexible (NUMBER) handling
+*** TODO Consider an approach where there is a word token. Base it on either name token or execution token. When such a word is at TOS, it is also in a register. Most controllers have displacement indirect addressing modes. By basing it on a base address token, it is easy to look up a name field, interpreter XT, compiling XT as well as follow the pointer to the next word. Thus, a header could consist of a small structure of pointers, pointing to various aspects of the word. Actual data can follow immediately, or be elsewhere, no one will know. RAM dat fields are in RAM, strings can be in an unaligned area.
+One variant could have name field starting at fixed offest, like:
+{ interpreter-XT, compile-XT, link-field, actual-name }
+After this, any same memory data an follow (pointed to from XT). This gives a lot of flexibility, XT would point to a docol with the compiled token following.
+It would make a more natural way to describe the separate interpreter/compilation semantics. Aliases also fits in naturally.
+**** TODO Create a new type class containing functions to build up parts of the header
+**** TODO Use dual XT, or more generally a kind of VTABLE, future word classes could extend the VTABLE
+*** TODO Factor out "new" words to be used
+*** TODO Read the paper about state words being harmful
+*** TODO Put definitions of the old style into a compatibility word set, core-compatibility.fs
+*** TODO Figure out how to deal with different semantics, if dual xt is acceptable or if we can find a better way
+*** TODO Think about constants, the numeric reader could really be a lot more flexible and featureful. Take a look at "The most elegant Forth interpreter"
+*** TODO What other word related tokens are useful? gforth might be worth looking at, but there may be others. It can also vary depending on the compilation approach being used.
+** TODO Do some pondering on how to define actual building blocks using type classes, to build up different ways to realize how words are implemented.

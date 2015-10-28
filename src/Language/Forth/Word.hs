@@ -7,7 +7,8 @@
 module Language.Forth.Word (ForthWord(..), WordId(..), WordKind(..),
                             WordFlags(..), LinkField, wordFlags, hasFlag,
                             name, wordSymbol, link, doer, wordId, wordKind,
-                            exitName, pdoName, ploopName, pploopName) where
+                            exitName, pdoName, ploopName, pploopName,
+                            pleaveName) where
 
 import Control.Lens
 import Data.Char
@@ -48,8 +49,9 @@ instance Show (ForthWord a) where
 -- | Test if a word has a certain flag set
 hasFlag flag word = word^.wordFlags & not . elem flag
 
-exitName, pdoName, ploopName, pploopName :: ByteString
+exitName, pdoName, ploopName, pploopName, pleaveName :: ByteString
 exitName   = "EXIT"
 pdoName    = "(DO)"
 ploopName  = "(LOOP)"
 pploopName = "(+LOOP)"
+pleaveName = "(LEAVE)"

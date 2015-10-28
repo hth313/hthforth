@@ -60,6 +60,7 @@ initialState target = FState [] [] [] target interpreterDictionary
 icompiler = Compiler defining icompile ilitComma
                      (icompileBranch branch) (icompileBranch branch0)
                      (icompileBranch ploop) (icompileBranch pplusLoop)
+                     (icompileBranch pleave)
                      ibackpatch irecurse istartDefining
                      icloseDefining abortDefining imm ireserveSpace
     where defining = isJust._idefining._dict
@@ -112,7 +113,7 @@ interpreterDictionary = IDict dict wids Nothing
           addWord pdoName InterpreterNative pdo
           addWord "LOOP" InterpreterNative (xloop compileLoop) >> makeImmediate
           addWord "+LOOP" InterpreterNative (xloop compilePlusLoop) >> makeImmediate
-          addWord "LEAVE" InterpreterNative leave
+          addWord "LEAVE" InterpreterNative xleave >> makeImmediate
           addWord "I" InterpreterNative rfetch
           addWord "BEGIN" InterpreterNative begin >> makeImmediate
           addWord "UNTIL" InterpreterNative until >> makeImmediate
@@ -260,10 +261,11 @@ xthen = docol [here, swap, xbackpatch, exit]
 xtBuiltin name idoer = liftM f (searchDict name)
   where  f (word, tt) = XT (_wordId <$> word) (Just name) (Just idoer) tt
 
-xdo = xtBuiltin pdoName pdo >>= \xt -> docol [cprim1 compile xt, here, exit]
-leave = updateState f  where
-  f s | _ : rs@(limit : _) <- _rstack s = newState s { _rstack = limit : rs }
-      | otherwise = emptyStack s
+xdo = xtBuiltin pdoName pdo >>= \xt -> docol [cprim1 compile xt,
+                                              rto, lit (Val 0), tor, tor, here, exit]
+xleave = docol [rto, rto, lit (Val 1), plus, here, tor, tor, tor,
+                cprim compileLeave, exit]
+
 begin = here
 until = docol [here, cprim compileBranch0, xbackpatch, exit]
 again = docol [here, cprim compileBranch, xbackpatch, exit]
@@ -290,7 +292,11 @@ does = updateState f  where
       | otherwise = abortWith "IP not on rstack" s
 
 -- Helper function that compile the ending loop word
-xloop cf = docol [here, cprim cf, xbackpatch, exit]
+xloop cf = docol [here, cprim cf, xbackpatch, patchLeaves, exit]
+patchLeaves = docol $ rto : rto : rto : begin
+  where begin = dup : branch0 done : lit (Val 1) : minus :
+                here : rto : xbackpatch : branch begin : done
+        done = [drop, tor, tor, exit]
 
 -- | Runtime words for DO-LOOPs
 pdo = updateState f  where
@@ -312,6 +318,11 @@ rloopHelper f s
                 _stack = falseVal : _stack s }
        else s { _rstack = rs,
                 _stack = trueVal : _stack s }
+    | otherwise = s
+
+pleave loc = modify loopDrop >> branch loc
+  where loopDrop s | _ : _ : rs <- _rstack s = s { _rstack = rs }
+                   | otherwise = s
 
 -- | Helper for arithmetics
 binary :: (CV a -> CV a -> CV a) -> FM a ()
