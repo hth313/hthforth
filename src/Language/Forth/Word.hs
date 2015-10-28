@@ -7,6 +7,7 @@
 module Language.Forth.Word (ForthWord(..), WordId(..), WordKind(..),
                             WordFlags(..), LinkField, wordFlags, hasFlag,
                             name, wordSymbol, link, doer, wordId, wordKind,
+                            maxNameLen,
                             exitName, pdoName, ploopName, pploopName,
                             pleaveName) where
 
@@ -45,6 +46,10 @@ instance Eq (ForthWord a) where
 
 instance Show (ForthWord a) where
     show = B.unpack . _name
+
+-- | Limit words to this length
+maxNameLen :: Int
+maxNameLen = 31
 
 -- | Test if a word has a certain flag set
 hasFlag flag word = word^.wordFlags & elem flag

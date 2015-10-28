@@ -514,11 +514,14 @@ store' = updateState f  where
 countedText :: CV a -> FM a ByteString
 countedText (Address (Just (Addr wid off))) = updateStateVal "" $ \s ->
     case IntMap.lookup (unWordId wid) (_variables s) of
-      Just (BufferField cmem) ->
-          let count = fromIntegral $ B.index (chunk cmem) off
-          in return (Right $ B.take count $ B.drop (off + 1) (chunk cmem), s)
+      Just (BufferField cmem) -> return (Right $ extractCString off cmem, s)
       otherwise -> abortWith "expected address pointing to char buffer" s
 countedText _ = abortMessage "expected address" >> return B.empty
+
+-- | Extract a string from a counted string
+extractCString off cmem =
+  let count = fromIntegral $ B.index (chunk cmem) off
+  in B.take count $ B.drop (off + 1) (chunk cmem)
 
 xt word = XT (_wordId <$> word) (_name <$> word) (_doer <$> word)
 
@@ -551,10 +554,12 @@ xword = docol [inputLine, fetch, toIn, fetch, plus, parseName, toIn, plusStore, 
                        | otherwise = (n, bs)
                      name = C.takeWhile (> ' ') nameStart
                      nameLength = C.length name
+                     limitedLength = min nameLength maxNameLen
                      pastdelim | name /= nameStart = 1  -- trailing delimiter present
                                | otherwise = 0
                      inAdjust = skipCount + nameLength + pastdelim
-                     countedField = textBuffer wordBufferWId (B.cons (fromIntegral nameLength) name)
+                     countedField = textBuffer wordBufferWId
+                                               (B.cons (fromIntegral limitedLength) name)
                  in newState s { _stack = Val (fromIntegral inAdjust) : Address (Just $ Addr wordBufferWId 0) : ss,
                                  _variables = IntMap.insert (unWordId wordBufferWId) countedField (_variables s) }
            otherwise -> abortWith "parseName failed" s
@@ -586,8 +591,8 @@ create' finalizer usingCreate = updateState f  where
   f s | isdefining s = abortWith "already compiling" s
       | Address (Just (Addr awid off)) : ss <- _stack s,
         Just (BufferField cmem) <- IntMap.lookup (unWordId awid) (_variables s) =
-        let name = B.drop (1 + off) $ chunk cmem
-        in newState $ (s^.compilerFuns.startDefining) (Create name finalizer usingCreate) (s & stack.~ss)
+          let name = extractCString off cmem
+          in newState $ (s^.compilerFuns.startDefining) (Create name finalizer usingCreate) (s & stack.~ss)
       | otherwise = abortWith "missing word name" s
 
 istartDefining Create{..} s =
