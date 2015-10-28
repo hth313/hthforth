@@ -23,15 +23,18 @@ import Data.Maybe
 import Data.Monoid
 import Data.Word
 import qualified Data.Map as Map
-import Data.Vector.Storable.ByteString.Char8 (ByteString)
 import qualified Data.IntMap as IntMap
 import qualified Data.Vector as V
 import System.Console.Haskeline
 import System.Exit
 import System.IO
+import Data.Vector.Storable.ByteString.Char8 (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
 import qualified Data.Vector.Storable.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy.Char8 as L
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.UTF8 as UTF8
+import Codec.Binary.UTF8.String
 import Language.Forth.Interpreter.Address
 import Language.Forth.Interpreter.CellMemory
 import Language.Forth.Interpreter.DataField
@@ -351,7 +354,7 @@ branch0 loc = dpop >>= \n -> if | isZero n -> ipdo loc
 ipdo ip' = modify (\s -> s { _ip = ip' }) >> next
 
 -- | Search dictionary for given named word.
-searchDict :: ByteString -> FM a (Maybe (ForthWord (FM a())), Maybe TargetToken)
+searchDict :: String -> FM a (Maybe (ForthWord (FM a())), Maybe TargetToken)
 searchDict n = gets (\s -> (findWord (s^.dict.idict) n,
                             findTargetToken ((arbitraryTargetDict s)^.tdict) n))
 
@@ -375,10 +378,9 @@ interpret = docol begin
         lab3 = state : fetch : zerop : branch0 skip1 : execute : branch begin : skip1
         skip1 = [compileComma, branch begin]
         parseNumber = dpop >>= countedText >>= parse where
-          parse bs = case readSigned readDec text of
-                       [(x,"")] -> lit $ Val x
-                       otherwise -> abortMessage $ text ++ " ?"
-                       where text = C.unpack bs
+          parse text = case readSigned readDec text of
+                         [(x,"")] -> lit $ Val x
+                         otherwise -> abortMessage $ text ++ " ?"
 
 evaluate = docol [inputLine, fetch, tor,              -- save input specification
                   inputLineLength, fetch, tor,
@@ -510,18 +512,23 @@ store' = updateState f  where
       | null (_stack s) = emptyStack s
       | otherwise = abortWith "Bad arguments to !" s
 
--- | Given a counted string, extract the actual text as an individual ByteString.
-countedText :: CV a -> FM a ByteString
+-- | Given a counted string, extract the actual text as an individual String.
+countedText :: CV a -> FM a String
 countedText (Address (Just (Addr wid off))) = updateStateVal "" $ \s ->
     case IntMap.lookup (unWordId wid) (_variables s) of
       Just (BufferField cmem) -> return (Right $ extractCString off cmem, s)
       otherwise -> abortWith "expected address pointing to char buffer" s
-countedText _ = abortMessage "expected address" >> return B.empty
+countedText _ = abortMessage "expected address" >> return ""
 
 -- | Extract a string from a counted string
 extractCString off cmem =
   let count = fromIntegral $ B.index (chunk cmem) off
-  in B.take count $ B.drop (off + 1) (chunk cmem)
+  in storableToString $ B.take count $ B.drop (off + 1) (chunk cmem)
+
+-- | We assume we get input in UTF-8 input, take the
+--   storable ByteString text and convert it into
+--   a proper string.
+storableToString = decode . B.unpack
 
 xt word = XT (_wordId <$> word) (_name <$> word) (_doer <$> word)
 

@@ -28,8 +28,6 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.State hiding (state)
 import Data.IntMap (IntMap)
 import Data.IntSet (IntSet)
-import Data.Vector.Storable.ByteString.Char8 (ByteString)
-import qualified Data.Vector.Storable.ByteString.Char8 as C
 import Data.Vector (Vector)
 import Language.Forth.Interpreter.Address
 import Language.Forth.Interpreter.CellMemory
@@ -72,7 +70,7 @@ data TDict t = TDict {
 }
 
 data TDefining t = TDefining  {
-    _wordName :: ByteString
+    _wordName :: String
   , _tdefiningSymbol :: Symbol
   , _twid :: WordId
   , _tLocals :: IntSet         -- ^ Index for desired local labels
@@ -151,7 +149,7 @@ addWord name kind doer =
     let (msym, mlabels') = case mlabels of
                              Nothing -> (Nothing, Nothing)
                              Just labels ->
-                               let (sym, labels') = addEntityLabel i (C.unpack name) labels
+                               let (sym, labels') = addEntityLabel i name labels
                                in (Just sym, Just labels')
         word = ForthWord name msym [] latest i kind doer
     in return ((), (Dictionary (Just word) hereRAM, is, mlabels'))

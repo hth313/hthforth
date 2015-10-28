@@ -22,10 +22,8 @@ import qualified Data.IntMap as IntMap
 import qualified Data.Map as Map
 import Data.Monoid
 import Data.Word
-import Data.Vector.Storable.ByteString (ByteString)
-import qualified Data.Vector.Storable.ByteString as B
-import qualified Data.Vector.Storable.ByteString.Char8 as C
-import qualified Data.ByteString.Char8 as C2
+import qualified Data.ByteString.Char8 as C
+import qualified Data.ByteString.UTF8 as UTF8
 import Language.Forth.Dictionary
 import Language.Forth.TargetPrimitive
 import Language.Forth.Word
@@ -59,14 +57,14 @@ codeGenerate dir pad (dict, words) =    header
   visit (Just word) = liftM2 (<>) (visit (_link word)) (state $ generate (substNative word))
   generate word prevLabel =
     let (bytes, chars) = nameString pad name
-        name = take namelen fullname
-        namelen = min maxNameLen (length fullname)
-        fullname = C.unpack $ _name word
+        name = C.take namelen fullname
+        namelen = min maxNameLen (C.length fullname)
+        fullname = UTF8.fromString (_name word)
         Just sym = word^.wordSymbol
         alignment | null bytes = mempty
                   | otherwise = insRec (dir $ BYTE bytes)
-        asciiRec | null chars = mempty
-                 | otherwise = insRec $ dir $ ASCII [C.pack chars]
+        asciiRec | C.null chars = mempty
+                 | otherwise = insRec $ dir $ ASCII [chars]
         thisLabel = Identifier sym
         status = ((thisLabel - prevLabel) `shiftLeft` linkSize)
                  .|. (Value $ fromIntegral namelen)
@@ -90,7 +88,7 @@ codeGenerate dir pad (dict, words) =    header
             labRec doconstSymbol <> doconstImpl <> next <>
             labRec dohereSymbol  <> hereImpl    <> next <>
             libCode
-  nameString pad name = (replicate (pad $ length name) 0, name)
+  nameString pad name = (replicate (pad $ C.length name) 0, name)
   tokenTable = case tokenTableLine of
                  Just entry ->
                    let tt (n, (m, word)) =

@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, TemplateHaskell #-}{-|
+{-# LANGUAGE TemplateHaskell #-}{-|
 
   Forth word definition.
 
@@ -13,9 +13,6 @@ module Language.Forth.Word (ForthWord(..), WordId(..), WordKind(..),
 
 import Control.Lens
 import Data.Char
-import Data.Vector.Storable.ByteString.Char8 (ByteString)
-import qualified Data.Vector.Storable.ByteString.Char8 as B
-import qualified Data.ByteString.Char8 as L
 import Translator.Symbol
 
 -- | Unique identifier for words.
@@ -31,7 +28,7 @@ data WordFlags = Immediate | CompileOnly deriving Eq
 
 -- | A Forth word
 data ForthWord a = ForthWord
-  { _name :: ByteString
+  { _name :: String
   , _wordSymbol :: Maybe Symbol  -- ^ Symbol used, valid for target words
   , _wordFlags :: [WordFlags]
   , _link :: LinkField a
@@ -45,7 +42,7 @@ instance Eq (ForthWord a) where
     a == b = _wordId a == _wordId b
 
 instance Show (ForthWord a) where
-    show = B.unpack . _name
+    show = _name
 
 -- | Limit words to this length
 maxNameLen :: Int
@@ -54,7 +51,7 @@ maxNameLen = 31
 -- | Test if a word has a certain flag set
 hasFlag flag word = word^.wordFlags & elem flag
 
-exitName, pdoName, ploopName, pploopName, pleaveName :: ByteString
+exitName, pdoName, ploopName, pploopName, pleaveName :: String
 exitName   = "EXIT"
 pdoName    = "(DO)"
 ploopName  = "(LOOP)"

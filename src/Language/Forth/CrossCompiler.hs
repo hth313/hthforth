@@ -37,7 +37,6 @@ import Language.Forth.Word
 import Translator.Assembler.InstructionSet
 import Translator.Assembler.Generate (IM, labRec, insList, recWrap, sizeIM)
 import qualified Data.ByteString.Lazy.Char8 as C
-import qualified Data.Vector.Storable.ByteString.Char8 as VC
 import Translator.Expression
 import Translator.Symbol
 
@@ -58,7 +57,7 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0
   defining = isJust . _tdefining . arbitraryTargetDict
   compile (XT _ _ _ (Just tt)) = addTokens $ wordToken tt
   compile val@Val{} = litComma val
-  compile (XT _ (Just name) _ _) = const (Left $ VC.unpack name ++ " ? (not known to target)")
+  compile (XT _ (Just name) _ _) = const (Left $ name ++ " ? (not known to target)")
   compile val = const (Left $ "cannot compile for target: " ++ show val)
   litComma val = addTokens $ literal $ cellToExpr val
   compileBranch   s = s { _targetDict = addBranch findBranch   0 (_targetDict s) }
@@ -84,7 +83,7 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0
                                   CREATE    -> (closeDefining1, dohere dict)
                                   DOCOL     -> (id, docol)
                                   DOCONST e -> (closeDefining1, doconst e)
-                    (sym, tlabels') = addEntityLabel wid (VC.unpack createName) (dict^.tlabels)
+                    (sym, tlabels') = addEntityLabel wid createName (dict^.tlabels)
                     (wid:wids') = dict^.twids
   closeDefining s = s { _targetDict = closeDefining1 $ _targetDict s }
   closeDefining1 dict = dict & tdefining.~Nothing &

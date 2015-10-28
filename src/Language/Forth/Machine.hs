@@ -91,7 +91,7 @@ data Compiler a = Compiler {
 
 -- | Data record used by startDefining
 data Create a = Create {
-    createName :: V.ByteString
+    createName :: String
   , finalizer :: [a] -> a
   , createStyle :: CreateStyle
 }

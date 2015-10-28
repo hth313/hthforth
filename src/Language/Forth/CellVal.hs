@@ -18,7 +18,6 @@ import Data.Map (Map)
 import Data.Word
 import Language.Forth.Word
 import Data.Vector.Storable.ByteString (ByteString)
-import qualified Data.Vector.Storable.ByteString.Char8 as SB
 import Language.Forth.Interpreter.Address
 import Translator.Expression (Expr(Value, Identifier))
 import Translator.Symbol
@@ -32,7 +31,7 @@ data TargetToken = TargetToken WordId Symbol
 data CellVal a =
     Address (Maybe Addr)    -- ^ An address value
   | Val Cell                -- ^ A numeric value
-  | XT (Maybe WordId) (Maybe ByteString) (Maybe a) (Maybe TargetToken)
+  | XT (Maybe WordId) (Maybe String) (Maybe a) (Maybe TargetToken)
                             -- ^ Execution token
   | IP [a]                  -- ^ Pushed interpretive pointer
   | Text ByteString         -- ^ Some text buffer
@@ -55,7 +54,7 @@ instance Show (CellVal a) where
   show (Address (Just adr))   = show adr
   show (Address Nothing)      = "null address"
   show (Val n)                = show n
-  show (XT _ (Just name) _ _) = "xt(" ++ SB.unpack name ++ ")"
+  show (XT _ (Just name) _ _) = "xt(" ++ name ++ ")"
   show (XT _ Nothing _ _)     = "xt()"
   show IP{}                   = "ip-valuep"
   show (Text text)            = show text
