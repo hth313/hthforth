@@ -160,7 +160,7 @@ makeImmediate :: State (Dictionary a, [WordId], Maybe (Labels WordId)) ()
 makeImmediate = addFlagM Immediate
 
 addFlagM flag = modify (_1.latest._Just.wordFlags%~(flag:))
-addFlag flag = latest._Just.wordFlags%~(Immediate:)
+addFlag flag = latest._Just.wordFlags%~(flag:)
 
 -- | Reserve space in data memory
 targetAllot :: Expr -> TDict t -> TDict t
