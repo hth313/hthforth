@@ -72,7 +72,7 @@ codeGenerate dir pad (dict, words) =    header
                 flagval CompileOnly = 1 `shiftL` 6
                 flagval _           = 0
         compileXT = Value 0
-        tail | _name word == "EXIT" = labRec nextSymbol <> nextImpl
+        tail | _name word == exitName = labRec nextSymbol <> nextImpl
              | word^.wordKind == Native = next
              | otherwise = mempty
     in (   alignment

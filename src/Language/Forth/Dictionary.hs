@@ -115,7 +115,7 @@ newDictionary :: Primitive a =>
 newDictionary wids extras mLabels =
   execState build (Dictionary Nothing (Value 0), wids, mLabels)  where
     build = do
-      addWord "EXIT"  Native exit
+      addWord exitName  Native exit
       addWord "EXECUTE" Native execute
       addWord "SWAP" Native swap
       addWord "DROP" Native drop
