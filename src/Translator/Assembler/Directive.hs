@@ -25,10 +25,10 @@ data GNUDirective = BYTE [Expr]
                   | TEXT (Maybe Int)
 
 instance InstructionSet GNUDirective where
-  disassemble (BYTE vals)       = (".byte",    Just (map show vals))
-  disassemble (WORD vals)       = (".word",    Just (map show vals))
-  disassemble (LONG vals)       = (".long",    Just (map show vals))
-  disassemble (ASCII strings)   = (".ascii",   Just (map (concatMap showChar . C.unpack) strings))
+  disassemble (BYTE vals)     = (".byte",    Just (map show vals))
+  disassemble (WORD vals)     = (".word",    Just (map show vals))
+  disassemble (LONG vals)     = (".long",    Just (map show vals))
+  disassemble (ASCII strings) = (".ascii",   Just (map (show . concatMap showChar . C.unpack) strings))
   disassemble (FILL ns)         = (".fill",    Just (map show ns))
   disassemble (SECTION name []) = (".section", Just [name])
   disassemble (SECTION name fs) = (".section", Just [name, show fs])
