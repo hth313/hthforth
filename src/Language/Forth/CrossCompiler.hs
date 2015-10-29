@@ -21,8 +21,6 @@ import Control.Lens
 import Data.Foldable (fold, foldMap)
 import Data.Function
 import Data.List
-import qualified Data.Map as Map
-import qualified Data.Vector as V
 import qualified Data.IntMap as IntMap
 import qualified Data.IntSet as IntSet
 import Data.Maybe
@@ -32,11 +30,9 @@ import Language.Forth.Dictionary
 import Language.Forth.Machine
 import Language.Forth.Primitive
 import Language.Forth.TargetPrimitive
-import Language.Forth.Target (TargetKey)
 import Language.Forth.Word
 import Translator.Assembler.InstructionSet
 import Translator.Assembler.Generate (IM, labRec, insList, recWrap, sizeIM)
-import qualified Data.ByteString.Lazy.Char8 as C
 import Translator.Expression
 import Translator.Symbol
 

@@ -28,12 +28,9 @@ import qualified Data.Vector as V
 import System.Console.Haskeline
 import System.Exit
 import System.IO
-import Data.Vector.Storable.ByteString.Char8 (ByteString)
 import qualified Data.Vector.Storable.ByteString as B
 import qualified Data.Vector.Storable.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy.Char8 as L
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.UTF8 as UTF8
 import Codec.Binary.UTF8.String
 import Language.Forth.Interpreter.Address
 import Language.Forth.Interpreter.CellMemory
@@ -48,9 +45,6 @@ import Language.Forth.Target
 import Language.Forth.Target.CortexM (codeGenerateCortexM)
 import Language.Forth.Target.MSP430 (codeGenerateMSP430)
 import Language.Forth.Word
-import Translator.Symbol
-import Translator.Assembler.InstructionSet
-import Translator.Assembler.Generate (IM)
 import Util.Memory
 import Prelude hiding (drop, until, repeat)
 import qualified Prelude as Prelude

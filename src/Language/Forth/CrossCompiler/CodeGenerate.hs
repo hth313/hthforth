@@ -19,7 +19,6 @@ import Data.Bits
 import Data.Char
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
-import qualified Data.Map as Map
 import Data.Monoid
 import Data.Word
 import qualified Data.ByteString.Char8 as C
