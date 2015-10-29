@@ -76,7 +76,7 @@ data Compiler a = Compiler {
   , _backpatch :: CV a -> CV a -> FState a -> FState a
   , _recurse :: FState a -> FState a
     -- ^ Compile a recursive call back to the start of current definition
-  , _startDefining ::Create (FM a ()) -> FState a -> FState a
+  , _startDefining :: Create (FM a ()) -> FState a -> FState a
     -- ^ Start defining a new word, bring the name and whether we are
     --   using CREATE to build a custom word or a colon definition.
   , _closeDefining :: FState a -> FState a
