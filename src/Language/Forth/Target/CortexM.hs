@@ -102,24 +102,26 @@ instance TargetPrimitive ARMInstr where
   literal val = colonToken (E.Identifier litSymbol) <> colonToken val
   labelOffset sym = colonToken $ E.Identifier sym - E.locationCounter
   docol = insRec $ bl (Mem $ E.Identifier docolSymbol)
-  dohere dict = insRec (bl (Mem $ E.Identifier dohereSymbol)) <>
-                insRec (Directive $ WORD [E.Identifier ramBaseSymbol + dict^.tdict.hereRAM])
+  dohere dict (TargetToken wid _) =
+    insRec (bl (Mem $ E.Identifier dohereSymbol)) <>
+    insRec (Directive $ LONG [E.Identifier ramBaseSymbol + dict^.tdict.hereRAM]) <>
+    colonToken (E.Value $ fromIntegral $ unWordId wid)
   doconst e = insRec (bl (Mem $ E.Identifier doconstSymbol)) <>
               token [e]
   next    = insRec $ b (Mem $ E.Identifier nextSymbol)
   lit = pushStack tos <>
         insRec (ldr tos (PostIndexed ip 4))
 
-  docolImpl   = insRec (str ip (PreIndexed rstack 4)) <>
+  docolImpl   = pushRStack ip <>
                 insRec (mov ip (RegOp LR))
   doconstImpl = pushStack tos <>
                 insRec (ldr tos (RegIndOffset LR 0))
-  hereImpl    = (pushStack tos) <>
+  hereImpl    = pushStack tos <>
                 insRec (ldr tos (RegIndOffset LR 0)) <>
-                insRec (ldr tos (RegIndOffset tos 0))
+                insRec (ldrh w (RegIndOffset LR 4)) <>
+                insRec (ldr PC (RegRegInd ftable w (OpLSL 2)))
   nextImpl    = insRec (ldrh w (PostIndexed ip 2)) <>
-                insRec (ldr w (RegRegInd ftable w (OpLSL 2))) <>
-                insRec (ldr PC (PostIndexed w 4))
+                insRec (ldr PC (RegRegInd ftable w (OpLSL 2)))
 
   resetRStack = insRec (ldr rstack (RegIndOffset ftable rstackResetOffset))
   resetStack  = insRec (ldr  stack (RegIndOffset ftable  stackResetOffset))

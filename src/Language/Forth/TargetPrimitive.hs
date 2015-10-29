@@ -33,8 +33,9 @@ class TargetPrimitive t where
   -- | Slice of code that is first on a constant definition
   doconst :: Expr -> IM t
 
-  -- | Slice of code to compile a datafield pointer
-  dohere :: TDict t -> IM t
+  -- | Slice of code to compile a datafield pointer and the word
+  --   to be executed after it
+  dohere :: TDict t -> TargetToken -> IM t
 
   -- | Normal way to end a primitive word
   next :: IM t

@@ -137,8 +137,9 @@ instance TargetPrimitive Instr430 where
   docol   = call (Imm (Identifier docolSymbol))
   doconst e = call (Imm (Identifier doconstSymbol)) <>
               colonToken e
-  dohere dict  = call (Imm (Identifier dohereSymbol)) <>
-                 insRec (Directive $ WORD [Identifier ramBaseSymbol + dict^.tdict.hereRAM])
+  dohere dict (TargetToken _ _) =
+    call (Imm (Identifier dohereSymbol)) <>
+    insRec (Directive $ WORD [Identifier ramBaseSymbol + dict^.tdict.hereRAM])
   next = jmp (Imm (Identifier nextSymbol))
   lit  = pushStack tos <>
          mov W (indirectInc ip) tos

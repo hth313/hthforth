@@ -76,11 +76,12 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0
                        tlabels.~tlabels' &
                        twids.~wids'
               where (f, doer) = case createStyle of
-                                  CREATE    -> (closeDefining1, dohere dict)
+                                  CREATE    -> (closeDefining1, dohere dict tt)
                                   DOCOL     -> (id, docol)
                                   DOCONST e -> (closeDefining1, doconst e)
                     (sym, tlabels') = addEntityLabel wid createName (dict^.tlabels)
                     (wid:wids') = dict^.twids
+                    Just tt = findTargetToken (dict^.tdict) exitName
   closeDefining s = s { _targetDict = closeDefining1 $ _targetDict s }
   closeDefining1 dict = dict & tdefining.~Nothing &
                                tdict.latest.~Just newWord &
