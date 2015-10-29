@@ -528,7 +528,7 @@ extractCString off cmem =
 -- | We assume we get input in UTF-8 input, take the
 --   storable ByteString text and convert it into
 --   a proper string.
-storableToString = decode . B.unpack
+storableToString = map toUpper . decode . B.unpack
 
 xt word = XT (_wordId <$> word) (_name <$> word) (_doer <$> word)
 
