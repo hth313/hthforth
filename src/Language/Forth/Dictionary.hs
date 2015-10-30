@@ -10,7 +10,7 @@ module Language.Forth.Dictionary (newInterpreterDictionary, newTargetDictionary,
                                   idict, iwids, idefining, compileList,
                                   latest, tdict, tdefining, twids, twords, tlabels,
                                   tcompileList, wordName, tdefiningSymbol, twid,
-                                  tLocals, tpatchList,
+                                  tLocals, tpatchList, tDoesCompileList,
                                   DefiningWrapper(..), TDefining(..), hereRAM,
                                   IDefining(..),
                                   definingWord, patchList,
@@ -70,11 +70,12 @@ data TDict t = TDict {
 }
 
 data TDefining t = TDefining  {
-    _wordName :: String
+    _wordName :: Maybe String
   , _tdefiningSymbol :: Symbol
   , _twid :: WordId
   , _tLocals :: IntSet         -- ^ Index for desired local labels
   , _tcompileList :: IM t
+  , _tDoesCompileList :: Maybe (TargetToken -> IM t)
   , _tpatchList :: [(Int, Int)]               -- ^ (loc, dest) list to patch
 }
 
@@ -151,7 +152,7 @@ addWord name kind doer =
                              Just labels ->
                                let (sym, labels') = addEntityLabel i name labels
                                in (Just sym, Just labels')
-        word = ForthWord name msym [] latest i kind doer
+        word = ForthWord (Just name) msym [] latest i kind doer
     in return ((), (Dictionary (Just word) hereRAM, is, mlabels'))
 
 makeImmediate :: State (Dictionary a, [WordId], Maybe (Labels WordId)) ()
@@ -170,6 +171,6 @@ findTargetToken dict name = targetToken <$> findWord dict name  where
     in TargetToken (word^.wordId) sym
 
 findWord dict n = f (dict^.latest)
-  where f jw@(Just word) | n == word^.name = jw
+  where f jw@(Just word) | Just n == word^.name = jw
                          | otherwise = f (word^.link)
         f Nothing = Nothing

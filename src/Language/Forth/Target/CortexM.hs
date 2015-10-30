@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, UndecidableInstances, OverloadedStrings #-}
 {-# LANGUAGE ImpredicativeTypes #-}
 {-
@@ -102,10 +103,11 @@ instance TargetPrimitive ARMInstr where
   literal val = colonToken (E.Identifier litSymbol) <> colonToken val
   labelOffset sym = colonToken $ E.Identifier sym - E.locationCounter
   docol = insRec $ bl (Mem $ E.Identifier docolSymbol)
-  dohere dict (TargetToken wid _) =
-    insRec (bl (Mem $ E.Identifier dohereSymbol)) <>
-    insRec (Directive $ LONG [E.Identifier ramBaseSymbol + dict^.tdict.hereRAM]) <>
-    colonToken (E.Value $ fromIntegral $ unWordId wid)
+  dohere dict tt = (does tt, does)
+    where does (TargetToken wid _) =
+            insRec (bl (Mem $ E.Identifier dohereSymbol)) <>
+            insRec (Directive $ LONG [E.Identifier ramBaseSymbol + dict^.tdict.hereRAM]) <>
+            colonToken (E.Value $ fromIntegral $ unWordId wid)
   doconst e = insRec (bl (Mem $ E.Identifier doconstSymbol)) <>
               token [e]
   next    = insRec $ b (Mem $ E.Identifier nextSymbol)
@@ -152,19 +154,21 @@ instance TargetPrimitive ARMInstr where
              insRec (B AL Any (Mem $ E.Identifier "BRANCH"))
   leave = insRec (ldr w (PostIndexed rstack 8))
 
-  substNative word = case word^.name of
-                       "ROT" -> repl (popStack w     <>
-                                      popStack temp1 <>
-                                      pushStack w    <>
-                                      pushStack tos  <>
-                                      insRec (mov tos (RegOp temp1)) <>
-                                      next)
-                       "(DO)" -> repl (popStack w     <>
-                                       pushRStack w   <>
-                                       pushRStack tos <>
-                                       popStack tos <>
-                                       next)
-                       otherwise -> word
+  substNative word | Just n <- word^.name =
+                        case n of
+                          "ROT" -> repl (popStack w     <>
+                                         popStack temp1 <>
+                                         pushStack w    <>
+                                         pushStack tos  <>
+                                         insRec (mov tos (RegOp temp1)) <>
+                                         next)
+                          "(DO)" -> repl (popStack w     <>
+                                          pushRStack w   <>
+                                          pushRStack tos <>
+                                          popStack tos <>
+                                          next)
+                          otherwise -> word
+                   | otherwise = word
      where repl code = word & doer.~code
 
   tokenTableLine = Just $ \n -> insRec $ Directive $ LONG [n]

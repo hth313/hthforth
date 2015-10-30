@@ -19,6 +19,7 @@ import Data.Bits
 import Data.Char
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
+import Data.Maybe
 import Data.Monoid
 import Data.Word
 import qualified Data.ByteString.Char8 as C
@@ -58,7 +59,8 @@ codeGenerate dir pad (dict, words) =    header
     let (bytes, chars) = nameString pad name
         name = C.take namelen fullname
         namelen = min maxNameLen (C.length fullname)
-        fullname = UTF8.fromString (_name word)
+        fullname = UTF8.fromString rawname
+        Just rawname = _name word
         Just sym = word^.wordSymbol
         alignment | null bytes = mempty
                   | otherwise = insRec (dir $ BYTE bytes)
@@ -72,16 +74,20 @@ codeGenerate dir pad (dict, words) =    header
                 flagval CompileOnly = 1 `shiftL` 6
                 flagval _           = 0
         compileXT = Value 0
-        tail | _name word == exitName = labRec nextSymbol <> nextImpl
+        tail | _name word == Just exitName = labRec nextSymbol <> nextImpl
              | word^.wordKind == Native = next
              | otherwise = mempty
-    in (   alignment
-        <> asciiRec                    -- name field
-        <> cellValue status            -- link, name length and flags
-        <> cellValue compileXT
+        header | nameless = mempty
+               | otherwise = alignment <> asciiRec <> cellValue status <>
+                             cellValue compileXT
+        prevNamedLabel | nameless = prevLabel
+                       | otherwise = thisLabel
+        nameless = isNothing (_name word)
+    in (   insEmpty
+        <> header
         <> labRec sym <> _doer word    -- XT points here
         <> tail,
-        thisLabel)
+        prevNamedLabel)
   header = datafields <>  text
   natives = labRec docolSymbol   <> docolImpl   <> next <>
             labRec doconstSymbol <> doconstImpl <> next <>

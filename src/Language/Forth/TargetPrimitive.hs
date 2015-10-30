@@ -34,8 +34,10 @@ class TargetPrimitive t where
   doconst :: Expr -> IM t
 
   -- | Slice of code to compile a datafield pointer and the word
-  --   to be executed after it
-  dohere :: TDict t -> TargetToken -> IM t
+  --   to be executed after it.
+  --   Should return one code slice that uses given default
+  --   DOES> action and one that can be updated later.
+  dohere :: TDict t -> TargetToken -> (IM t, TargetToken -> IM t)
 
   -- | Normal way to end a primitive word
   next :: IM t

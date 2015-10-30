@@ -28,7 +28,7 @@ data WordFlags = Immediate | CompileOnly deriving Eq
 
 -- | A Forth word
 data ForthWord a = ForthWord
-  { _name :: String
+  { _name :: Maybe String
   , _wordSymbol :: Maybe Symbol  -- ^ Symbol used, valid for target words
   , _wordFlags :: [WordFlags]
   , _link :: LinkField a
@@ -42,7 +42,9 @@ instance Eq (ForthWord a) where
     a == b = _wordId a == _wordId b
 
 instance Show (ForthWord a) where
-    show = _name
+    show word = case _name word of
+                  Just name -> name
+                  otherwise -> "anonymous" ++ show (_wordId word)
 
 -- | Limit words to this length
 maxNameLen :: Int

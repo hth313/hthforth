@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE FlexibleContexts, RankNTypes, OverloadedStrings #-}
 {- |
@@ -14,7 +15,8 @@
 -}
 
 module Language.Forth.CrossCompiler (crossCompiler, targetDictionary,
-                                     arbitraryTargetDict, targetColonHere) where
+                                     arbitraryTargetDict, targetColonHere,
+                                     alterTargetDoes) where
 
 import Control.Applicative
 import Control.Lens
@@ -49,7 +51,8 @@ import Language.Forth.Target.CortexM ()
 crossCompiler = Compiler defining compile litComma compileBranch compileBranch0
                          compileLoop compilePlusLoop compileLeave
                          backpatch recurse startDefining
-                         closeDefining abortDefining setImmediate reserveSpace where
+                         closeDefining abortDefining
+                         setImmediate reserveSpace True where
   defining = isJust . _tdefining . arbitraryTargetDict
   compile (XT _ _ _ (Just tt)) = addTokens $ wordToken tt
   compile val@Val{} = litComma val
@@ -72,22 +75,37 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0
   setImmediate1 dict = dict & tdict%~(addFlag Immediate)
   startDefining Create{..} s = s { _targetDict = startDefining1 $ _targetDict s }
     where startDefining1 dict =
-            f $ dict & tdefining.~(Just (TDefining createName sym wid IntSet.empty doer [])) &
+            f $ dict & tdefining.~(Just (TDefining (Just createName) sym wid IntSet.empty
+                                                   doer does [])) &
                        tlabels.~tlabels' &
                        twids.~wids'
-              where (f, doer) = case createStyle of
-                                  CREATE    -> (closeDefining1, dohere dict tt)
-                                  DOCOL     -> (id, docol)
-                                  DOCONST e -> (closeDefining1, doconst e)
+              where (f, doer, does) =
+                      case createStyle of
+                        CREATE    -> let (doer, does) = dohere dict tt
+                                     in (closeDefining1, doer, Just does)
+                        DOCOL     -> (id, docol, Nothing)
+                        DOCONST e -> (closeDefining1, doconst e, Nothing)
                     (sym, tlabels') = addEntityLabel wid createName (dict^.tlabels)
                     (wid:wids') = dict^.twids
                     Just tt = findTargetToken (dict^.tdict) exitName
+  startDefining CreateNameless{} s = pushxt $ s { _targetDict = startNameless $ _targetDict s }
+    where startNameless dict =
+            dict & tdefining.~(Just (TDefining Nothing sym wid
+                                               IntSet.empty docol Nothing [])) &
+                   twids.~wids'
+              where (wid:wids') = dict^.twids
+                    sym = mkSymbol $ "anonymous" ++ show wid
+          pushxt s =
+            let Just tdef = (arbitraryTargetDict s)^.tdefining
+                xt = XT Nothing Nothing Nothing (Just tt)
+                tt = TargetToken (tdef^.twid) (tdef^.tdefiningSymbol)
+            in s { _stack = xt : _stack s }
   closeDefining s = s { _targetDict = closeDefining1 $ _targetDict s }
   closeDefining1 dict = dict & tdefining.~Nothing &
                                tdict.latest.~Just newWord &
                                twords%~(IntMap.insert (unWordId wid) newWord)
     where newWord = ForthWord name (Just sym) [] (dict^.tdict.latest) wid Colon body'
-          (Just (TDefining name sym wid locals body patchList)) = dict^.tdefining
+          (Just (TDefining name sym wid locals body _ patchList)) = dict^.tdefining
           bps = map (_1%~(1+)) $ sortBy (compare `on` fst) patchList
           body' | IntSet.null locals = body
                 | otherwise = f (zip [0..] (insList body)) (IntSet.toList locals) bps
@@ -99,6 +117,7 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0
                       f nxs@((n, x):nxs') nls bps
                         | otherwise = recWrap x <> f nxs' nls bps
                       f nxs [] [] = mconcat $ map (recWrap . snd) nxs
+  does s | s^.compilerFunsSave & isNothing = Left "DOES> need COMPILER-WORD context, not currently supported by cross compiler"
   reserveSpace n s = s { _targetDict = targetAllot (fromIntegral n) (_targetDict s) }
   findBranch   dict = findTargetToken dict "BRANCH"
   findBranch0  dict = findTargetToken dict "BRANCH0"
@@ -116,7 +135,7 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0
 
 addTokens :: (forall t. (InstructionSet t, Primitive (IM t), TargetPrimitive t) => IM t) -> FState a -> Either String (FState a)
 addTokens vs s = Right $
-   s { _targetDict = (_targetDict s) & tdefining._Just.tcompileList%~(<> vs) }
+   s { _targetDict = _targetDict s & tdefining._Just.tcompileList%~(<> vs) }
 
 
 targetDictionary :: (InstructionSet t, Primitive (IM t), TargetPrimitive t) => TDict t
@@ -144,3 +163,8 @@ arbitraryTargetDict = _targetDict
 targetColonHere :: FState a -> Maybe (CV a)
 targetColonHere s = hereColon <$> ((arbitraryTargetDict s)^.tdefining)
   where hereColon tdef = HereColon (tdef^.twid) (tdef^.tcompileList & sizeIM)
+
+alterTargetDoes tt s = s { _targetDict = f (_targetDict s) }
+  where f s | Just doesUpdate <- s^.tdefining._Just.tDoesCompileList =
+                s & tdefining._Just.tcompileList.~(doesUpdate tt)
+            | otherwise = s

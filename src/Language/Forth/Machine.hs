@@ -6,11 +6,13 @@
 -}
 
 module Language.Forth.Machine (FM, FState(..), CV, module Control.Monad.Trans.State,
-                               stack, rstack, ip, targetDict, dict, compilerFuns, variables,
+                               stack, rstack, ip, targetDict, dict,
+                               compilerFuns, compilerFunsSave, variables,
                                Compiler(..), defining, compile, litComma, backpatch,
                                compileBranch, compileBranch0, recurse, closeDefining,
                                compileLoop, compilePlusLoop, compileLeave,
-                               startDefining, abortDefining, setImmediate, reserveSpace,
+                               startDefining, abortDefining, crossCompiling,
+                               setImmediate, reserveSpace,
                                Create(..), CreateStyle(..)) where
 
 import Control.Lens
@@ -50,6 +52,11 @@ data FState a = FState
   , _oldHandles :: [WordId]         -- ^ Unused handles after reading source files
   , _stringLiterals :: Map V.ByteString Addr
   , _compilerFuns :: Compiler a
+  , _compilerFunsSave :: Maybe (Compiler a)
+    -- ^ Saved compiler functions record, used when we temporarily switch
+    --   to another set of compiler functions.
+    --   Typically used when we define a compiler word at the interpreter
+    --   level while being in the cross compiler.
   , _targetDict :: forall t. (InstructionSet t, Primitive (IM t), TargetPrimitive t) =>
                    TDict t          -- ^ Cross compiler dictionary
   }
@@ -87,6 +94,8 @@ data Compiler a = Compiler {
     -- ^ Set the immediate bit in the last defined word
   , _reserveSpace :: Cell -> FState a -> FState a
   -- ^ Reserve space in data memory
+  , _crossCompiling :: Bool
+  -- ^ Is this a cross compiler?
   }
 
 -- | Data record used by startDefining
@@ -95,6 +104,7 @@ data Create a = Create {
   , finalizer :: [a] -> a
   , createStyle :: CreateStyle
 }
+ | CreateNameless { finalizer :: [a] -> a }
 
 data CreateStyle = DOCOL | CREATE | DOCONST Expr deriving Eq
 

@@ -51,7 +51,7 @@ import qualified Prelude as Prelude
 
 
 initialState target = FState [] [] [] target interpreterDictionary
-                             IntMap.empty [] Map.empty icompiler targetDictionary
+                             IntMap.empty [] Map.empty icompiler Nothing targetDictionary
 
 
 icompiler = Compiler defining icompile ilitComma
@@ -59,7 +59,7 @@ icompiler = Compiler defining icompile ilitComma
                      (icompileBranch ploop) (icompileBranch pplusLoop)
                      (icompileBranch pleave)
                      ibackpatch irecurse istartDefining
-                     icloseDefining abortDefining imm ireserveSpace
+                     icloseDefining abortDefining imm ireserveSpace False
     where defining = isJust._idefining._dict
           abortDefining = dict.idefining.~Nothing
           imm = dict.idict%~(addFlag Immediate)
@@ -96,7 +96,7 @@ interpreterDictionary = IDict dict wids Nothing
           addWord ":" InterpreterNative colon
           addWord ";" InterpreterNative semicolon >> makeImmediate
           addWord "CREATE" InterpreterNative create
-          addWord "DOES>" InterpreterNative does
+          addWord "DOES>" InterpreterNative does >> makeImmediate
           addWord "COMPILE," InterpreterNative compileComma
           addWord "IMMEDIATE" InterpreterNative immediate
           addWord "HERE" InterpreterNative here
@@ -123,7 +123,7 @@ interpreterDictionary = IDict dict wids Nothing
           addWord "TREG" InterpreterNative treg
           addWord "PAD" InterpreterNative pad
           addWord "STRING," InterpreterNative compileString
-          addWord "LIT," InterpreterNative (dpop >>= \x -> cprim1 litComma x)
+          addWord "LIT," InterpreterNative xlit
           addWord "ALLOT" InterpreterNative allot
           addWord ">BODY" InterpreterNative toBody
           addWord "ACCEPT" InterpreterNative accept
@@ -133,6 +133,7 @@ interpreterDictionary = IDict dict wids Nothing
           addWord "KEY" InterpreterNative key
           addWord "RECURSE" InterpreterNative (cprim recurse) >> makeImmediate
           addWord "CROSS-COMPILER" InterpreterNative crossCompileSetup
+          addWord "COMPILER-WORD" InterpreterNative compilerWord
           addWord "INTERPRETER" InterpreterNative interpreterCompileSetup
           addWord "DUMP-CORTEXM" InterpreterNative (targetCodegen codeGenerateCortexM)
           addWord "DUMP-MSP430" InterpreterNative (targetCodegen codeGenerateMSP430)
@@ -220,6 +221,12 @@ cprim cf = updateState f  where
   f s | isdefining s = newState $ s^.compilerFuns.cf $ s
       | otherwise = notDefining s
 
+cprimE cf = updateState f  where
+  f s | isdefining s = case s^.compilerFuns.cf $ s of
+                         Right s -> newState s
+                         Left msg -> abortWith msg s
+      | otherwise = notDefining s
+
 cprim1 cf arg = updateState f  where
   f s | isdefining s = case (s^.compilerFuns.cf) arg s of
                          Right s -> newState s
@@ -281,7 +288,29 @@ semicolon = xtBuiltin exitName exit >>= \xt ->
 compileComma = dpop >>= \x -> cprim1 compile x
 immediate = updateState $ \s -> newState $ s^.compilerFuns.setImmediate $ s
 
-does = updateState f  where
+xlit = dpop >>= cprim1 litComma
+
+does =
+  let f s | s^.compilerFuns.crossCompiling =
+              abortWith "DOES> currently requires COMPILER-WORD context" s
+          | Just cc <- s^.compilerFunsSave, cc^.crossCompiling = return (Right $ docol [
+              -- Create a new nameless word for target ( -- xt )
+              state, fetch,
+              updateState $ \s -> newState $ (cc^.startDefining) (CreateNameless docol) s,
+              compileTargetDoes,
+              semicolon,
+              state, store,
+              exit], s)
+          | otherwise = return (Right (cprim1 compile (XT Nothing Nothing (Just idoes) Nothing)),
+                                s)
+      compileTargetDoes = cprim1 compile . mkxt =<< dpop
+        where mkxt (XT _ _ _ (Just tt)) = XT Nothing Nothing (Just $ targetDoes tt) Nothing
+      targetDoes tt = updateState (newState . alterTargetDoes tt)
+  in do
+    action <- updateStateVal (return ()) f
+    action
+
+idoes = updateState f  where
   f s | IP ip' : rs <- _rstack s, Just wid <- s^?dict.idict.latest._Just.wordId =
           let dobody = docol (litAdr wid : _ip s)
           in newState $ s & dict.idict.latest._Just.doer.~dobody & ip.~ip' & rstack.~rs
@@ -403,7 +432,8 @@ litAdr = lit . adrcv
 adrcv wid = Address (Just $ Addr wid 0)
 
 -- | Forth level error handling.
-abort = docol [modify (\s -> (s^.compilerFuns.abortDefining $ s) & stack.~[]) >> next,
+abort = docol [modify (\s -> (s^.compilerFuns.abortDefining $ s) &
+                              stack.~[] & restoreCompiler) >> next,
                lit (Val 0), state, store, quit]
 
 emptyStack = abortWith "empty stack"
@@ -524,7 +554,7 @@ extractCString off cmem =
 --   a proper string.
 storableToString = map toUpper . decode . B.unpack
 
-xt word = XT (_wordId <$> word) (_name <$> word) (_doer <$> word)
+xt word = XT (_wordId <$> word) (join $ _name <$> word) (_doer <$> word)
 
 -- | Find the name (counted string) in the dictionary
 --   ( c-addr -- c-addr 0 | xt 1 | xt -1 )
@@ -605,12 +635,16 @@ istartDefining Create{..} s =
         where reveal = case createStyle of
                          DOCOL -> id  -- do not reveal immediately
                          otherwise -> s^.compilerFuns.closeDefining
-      defining = IDefining code [] finalizer (ForthWord createName Nothing [] linkhead wid Colon abort)
+      defining = IDefining code [] finalizer (ForthWord (Just createName) Nothing [] linkhead wid Colon abort)
   in cl $ s & variables.~variables' & dict.iwids.~wids' & dict.idefining.~(Just defining)
 
 reveal = updateState f  where
-  f s | isdefining s = newState $ s^.compilerFuns.closeDefining $ s
+  f s | isdefining s = newState $ restoreCompiler $ s^.compilerFuns.closeDefining $ s
       | otherwise = notDefining s
+
+restoreCompiler s = case s^.compilerFunsSave of
+                      Nothing -> s
+                      Just cf -> s & compilerFuns.~cf & compilerFunsSave.~Nothing
 
 -- | Close the word being defined.
 icloseDefining :: FState t -> FState t
@@ -713,6 +747,15 @@ targetCodegen codeGenerate = docol [xword, dump, exit]
 
 crossCompileSetup = updateState $ \s -> newState $ s & compilerFuns.~crossCompiler
 interpreterCompileSetup = updateState $ \s -> newState $ s & compilerFuns.~icompiler
+
+-- | Next word is a compiler word intended for the interpreter, no matter what
+--   compiler we are using.
+--   Save the previous setting, to be restored at reveal (or abort), then
+--   switch to using the interpreter.
+compilerWord = updateState f  where
+  f s | (s^.compilerFuns.defining) s = abortWith "COMPILER-WORD cannot be used while defining" s
+      | otherwise = newState $ s & compilerFuns.~icompiler &
+                                   compilerFunsSave.~(Just $ s^.compilerFuns)
 
 -- | Compile a string literal. We expect to get a string pointer (caddr u) on
 --   the stack pointing to some character buffer. Compile a string literal
