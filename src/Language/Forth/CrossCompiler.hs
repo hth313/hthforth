@@ -69,8 +69,7 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0
       where bp dict = dict & tdefining._Just.tpatchList%~((:) (loc, dest)) &
                       tdefining._Just.tLocals%~(IntSet.insert dest)
   recurse s = s { _targetDict = addBranch findBranch0 1 $ _targetDict s }
-  abortDefining s = s { _targetDict = abortDefining1 $ _targetDict s }
-    where abortDefining1 dict = dict & tdefining.~Nothing
+  abortDefining s = s { _targetDict = tdefining.~Nothing $ _targetDict s }
   setImmediate s = s { _targetDict = setImmediate1 $ _targetDict s }
   setImmediate1 dict = dict & tdict%~(addFlag Immediate)
   startDefining Create{..} s = s { _targetDict = startDefining1 $ _targetDict s }
@@ -117,7 +116,6 @@ crossCompiler = Compiler defining compile litComma compileBranch compileBranch0
                       f nxs@((n, x):nxs') nls bps
                         | otherwise = recWrap x <> f nxs' nls bps
                       f nxs [] [] = mconcat $ map (recWrap . snd) nxs
-  does s | s^.compilerFunsSave & isNothing = Left "DOES> need COMPILER-WORD context, not currently supported by cross compiler"
   reserveSpace n s = s { _targetDict = targetAllot (fromIntegral n) (_targetDict s) }
   findBranch   dict = findTargetToken dict "BRANCH"
   findBranch0  dict = findTargetToken dict "BRANCH0"
